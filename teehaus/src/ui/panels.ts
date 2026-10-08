@@ -4,6 +4,7 @@ import { JACKIE } from '../content/jackie';
 import { YAO } from '../content/yao';
 import { pinyinHtml, pinyinText } from '../content/pinyin';
 import { EGGS } from '../content/extras';
+import { CREDITS, CREDITS_EXTRA } from '../content/credits';
 import { store } from '../state/store';
 import { h } from './dom';
 import { Modal } from './modal';
@@ -82,10 +83,28 @@ export class Dictionary {
 export class InfoPage {
   readonly modal = new Modal('info', 'Über das Teehaus', '关于');
 
-  constructor(private onReset: () => void) {}
+  constructor(
+    private onReset: () => void,
+    private onCredits: () => void,
+  ) {}
 
   open(): void {
     let confirming = false;
+    const quality = h('select', { id: 'quality-select', class: 'select' }) as HTMLSelectElement;
+    for (const [v, label] of [
+      ['auto', 'Automatisch'],
+      ['2', 'Hoch'],
+      ['1', 'Mittel'],
+      ['0', 'Niedrig'],
+    ] as const) {
+      const o = h('option', { value: v }, label) as HTMLOptionElement;
+      o.selected = String(store.settings.quality) === v;
+      quality.append(o);
+    }
+    quality.addEventListener('change', () => {
+      const v = quality.value;
+      store.setSettings({ quality: v === 'auto' ? 'auto' : (Number(v) as 0 | 1 | 2) });
+    });
     const calm = h('input', { type: 'checkbox', id: 'calm-toggle' });
     calm.checked = store.settings.calm;
     calm.addEventListener('change', () => store.setSettings({ calm: calm.checked }));
@@ -122,6 +141,11 @@ export class InfoPage {
         h(
           'li',
           {},
+          'Kamera: ziehen zum Drehen, Mausrad oder zwei Finger zum Zoomen. Tastatur: Pfeiltasten drehen und zoomen, 1 Überblick, 2 Am Tisch, 3 Draußen.',
+        ),
+        h(
+          'li',
+          {},
           'Wähle ein Thema und stelle Fragen. Neue Fragen schalten sich frei, wenn du die vorherigen gestellt hast.',
         ),
         h(
@@ -145,8 +169,19 @@ export class InfoPage {
           'span',
           {},
           h('b', {}, 'Ruhe-Modus: '),
-          'weniger Bewegung (keine Kamerafahrt, kaum Parallaxe, ruhigere Partikel, Antworten sofort sichtbar). Wird automatisch aktiv, wenn dein System „Bewegung reduzieren“ meldet.',
+          'weniger Bewegung (keine Kamerafahrt, sanftere Animationen, weniger Blütenblätter, keine Tiefenunschärfe, Antworten sofort sichtbar). Wird automatisch aktiv, wenn dein System „Bewegung reduzieren“ meldet.',
         ),
+      ),
+      h(
+        'label',
+        { class: 'calm-row', for: 'quality-select' },
+        h(
+          'span',
+          {},
+          h('b', {}, 'Grafik: '),
+          'Bei „Automatisch“ wird die Qualität gesenkt, wenn es ruckelt.',
+        ),
+        quality,
       ),
       h('h3', {}, 'Woher kommen die Inhalte?'),
       h(
@@ -160,9 +195,71 @@ export class InfoPage {
       h(
         'p',
         {},
-        'Gebaut mit TypeScript und PixiJS (MIT-Lizenz). Alle Bilder und Klänge entstehen live im Code, es werden keine fremden Bilder oder Audiodateien geladen. Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking. Nur wenn der Betreiber die optionale „Eigene Frage“ (KI) aktiviert hat, wird der eingegebene Text an den Server und von dort an die Claude-API gesendet. Die Antworten sind frei formuliert und keine echten Zitate.',
+        'Gebaut mit TypeScript und three.js. Landschaft, Teehaus und Klänge entstehen live im Code. Die beiden Porträtfotos stammen von Wikimedia Commons (freie Lizenzen, siehe Bildnachweise). Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking. Nur wenn der Betreiber die optionale „Eigene Frage“ (KI) aktiviert hat, wird der eingegebene Text an den Server und von dort an die Claude-API gesendet. Die Antworten sind frei formuliert und keine echten Zitate.',
+      ),
+      h(
+        'p',
+        {},
+        h(
+          'button',
+          { class: 'btn ghost', type: 'button', onclick: () => this.onCredits() },
+          'Bildnachweise und Lizenzen',
+        ),
       ),
       resetBtn,
+    );
+    this.modal.open();
+  }
+}
+
+/** Bildnachweise: Urheber, Lizenz, Link und Bearbeitungshinweis pro Foto */
+export class CreditsPage {
+  readonly modal = new Modal('credits', 'Bildnachweise', '鸣谢');
+
+  open(): void {
+    const items = CREDITS.map((c) =>
+      h(
+        'article',
+        { class: 'credit' },
+        h('img', {
+          class: 'credit-img',
+          src: `avatars/${c.who.startsWith('Jackie') ? 'jackie' : 'yao'}-portrait.webp`,
+          alt: '',
+        }),
+        h(
+          'div',
+          {},
+          h('h3', {}, c.who),
+          h(
+            'p',
+            {},
+            'Foto: ',
+            c.authorUrl
+              ? h('a', { href: c.authorUrl, target: '_blank', rel: 'noopener' }, c.author)
+              : c.author,
+            ' · Lizenz: ',
+            h('a', { href: c.licenseUrl, target: '_blank', rel: 'noopener' }, c.license),
+          ),
+          h(
+            'p',
+            {},
+            'Quelle: ',
+            h('a', { href: c.url, target: '_blank', rel: 'noopener' }, `Wikimedia Commons, „${c.file}“`),
+          ),
+          h('p', { class: 'dict-note' }, 'Bearbeitung: ', c.changes),
+          c.note ? h('p', { class: 'dict-note' }, c.note) : null,
+        ),
+      ),
+    );
+    this.modal.setContent(
+      h(
+        'div',
+        { class: 'notice-box', role: 'note' },
+        h('b', {}, 'Fiktives Gespräch, basiert auf öffentlich bekannten Fakten.'),
+        ' Keine echten Zitate. Nicht mit den dargestellten Personen verbunden. Die Fotos zeigen die Personen bei öffentlichen Auftritten; ihre Verwendung bedeutet keine Unterstützung dieses Projekts.',
+      ),
+      ...items,
+      h('p', { class: 'dict-note' }, CREDITS_EXTRA),
     );
     this.modal.open();
   }

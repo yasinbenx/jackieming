@@ -53,7 +53,7 @@ const vercel = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url)
 };
 const previewHeaders = Object.fromEntries(vercel.headers[0]!.headers.map((h) => [h.key, h.value]));
 
-// PixiJS ist groß: eigener Chunk, damit der Ladescreen (index.html + kleines Boot-Skript)
+// Three.js ist groß: eigener Chunk, damit der Ladescreen (index.html + kleines Boot-Skript)
 // sofort erscheint und die Engine im Hintergrund nachgeladen wird.
 export default defineConfig({
   base: './',
@@ -64,7 +64,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/pixi.js') || id.includes('node_modules/@pixi')) return 'pixi';
+          if (id.includes('node_modules/three') || id.includes('node_modules/postprocessing')) return 'three';
           return undefined;
         },
       },

@@ -8,7 +8,7 @@ import { wordById } from '../content/words';
 import { pinyinHtml } from '../content/pinyin';
 import { bus } from '../core/bus';
 import { store } from '../state/store';
-import type { Figure } from '../figures/figure';
+import type { PaperFigure as Figure } from '../three/paperFigure';
 import { clear, h, prefersReducedMotion } from './dom';
 import { Typer } from './typewriter';
 import type { WordCard } from './wordcard';
@@ -38,6 +38,7 @@ export class Dialog {
   private chatMax = 200;
   private chatHistory: ChatTurn[] = [];
   onChange?: () => void;
+  onOpenFigure?: (id: FigureId) => void;
 
   constructor(
     private figures: Record<FigureId, Figure>,
@@ -157,8 +158,9 @@ export class Dialog {
     bus.emit('ui:select', { who: id });
     if (!wasOpen) bus.emit('ui:open');
 
-    this.seal.textContent = this.profile.zh[0] ?? '';
     this.seal.className = `dlg-seal seal-${id}`;
+    this.seal.replaceChildren(this.portrait(id));
+    this.onOpenFigure?.(id);
     this.refreshHeader();
     this.el.className = `dialog dlg-${id}`;
     this.el.hidden = false;
@@ -281,6 +283,15 @@ export class Dialog {
       },
     });
     this.typer.start();
+  }
+
+  /** Porträt-Ausschnitt aus dem Foto; ohne Foto das Schriftzeichen als Siegel */
+  private portrait(id: FigureId): HTMLElement {
+    const fig = this.figures[id];
+    if (!fig.photo) return h('span', { lang: 'zh' }, this.profile.zh[0] ?? '');
+    const img = h('img', { src: `avatars/${id}-portrait.webp`, alt: '', width: 64, height: 64 });
+    img.addEventListener('error', () => img.replaceWith(h('span', { lang: 'zh' }, this.profile.zh[0] ?? '')));
+    return img;
   }
 
   private switchFigure(): void {

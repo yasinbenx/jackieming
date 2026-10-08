@@ -81,7 +81,7 @@ export class Finale {
     g.bubbles.dismissAll();
     g.wordCard.hide();
     document.body.classList.add('is-finale');
-    stage.attentionOverride = { x: 810, y: 640 };
+    stage.goTo('table');
     const { jackie } = stage.cast;
     jackie.react('hello');
     await g.bubbles.say(jackie, 'Zeit für den Höhepunkt! Erst ein kleines Quiz, dann stoßen wir an.', 900);
@@ -193,21 +193,18 @@ export class Finale {
     const g = this.game;
     const { stage } = g;
     const { jackie, yao } = stage.cast;
-    const room = stage.room;
+    const house = stage.house;
     const calm = prefersReducedMotion() || store.settings.calm;
     store.setQuizBest(score);
     store.setToasted();
 
     await g.bubbles.say(yao, 'Dann gießen wir ein.', 600);
     bus.emit('scene:pour');
-    room.steam.burst(800, 520, 14);
+    stage.steam.burst(house.spout, 14);
     await wait(1400);
 
     // Tassen heben, Mitte zwischen den beiden
-    jackie.cheersPoint = { x: 790, y: 452 };
-    yao.cheersPoint = { x: 832, y: 448 };
-    jackie.cheersOn = true;
-    yao.cheersOn = true;
+    stage.cheers(true);
     await wait(1700);
 
     bus.emit('scene:clink');
@@ -216,17 +213,11 @@ export class Finale {
     bus.emit('scene:finale');
     document.body.classList.add('glow-flash');
     window.setTimeout(() => document.body.classList.remove('glow-flash'), 2400);
-    room.steam.burst(811, 440, 18);
+    stage.steam.burst(house.cups[0]!.position, 18);
     jackie.react('laugh');
     yao.react('laugh');
     if (!calm) {
-      for (let k = 0; k < 48; k++) {
-        window.setTimeout(
-          () => stage.roomPetals.burst(1, 250 + Math.random() * 1100, -30 - Math.random() * 120),
-          k * 60,
-        );
-      }
-      stage.petals.burst(40, 700 + Math.random() * 300, 240);
+      stage.petals.burst(120);
     }
     // Wort und große Schrift
     const word = wordById('ganbei');
@@ -338,10 +329,7 @@ export class Finale {
 
   private end(): void {
     const g = this.game;
-    const { jackie, yao } = g.stage.cast;
-    jackie.cheersOn = false;
-    yao.cheersOn = false;
-    g.stage.attentionOverride = null;
+    g.stage.cheers(false);
     document.body.classList.remove('is-finale');
     g.finaleActive = false;
     g.refresh();

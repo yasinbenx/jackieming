@@ -5,7 +5,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 const nextFrame = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
 
-/** Schriften vor dem Zeichnen laden, damit Pixi-Texte (Fahne, Laternen) nicht mit Ersatzschrift entstehen. */
+/** Schriften vor dem Zeichnen laden, damit die Schrift-Texturen (Hängerolle, Messlatte) nicht mit Ersatzschrift entstehen. */
 async function loadFonts(): Promise<void> {
   if (!('fonts' in document)) return;
   const load = Promise.all([
@@ -27,11 +27,17 @@ async function boot(): Promise<void> {
   };
   await set(0.08, '<span lang="zh">研墨</span> <i>yánmò</i> · Tusche wird angerieben …');
   await loadFonts();
-  const { Stage } = await import('./scene/stage');
-  await set(0.35, '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …');
+  const { Stage } = await import('./three/stage');
+  await set(0.25, '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …');
   const stage = new Stage();
-  await stage.init($('stage'));
-  await set(0.9, '<span lang="zh">泡茶</span> <i>pàochá</i> · Tee zieht …');
+  await stage.init($('stage'), (f) =>
+    set(
+      0.25 + f * 0.6,
+      f < 0.7
+        ? '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …'
+        : '<span lang="zh">泡茶</span> <i>pàochá</i> · Tee zieht …',
+    ),
+  );
   (window as unknown as { __teehaus: unknown }).__teehaus = stage;
   const { Game } = await import('./game');
   const game = new Game(stage);
@@ -54,18 +60,13 @@ async function boot(): Promise<void> {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' || e.key === ' ') onSkip();
     });
-    await stage.approach(10, skip, (u) => {
-      document.body.classList.toggle('cap-1', u > 0.04 && u < 0.5);
-      document.body.classList.toggle('cap-2', u >= 0.62);
+    await stage.approach(11, skip, (u) => {
+      document.body.classList.toggle('cap-1', u > 0.04 && u < 0.45);
+      document.body.classList.toggle('cap-2', u >= 0.55 && u < 0.97);
     });
-    document.body.classList.add('is-flash');
-    await new Promise((r) => setTimeout(r, 650));
-    stage.setMode('inside');
-    game.audio.setInside(true);
+    stage.enterFree();
     document.body.classList.remove('cap-1', 'cap-2', 'is-entering');
     document.body.classList.add('is-inside');
-    await new Promise((r) => setTimeout(r, 200));
-    document.body.classList.remove('is-flash');
     void game.greet();
   });
 }

@@ -1,6 +1,6 @@
 // Sprechblasen über den Köpfen (für Begrüßung, Zwischenrufe und Easter-Egg-Kommentare).
-import type { Stage } from '../scene/stage';
-import type { Figure } from '../figures/figure';
+import type { Stage } from '../three/stage';
+import type { PaperFigure as Figure } from '../three/paperFigure';
 import { bus } from '../core/bus';
 import { store } from '../state/store';
 import { h, prefersReducedMotion } from './dom';
@@ -82,8 +82,8 @@ export class Bubbles {
     cancelAnimationFrame(this.raf);
     if (!this.active.size) return;
     for (const a of this.active.values()) {
-      const p = a.fig.headTop;
-      const s = this.stage.designToScreen(p.x, p.y);
+      const s = this.stage.toScreen(a.fig.headTop);
+      a.el.classList.toggle('offscreen', !s.visible);
       const w = a.el.offsetWidth || 240;
       const x = Math.min(window.innerWidth - w / 2 - 12, Math.max(w / 2 + 12, s.x));
       a.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(Math.max(s.y, a.el.offsetHeight + 70))}px) translate(-50%, -100%)`;

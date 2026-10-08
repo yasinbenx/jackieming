@@ -1984,3 +1984,238 @@ body.is-loaded .sound-hint {
   opacity: 0.75;
   letter-spacing: 0.02em;
 }
+
+/* ───── Kamera-Presets (3D) ───── */
+.cam-seg {
+  position: fixed;
+  left: 16px;
+  bottom: calc(16px + var(--safe-b));
+  z-index: 12;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+body.is-inside .cam-seg {
+  opacity: 1;
+  pointer-events: auto;
+}
+body.dialog-open .cam-seg,
+body.is-finale .cam-seg {
+  opacity: 0;
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .cam-seg {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(118px + var(--safe-b));
+  }
+  .cam-seg button {
+    min-width: 64px;
+    padding: 4px 8px;
+  }
+}
+.bubble.offscreen {
+  opacity: 0 !important;
+}
+
+/* ───── Bildnachweise ───── */
+.credit {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  align-items: start;
+  margin: 14px 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(122, 31, 20, 0.2);
+}
+.credit-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e9dcc0;
+  border: 2px solid var(--gold);
+}
+.credit h3 {
+  margin: 0 0 4px;
+}
+.credit p {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+.select {
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--gold);
+  background: var(--paper);
+  color: var(--ink);
+}
+.dlg-seal img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+.dlg-seal:has(img) {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  transform: none;
+  overflow: hidden;
+  background: #e9dcc0;
+  border: 2px solid var(--gold);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* ═════════ Papier & Holz: warmer Look für alle Tafeln (überschreibt die dunklen Lack-Tafeln) ═════════
+   Innerhalb der Papiertafeln werden die Farb-Token umgedeutet: „paper“ ist dort die Tuschefarbe des Textes. */
+:root {
+  --wood: #6b4428;
+  --wood-d: #3e2615;
+  --wood-l: #8a5d3a;
+  --sheet: #f4e9d1;
+  --sheet-2: #ead9b6;
+  --ink-text: #2a1a10;
+}
+.dialog,
+.modal-card,
+.wordcard,
+.quiz,
+.result,
+.sound-panel {
+  --paper: var(--ink-text);
+  --paper-d: #5c4631;
+  --gold: #9a6a2a;
+  --gold-l: #9b2a1a;
+  color: var(--ink-text);
+  background:
+    repeating-linear-gradient(87deg, rgba(120, 90, 50, 0.035) 0 2px, transparent 2px 7px),
+    radial-gradient(ellipse at 30% 0%, #fbf4e3 0%, transparent 60%),
+    linear-gradient(180deg, var(--sheet), var(--sheet-2));
+  border: 1px solid var(--wood-d);
+  box-shadow:
+    0 0 0 5px var(--wood),
+    0 0 0 6px var(--wood-d),
+    0 0 0 7px rgba(255, 220, 160, 0.25),
+    0 22px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+}
+.dialog {
+  border-radius: 3px;
+  bottom: calc(20px + var(--safe-b));
+  width: min(980px, calc(100vw - 36px));
+}
+.dialog::before,
+.dialog::after {
+  border-color: rgba(155, 42, 26, 0.55);
+}
+.dlg-head,
+.modal-head {
+  border-bottom: 1px solid rgba(90, 58, 34, 0.25);
+  background: linear-gradient(180deg, rgba(122, 82, 50, 0.08), transparent);
+}
+.dlg-name > span[lang='zh'],
+.modal-head h2 [lang='zh'],
+.cat-title [lang='zh'],
+.tab-zh,
+.quiz-title [lang='zh'] {
+  font-family: var(--font-brush);
+  color: #9b2a1a;
+}
+.modal-head h2 {
+  color: var(--ink-text);
+  font-family: var(--font-latin);
+}
+.tab {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(90, 58, 34, 0.3);
+}
+.tab:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+.tab.active,
+.tab.active .tab-zh {
+  color: #fbf3e2;
+}
+.q {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(90, 58, 34, 0.28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+}
+.q:hover:not(:disabled) {
+  background: #fffaf0;
+  border-color: #9a6a2a;
+}
+.q.locked {
+  color: rgba(42, 26, 16, 0.45);
+}
+.q-text small {
+  color: rgba(42, 26, 16, 0.55);
+}
+.btn {
+  color: var(--ink-text);
+  border-color: rgba(90, 58, 34, 0.5);
+}
+.btn.primary,
+.btn.primary:hover {
+  color: #fbf3e2;
+  border-color: var(--red-d);
+}
+.btn.ghost:hover {
+  background: rgba(154, 106, 42, 0.12);
+}
+.ans-text [lang='zh'] {
+  color: #9b2a1a;
+}
+.notice-box {
+  background: rgba(179, 38, 26, 0.07);
+  border-color: rgba(154, 106, 42, 0.6);
+}
+.modal-content code {
+  background: rgba(90, 58, 34, 0.1);
+}
+.chat-input {
+  background: #fffaf0;
+  color: var(--ink-text);
+  border-color: rgba(90, 58, 34, 0.45);
+}
+.modal {
+  background: rgba(20, 10, 6, 0.55);
+}
+.modal-close,
+.wc-close {
+  color: var(--ink-text);
+}
+
+/* Holz-Leiste: HUD-Knöpfe und Figurenwahl */
+.seg,
+.hud-icon,
+.hud-words,
+.hud-brand,
+.hud-progress,
+.pick-btn,
+#skip {
+  background: linear-gradient(180deg, var(--wood-l) 0%, var(--wood) 45%, var(--wood-d) 100%);
+  border: 1px solid #2a180c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.35),
+    0 3px 10px rgba(0, 0, 0, 0.35);
+  color: #fbf0d8;
+  backdrop-filter: none;
+}
+.seg button {
+  color: #fbf0d8;
+  border-right-color: rgba(30, 16, 8, 0.6);
+}
+.seg button:hover,
+.hud-icon:hover,
+.hud-words:hover,
+.pick-btn:hover {
+  filter: brightness(1.12);
+}
+.hud-brand [lang='zh'] {
+  font-family: var(--font-brush);
+}

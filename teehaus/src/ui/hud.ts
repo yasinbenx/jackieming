@@ -1,6 +1,8 @@
 // Obere Leiste: Marke, Fortschritt, Wörterbuch, Tageszeit (日 黄昏 夜 自动), Info.
-import type { Stage } from '../scene/stage';
-import type { TimePreset } from '../scene/timeOfDay';
+import type { Stage } from '../three/stage';
+import type { TimePreset } from '../three/palette';
+import { PRESET_LABELS } from '../three/stage';
+import type { CameraPreset } from '../three/stage';
 import { bus } from '../core/bus';
 import { h } from './dom';
 
@@ -16,6 +18,12 @@ const TIME_BUTTONS: TimeBtn[] = [
   { id: 'golden', zh: '黄昏', pinyin: 'huánghūn', de: 'Abend' },
   { id: 'night', zh: '夜', pinyin: 'yè', de: 'Nacht' },
   { id: 'auto', zh: '自动', pinyin: 'zìdòng', de: 'Auto' },
+];
+
+const CAM_BUTTONS: { id: CameraPreset; zh: string; pinyin: string }[] = [
+  { id: 'overview', zh: '全景', pinyin: 'quánjǐng' },
+  { id: 'table', zh: '桌边', pinyin: 'zhuōbiān' },
+  { id: 'outside', zh: '外面', pinyin: 'wàimiàn' },
 ];
 
 export interface HudHandlers {
@@ -80,6 +88,30 @@ export function createHud(stage: Stage, handlers: HudHandlers): Hud {
     buttons.push(btn);
   }
   mark('auto');
+
+  // Kamera-Presets (unten links)
+  const cam = h('nav', { class: 'cam-seg seg', 'aria-label': 'Kamera' });
+  const camButtons: HTMLButtonElement[] = [];
+  for (const c of CAM_BUTTONS) {
+    const btn = h('button', {
+      type: 'button',
+      'data-cam': c.id,
+      title: `${PRESET_LABELS[c.id]} · ${c.pinyin} (Taste ${CAM_BUTTONS.indexOf(c) + 1})`,
+      onclick: () => {
+        bus.emit('ui:click');
+        stage.goTo(c.id);
+      },
+      html: `<span lang="zh">${c.zh}</span><small>${PRESET_LABELS[c.id]}</small>`,
+    });
+    cam.appendChild(btn);
+    camButtons.push(btn);
+  }
+  const markCam = (id: CameraPreset | null): void => {
+    for (const b of camButtons) b.setAttribute('aria-pressed', String(b.dataset.cam === id));
+  };
+  stage.onPreset = markCam;
+  markCam(stage.preset);
+  document.body.appendChild(cam);
 
   const el = h(
     'header',

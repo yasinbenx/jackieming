@@ -6,9 +6,9 @@ import type { Egg } from '../content/extras';
 import { wordById } from '../content/words';
 import { bus } from '../core/bus';
 import { store } from '../state/store';
-import { Rectangle } from 'pixi.js';
-import type { Container } from 'pixi.js';
+import type { Object3D } from 'three';
 import { easeOutCubic } from '../core/util';
+import { Vector3 } from 'three';
 
 export class Eggs {
   private counters = new Map<Egg['id'], number>();
@@ -16,31 +16,29 @@ export class Eggs {
 
   constructor(private game: Game) {
     const { stage } = game;
-    const room = stage.room;
-    const on = (obj: Container, id: Egg['id'], extra?: () => void): void => {
-      obj.eventMode = 'static';
-      obj.cursor = 'pointer';
-      obj.on('pointertap', () => {
+    const house = stage.house;
+    const on = (obj: Object3D, id: Egg['id'], extra?: () => void): void => {
+      stage.addPickable(obj, () => {
         this.trigger(id);
         extra?.();
       });
     };
-    on(room.teapot, 'teapot');
-    on(room.bigLantern.children[0] as Container, 'lantern', () => {
-      room.nudgeLantern(room.bigLantern.children[0] as Container, 1.2);
+    on(house.teapot, 'teapot');
+    on(house.bigLantern.group, 'lantern', () => {
+      stage.nudgeLantern(house.bigLantern, 1.2);
       stage.cast.yao.react('duck');
       window.setTimeout(() => bus.emit('scene:bonk'), 260);
     });
-    for (const l of room.lanternSmall) on(l, 'lantern', () => room.nudgeLantern(l, 1));
-    on(room.incense, 'incense');
-    on(room.scroll, 'scroll');
-    on(room.cat, 'cat');
-    on(room.koiBowl, 'koi');
-    on(room.ruler, 'ruler');
-    // Elster im Blütenzweig (Außenwelt, sichtbar durchs Fenster)
-    const m = stage.world.magpie;
-    m.hitArea = new Rectangle(-44, -60, 110, 70);
-    on(m, 'magpie');
+    for (const l of house.lanterns) {
+      if (l !== house.bigLantern) on(l.group, 'lantern', () => stage.nudgeLantern(l, 1));
+    }
+    on(house.incense, 'incense');
+    on(house.scroll, 'scroll');
+    on(house.cat, 'cat');
+    on(stage.land.koi.group, 'koi');
+    on(house.ruler, 'ruler');
+    // Elster im Blütenbaum vor dem Haus
+    on(stage.land.magpie.bird, 'magpie');
   }
 
   /** Wie viele von allen Verstecken wurden schon gefunden? */
@@ -51,7 +49,7 @@ export class Eggs {
   private trigger(id: Egg['id']): void {
     const g = this.game;
     const { stage } = g;
-    const room = stage.room;
+    const house = stage.house;
     const egg = EGGS.find((e) => e.id === id);
     if (!egg || g.finaleActive) return;
     const n = this.counters.get(id) ?? 0;
@@ -62,9 +60,9 @@ export class Eggs {
       case 'teapot':
         if (this.busy.has(id)) return;
         this.busy.add(id);
-        room.steam.burst(800, 520, 18);
+        stage.steam.burst(house.spout, 18);
         bus.emit('scene:steam');
-        this.wobble(room.teapot, 0.07, 0.7);
+        this.wobble(house.teapot, 0.12, 0.7);
         window.setTimeout(() => bus.emit('scene:pour'), 250);
         window.setTimeout(() => {
           stage.cast.jackie.sip();
@@ -76,24 +74,24 @@ export class Eggs {
         bus.emit('scene:lantern');
         break;
       case 'magpie':
-        if (!stage.world.scareMagpie()) return;
+        if (!stage.land.magpie.scare()) return;
         bus.emit('scene:bird');
-        window.setTimeout(() => stage.world.resetMagpie(), 26000);
+        window.setTimeout(() => stage.land.magpie.reset(), 26000);
         break;
       case 'koi':
-        room.startleKoi();
+        stage.land.koi.scare();
         bus.emit('scene:koi');
         break;
       case 'cat':
         bus.emit('scene:cat');
-        this.stretch(room.cat);
+        this.stretch(house.cat);
         break;
       case 'incense':
-        room.steam.burst(1078, 520, 12);
+        stage.steam.burst(house.incenseTip, 12);
         bus.emit('scene:steam');
         break;
       case 'scroll':
-        this.wobble(room.scroll, 0.05, 0.8);
+        this.wobble(house.scroll, 0.06, 0.8);
         bus.emit('ui:click');
         break;
       case 'ruler':
@@ -123,33 +121,30 @@ export class Eggs {
   }
 
   /** Kurzes Wackeln um die Ruhelage */
-  private wobble(obj: Container, amp: number, secs: number): void {
-    const stage = this.game.stage;
+  private wobble(obj: Object3D, amp: number, secs: number): void {
     let t = 0;
-    const hook = (dt: number): void => {
+    const rest = obj.rotation.z;
+    this.game.stage.tickers.push((dt) => {
       t += dt;
       const k = Math.max(0, 1 - t / secs);
-      obj.rotation = Math.sin(t * 28) * amp * k * k;
-      if (t >= secs) {
-        obj.rotation = 0;
-        stage.tickers.splice(stage.tickers.indexOf(hook), 1);
-      }
-    };
-    stage.tickers.push(hook);
+      obj.rotation.z = rest + Math.sin(t * 28) * amp * k * k;
+      if (t < secs) return false;
+      obj.rotation.z = rest;
+      return true;
+    });
   }
 
-  private stretch(obj: Container): void {
-    const stage = this.game.stage;
+  /** Die Katze streckt sich */
+  private stretch(obj: Object3D): void {
     let t = 0;
-    const hook = (dt: number): void => {
+    const base = obj.scale.clone();
+    this.game.stage.tickers.push((dt) => {
       t += dt;
-      const k = Math.sin(Math.min(1, t / 1.6) * Math.PI);
-      obj.scale.set(1 + easeOutCubic(k) * 0.06, 1 + easeOutCubic(k) * 0.12);
-      if (t >= 1.6) {
-        obj.scale.set(1);
-        stage.tickers.splice(stage.tickers.indexOf(hook), 1);
-      }
-    };
-    stage.tickers.push(hook);
+      const k = easeOutCubic(Math.sin(Math.min(1, t / 1.6) * Math.PI));
+      obj.scale.copy(base).multiply(new Vector3(1 + k * 0.12, 1 + k * 0.08, 1));
+      if (t < 1.6) return false;
+      obj.scale.copy(base);
+      return true;
+    });
   }
 }

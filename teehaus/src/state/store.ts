@@ -9,6 +9,8 @@ export interface Settings {
   sfx: number;
   /** Bewegungsarm (zusätzlich zur Systemeinstellung) */
   calm: boolean;
+  /** Grafikqualität: automatisch oder fest (0 niedrig, 1 mittel, 2 hoch) */
+  quality: 'auto' | 0 | 1 | 2;
 }
 
 interface Persisted {
@@ -26,7 +28,7 @@ const DEFAULTS: Persisted = {
   eggs: [],
   quizBest: 0,
   toasted: false,
-  settings: { muted: false, music: 0.6, sfx: 0.8, calm: false },
+  settings: { muted: false, music: 0.6, sfx: 0.8, calm: false, quality: 'auto' },
 };
 
 type Listener = () => void;
