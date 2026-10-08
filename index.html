@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成龙 VS 姚明 – Das Duell</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ HUD (Kampfspiel-Leiste, immer sichtbar) ============ -->
+<header class="hud">
+  <div class="fighter left" id="hud-left">
+    <div class="fname"><span class="zh">成龙</span> JACKIE CHAN</div>
+    <div class="bar"><div class="fill" id="bar-left"></div></div>
+  </div>
+  <div class="hud-mid">
+    <div class="duel">对决</div>
+    <div class="counter" id="counter">1 / 1</div>
+  </div>
+  <div class="fighter right" id="hud-right">
+    <div class="fname">YAO MING <span class="zh">姚明</span></div>
+    <div class="bar"><div class="fill" id="bar-right"></div></div>
+  </div>
+</header>
+
+<main class="deck">
+
+<!-- ============ 1 · TITEL ============ -->
+<section class="slide title" data-focus="both">
+  <div class="kicker">擂台 · Lèitái · Die Arena</div>
+  <h1>
+    <span class="big zh">成龙</span>
+    <span class="vs">VS</span>
+    <span class="big zh">姚明</span>
+  </h1>
+  <p class="sub">Zwei Chinesen, die der Westen kennt</p>
+  <!-- Anpassen: dein Name / Kurs -->
+  <p class="meta">Chinesischkurs · Dein Name</p>
+</section>
+
+<!-- ============ 2 · JACKIE: NAME ============ -->
+<section class="slide namecard" data-focus="left">
+  <div class="kicker">Kämpfer 1 · 选手 xuǎnshǒu</div>
+  <div class="chars zh">成龙</div>
+  <div class="pinyin">Chéng Lóng</div>
+  <ul class="parts">
+    <li><span class="zh">成</span> werden, vollenden</li>
+    <li><span class="zh">龙</span> Drache</li>
+  </ul>
+  <div class="seal zh">龙</div>
+</section>
+
+<!-- ============ 3 · JACKIE: FAKTEN ============ -->
+<section class="slide facts" data-focus="left">
+  <div class="kicker">Jackie Chan · 成龙</div>
+  <div class="cols">
+    <ul class="keywords">
+      <li>Hongkong, 1954</li>
+      <li>Peking-Oper-Schule</li>
+      <li>Stunts selbst gemacht</li>
+      <li>Rush Hour (1998)</li>
+      <li>Ehren-Oscar 2016</li>
+    </ul>
+    <figure class="photo">
+      <!-- BILD ERSETZEN: dieses <div> löschen und stattdessen
+           <img src="bilder/jackie.jpg" alt="Jackie Chan"> einfügen -->
+      <div class="placeholder">
+        <span class="zh">成龙</span>
+        <small>Platzhalter · hier Foto von Jackie Chan einfügen</small>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ 4 · JACKIE: FUN FACT ============ -->
+<section class="slide fun" data-focus="left">
+  <div class="kicker">Fun Fact · 有趣</div>
+  <div class="fun-main">
+    <span class="zh">功夫熊猫</span>
+    <span class="pinyin">Gōngfu Xióngmāo</span>
+  </div>
+  <p class="fun-line">Kung Fu Panda – Jackie ist die Stimme von Meister Affe</p>
+  <div class="seal zh">猴</div>
+</section>
+
+<!-- ============ 5 · YAO: NAME ============ -->
+<section class="slide namecard" data-focus="right">
+  <div class="kicker">Kämpfer 2 · 选手 xuǎnshǒu</div>
+  <div class="chars zh">姚明</div>
+  <div class="pinyin">Yáo Míng</div>
+  <ul class="parts">
+    <li><span class="zh">姚</span> Familienname</li>
+    <li><span class="zh">明</span> hell, klar</li>
+  </ul>
+  <div class="seal zh">明</div>
+</section>
+
+<!-- ============ 6 · YAO: FAKTEN ============ -->
+<section class="slide facts" data-focus="right">
+  <div class="kicker">Yao Ming · 姚明</div>
+  <div class="cols">
+    <ul class="keywords">
+      <li>Shanghai, 1980</li>
+      <li>2,29 m groß</li>
+      <li>Draft-Nr. 1 (2002, Houston)</li>
+      <li>8× NBA-All-Star</li>
+      <li>Hall of Fame 2016</li>
+    </ul>
+    <figure class="photo">
+      <!-- BILD ERSETZEN: dieses <div> löschen und stattdessen
+           <img src="bilder/yao.jpg" alt="Yao Ming"> einfügen -->
+      <div class="placeholder">
+        <span class="zh">姚明</span>
+        <small>Platzhalter · hier Foto von Yao Ming einfügen</small>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ 7 · YAO: FUN FACT ============ -->
+<section class="slide fun" data-focus="right">
+  <div class="kicker">Fun Fact · 有趣</div>
+  <div class="fun-main">
+    <span class="zh">葡萄酒</span>
+    <span class="pinyin">pútáojiǔ</span>
+  </div>
+  <p class="fun-line">Yao Ming hat eine eigene Weinmarke (Napa Valley, Kalifornien)</p>
+  <div class="seal zh">酒</div>
+</section>
+
+<!-- ============ 8 · VERGLEICH (Duell in Runden, Pfeiltaste = nächste Runde) ============ -->
+<section class="slide duelslide" data-focus="both" data-steps="5">
+  <div class="kicker">Vergleich · 对决 duìjué</div>
+
+  <div class="round intro" data-only="0">
+    <div class="round-label">Bereit?</div>
+    <div class="vs-row"><div class="side zh">成龙</div><div class="vs">VS</div><div class="side zh">姚明</div></div>
+  </div>
+
+  <div class="round" data-only="1" data-hp="80,80">
+    <div class="round-label">回合 1 · Heimat</div>
+    <div class="vs-row">
+      <div class="side"><span class="zh">香港</span><span class="pinyin">Xiānggǎng</span><em>Hongkong</em></div>
+      <div class="vs">VS</div>
+      <div class="side"><span class="zh">上海</span><span class="pinyin">Shànghǎi</span><em>Shanghai</em></div>
+    </div>
+  </div>
+
+  <div class="round" data-only="2" data-hp="60,60">
+    <div class="round-label">回合 2 · Bühne</div>
+    <div class="vs-row">
+      <div class="side"><span class="zh">功夫</span><span class="pinyin">gōngfu</span><em>Kampfkunst &amp; Film</em></div>
+      <div class="vs">VS</div>
+      <div class="side"><span class="zh">篮球</span><span class="pinyin">lánqiú</span><em>Basketball</em></div>
+    </div>
+  </div>
+
+  <div class="round" data-only="3" data-hp="40,40">
+    <div class="round-label">回合 3 · Weg in den Westen</div>
+    <div class="vs-row">
+      <div class="side"><span class="zh">好莱坞</span><span class="pinyin">Hǎoláiwù</span><em>Hollywood</em></div>
+      <div class="vs">VS</div>
+      <div class="side"><span class="zh">休斯敦</span><span class="pinyin">Xiūsīdùn</span><em>NBA · Houston</em></div>
+    </div>
+  </div>
+
+  <div class="round" data-only="4" data-hp="20,20">
+    <div class="round-label">回合 4 · 2016</div>
+    <div class="vs-row">
+      <div class="side"><span class="zh">奥斯卡</span><span class="pinyin">Àosīkǎ</span><em>Ehren-Oscar</em></div>
+      <div class="vs">VS</div>
+      <div class="side"><span class="zh">名人堂</span><span class="pinyin">Míngréntáng</span><em>Hall of Fame</em></div>
+    </div>
+  </div>
+
+  <div class="round verdict" data-only="5" data-hp="20,20">
+    <div class="round-label">Ergebnis</div>
+    <div class="draw zh">平局</div>
+    <div class="pinyin">Píngjú</div>
+    <em>Unentschieden – zwei Brückenbauer</em>
+  </div>
+</section>
+
+<!-- ============ 9–11 · MINI-QUIZ (Pfeiltaste oder Klick auf Antwort = Auflösung) ============ -->
+<section class="slide quiz" data-focus="both" data-steps="1">
+  <div class="kicker">小测验 · Mini-Quiz 1/3</div>
+  <h2>Wer wurde in Shanghai geboren?</h2>
+  <div class="opts">
+    <button class="opt">A · Jackie Chan</button>
+    <button class="opt correct">B · Yao Ming</button>
+  </div>
+</section>
+
+<section class="slide quiz" data-focus="both" data-steps="1">
+  <div class="kicker">小测验 · Mini-Quiz 2/3</div>
+  <h2>Wer bekam 2016 einen Ehren-Oscar?</h2>
+  <div class="opts">
+    <button class="opt correct">A · Jackie Chan</button>
+    <button class="opt">B · Yao Ming</button>
+  </div>
+</section>
+
+<section class="slide quiz" data-focus="both" data-steps="1">
+  <div class="kicker">小测验 · Mini-Quiz 3/3</div>
+  <h2>Was bedeutet <span class="zh">龙</span> <span class="pinyin">lóng</span>?</h2>
+  <div class="opts">
+    <button class="opt">A · Tiger</button>
+    <button class="opt correct">B · Drache</button>
+  </div>
+</section>
+
+<!-- ============ 12 · SCHLUSS ============ -->
+<section class="slide finale" data-focus="both">
+  <div class="kicker">Frage an euch</div>
+  <h2>Wen habt ihr zuerst gekannt – und woher?</h2>
+  <div class="thanks"><span class="zh">谢谢</span> <span class="pinyin">Xièxie</span> · Danke</div>
+  <div class="seal zh">谢</div>
+</section>
+
+</main>
+
+<footer class="nav">
+  <button id="btn-prev" aria-label="zurück">◀</button>
+  <button id="btn-next" aria-label="weiter">▶</button>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
