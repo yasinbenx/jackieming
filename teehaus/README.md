@@ -17,15 +17,15 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Befehl | Zweck |
-|---|---|
-| `npm run dev` | Entwicklungsserver (inkl. lokalem `/api/chat`) |
-| `npm run build` | Typprüfung + Produktions-Build nach `dist/` |
-| `npm run preview` | Build lokal ansehen (mit denselben Sicherheits-Headern wie auf Vercel) |
-| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen |
-| `npm run facts` | `FAKTEN.md` und die Wissensbasis für den Chat aus `src/content/facts.ts` erzeugen |
-| `npm run check:content` | Inhalte prüfen (Fakten-IDs, Quellen, Wörter, Quiz) |
-| `npm run test:chat` | Serverless Function mit gestubbtem Netz testen (kein Schlüssel nötig) |
+| Befehl                                        | Zweck                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `npm run dev`                                 | Entwicklungsserver (inkl. lokalem `/api/chat`)                                    |
+| `npm run build`                               | Typprüfung + Produktions-Build nach `dist/`                                       |
+| `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie auf Vercel)            |
+| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                                |
+| `npm run facts`                               | `FAKTEN.md` und die Wissensbasis für den Chat aus `src/content/facts.ts` erzeugen |
+| `npm run check:content`                       | Inhalte prüfen (Fakten-IDs, Quellen, Wörter, Quiz)                                |
+| `npm run test:chat`                           | Serverless Function mit gestubbtem Netz testen (kein Schlüssel nötig)             |
 
 URL-Parameter zum Testen: `?q=0|1|2` erzwingt die Grafikqualität (niedrig bis hoch).
 
@@ -50,14 +50,14 @@ vercel --prod    # Produktion
 
 Das Spiel funktioniert **vollständig ohne** Chat. Wird auf dem Server ein Schlüssel hinterlegt, erscheint im Dialog zusätzlich ein Freitextfeld.
 
-| Variable | Pflicht | Bedeutung |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | für den Chat | Anthropic-API-Schlüssel. Liegt nur auf dem Server, nie im Frontend. |
-| `ANTHROPIC_MODEL` | nein | Standard `claude-sonnet-5`. Ein kleineres Modell senkt die Kosten. |
-| `DAILY_CAP` | nein | Anfragen pro Tag für alle Besucher zusammen (Standard 1500). Danach greift der Fallback. |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | nein | Macht das Rate-Limit instanzübergreifend dauerhaft. Ohne sie zählt jede Serverless-Instanz für sich. |
-| `ALLOWED_ORIGIN` | nein | z. B. `https://dein-projekt.vercel.app`; blockiert Anfragen von fremden Seiten. |
-| `VITE_SITE_URL` | nein | Öffentliche Adresse für Canonical/Open Graph (eigene Domain). |
+| Variable                                             | Pflicht      | Bedeutung                                                                                            |
+| ---------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                                  | für den Chat | Anthropic-API-Schlüssel. Liegt nur auf dem Server, nie im Frontend.                                  |
+| `ANTHROPIC_MODEL`                                    | nein         | Standard `claude-sonnet-5`. Ein kleineres Modell senkt die Kosten.                                   |
+| `DAILY_CAP`                                          | nein         | Anfragen pro Tag für alle Besucher zusammen (Standard 1500). Danach greift der Fallback.             |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | nein         | Macht das Rate-Limit instanzübergreifend dauerhaft. Ohne sie zählt jede Serverless-Instanz für sich. |
+| `ALLOWED_ORIGIN`                                     | nein         | z. B. `https://dein-projekt.vercel.app`; blockiert Anfragen von fremden Seiten.                      |
+| `VITE_SITE_URL`                                      | nein         | Öffentliche Adresse für Canonical/Open Graph (eigene Domain).                                        |
 
 In Vercel: **Project → Settings → Environment Variables**, danach neu deployen.
 
