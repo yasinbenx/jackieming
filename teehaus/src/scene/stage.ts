@@ -6,6 +6,8 @@ import type { CamState } from './world';
 import { Room } from './room';
 import { Petals, Motes } from './particles';
 import { TimeOfDay } from './timeOfDay';
+import { createCast } from '../figures/characters';
+import type { Cast } from '../figures/characters';
 import type { Palette, TimePreset } from './timeOfDay';
 
 export type StageMode = 'outside' | 'inside';
@@ -29,6 +31,7 @@ export class Stage {
   tod!: TimeOfDay;
   petals!: Petals;
   fireflies!: Motes;
+  cast!: Cast;
   mode: StageMode = 'outside';
   cam: CamState = { ...CAM_WIDE };
   time = 0;
@@ -36,9 +39,14 @@ export class Stage {
   readonly tickers: ((dt: number, time: number) => void)[] = [];
   /** Horizontaler Fokus auf Hochkant-Geräten (Designkoordinate) */
   focusX = 800;
-  private pointer = { x: 0, y: 0, sx: 0, sy: 0 };
+  private pointer = { x: 0, y: 0, sx: 0, sy: 0, cx: 0, cy: 0 };
   private palette!: Palette;
+  /** Maximale Zeit pro Frame (Sekunden); Tests auf langsamen Rechnern erhöhen sie. */
+  dtCap = 0.05;
+  private lastMove = 0;
+  private glanceT = 0;
   private zoomBoost = 1;
+  private cupSteam: ReturnType<Room['steam']['add']>[] = [];
 
   async init(host: HTMLElement): Promise<void> {
     await this.app.init({
@@ -57,6 +65,20 @@ export class Stage {
     this.world.build();
     this.room = new Room();
     this.view.addChild(this.world.root, this.room.root);
+    this.cast = createCast(this.room, this.world.ctx.glow);
+    const cupSteam = this.cast.all.map((f) =>
+      this.room.steam.add({
+        x: f.cup.x,
+        y: f.cup.y,
+        rate: 2.2,
+        rise: 24,
+        spread: 4,
+        size: 0.38,
+        life: 2.2,
+        alpha: 0.22,
+      }),
+    );
+    this.cupSteam = cupSteam;
 
     this.petals = new Petals(this.app, this.world.blossomSpots, { x0: -300, x1: 1900, y0: -100, y1: 1000 });
     this.world.fgLayer.addChild(this.petals.node);
@@ -73,12 +95,15 @@ export class Stage {
     this.room.root.visible = false;
 
     window.addEventListener('pointermove', (e) => {
+      this.lastMove = performance.now();
+      this.pointer.cx = e.clientX;
+      this.pointer.cy = e.clientY;
       this.pointer.x = (e.clientX / window.innerWidth - 0.5) * 2;
       this.pointer.y = (e.clientY / window.innerHeight - 0.5) * 2;
     });
     this.app.renderer.on('resize', () => this.layout());
     this.layout();
-    this.app.ticker.add((t) => this.tick(Math.min(t.deltaMS / 1000, 0.05)));
+    this.app.ticker.add((t) => this.tick(Math.min(t.deltaMS / 1000, this.dtCap)));
   }
 
   private applyPalette(p: Palette): void {
@@ -104,6 +129,12 @@ export class Stage {
   setFocusX(x: number): void {
     this.focusX = x;
     this.layout();
+  }
+
+  /** Bildschirmkoordinaten → Designkoordinaten (1600×900) */
+  toDesign(cx: number, cy: number): { x: number; y: number } {
+    const s = this.view.scale.x;
+    return { x: (cx - this.view.x) / s, y: (cy - this.view.y) / s };
   }
 
   get ready(): boolean {
@@ -166,7 +197,27 @@ export class Stage {
     const wind = 0.3 + Math.max(0, Math.sin(this.time * 0.13)) * 0.9;
     this.petals.update(dt, this.time, wind);
     this.fireflies.update(dt, this.time);
-    if (this.mode === 'inside') this.room.update(dt, this.time, this.pointer.sx, this.pointer.sy);
+    if (this.mode === 'inside') {
+      this.room.update(dt, this.time, this.pointer.sx, this.pointer.sy);
+      const pd = this.toDesign(this.pointer.cx, this.pointer.cy);
+      // Blickverhalten: Mauszeiger folgen, solange er sich bewegt; sonst einander oder dem Tisch zuwenden.
+      const pointerActive = performance.now() - this.lastMove < 4500;
+      this.glanceT += dt;
+      const phase = Math.floor(this.glanceT / 4.5) % 3;
+      this.cast.all.forEach((f, i) => {
+        const other = this.cast.all[1 - i]!;
+        f.attention = pointerActive
+          ? null
+          : phase === 2
+            ? { x: 800, y: 620 }
+            : { x: other.style.cx, y: other.style.headY };
+        f.setPointer(pd);
+        f.update(dt, this.time);
+        const src = this.cupSteam[i]!;
+        src.x = f.cup.x;
+        src.y = f.cup.y - 4;
+      });
+    }
     for (const t of [...this.tickers]) t(dt, this.time);
     this.zoomBoost += (1 - this.zoomBoost) * (1 - Math.exp(-dt * 4));
     this.world.applyCamera(this.cam, this.pointer.sx, this.pointer.sy);

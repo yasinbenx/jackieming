@@ -1,6 +1,6 @@
 // Das Teehaus innen: Holzbalken, Papierfenster mit Ausblick, niedriger Teetisch mit Teekanne und Schalen,
 // Laternen, Lichtstrahlen. Figuren werden in M2 in die Ebenen figBody / figArms eingehängt.
-import { Container, Graphics, Sprite, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import { clamp } from '../core/util';
 import { FONT_BRUSH, FONT_ZH, SceneCtx } from './ctx';
 import { Steam, Motes } from './particles';
@@ -582,8 +582,10 @@ export class Room {
       glow.scale.set(3.2 * s);
       glow.tint = 0xffa23a;
       glow.blendMode = 'add';
+      glow.eventMode = 'none';
       c.lit(glow, 0.12, 0.85);
       l.addChild(glow);
+      l.hitArea = new Rectangle(-38 * s, drop - 6, 76 * s, 120 * s);
       l.eventMode = 'static';
       l.cursor = 'pointer';
       this.lanternSwing.push({ c: l, boost: 0, phase: x });
