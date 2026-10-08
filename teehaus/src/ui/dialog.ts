@@ -1,4 +1,5 @@
 // Das Gespräch: Figur anklicken → Kategorien und Fragen → Antwort mit Typewriter → Wort des Moments → Zwischenruf.
+import { askChat, CHAT_MESSAGES, chatAvailability, type ChatTurn } from './chat';
 import type { Category, FigureId, FigureProfile, Question } from '../content/types';
 import { CATEGORIES } from '../content/categories';
 import { JACKIE } from '../content/jackie';
@@ -33,6 +34,9 @@ export class Dialog {
   private typer: Typer | null = null;
   private token = 0;
   private pick: HTMLElement;
+  private chatOn = false;
+  private chatMax = 200;
+  private chatHistory: ChatTurn[] = [];
   onChange?: () => void;
 
   constructor(
@@ -179,6 +183,106 @@ export class Dialog {
     this.onChange?.();
   }
 
+  /** Blendet das Freitext-Feld ein, sobald der Server den Chat anbietet. */
+  async enableChat(): Promise<void> {
+    const a = await chatAvailability();
+    this.chatOn = a.enabled;
+    this.chatMax = a.maxChars;
+    if (this.chatOn && this.current && this.body.querySelector('.tabpanel')) this.renderMenu();
+  }
+
+  private chatForm(): HTMLElement | null {
+    if (!this.chatOn) return null;
+    const input = h('input', {
+      class: 'chat-input',
+      type: 'text',
+      maxlength: String(this.chatMax),
+      placeholder: 'Eigene Frage …',
+      'aria-label': `Eigene Frage an ${this.profile.nameDe}`,
+      autocomplete: 'off',
+    }) as HTMLInputElement;
+    const send = h('button', { class: 'btn primary', type: 'submit' }, 'Fragen');
+    const form = h(
+      'form',
+      {
+        class: 'chat',
+        onsubmit: (e: Event) => {
+          e.preventDefault();
+          const text = input.value.trim();
+          if (text) void this.askFree(text);
+        },
+      },
+      h('div', { class: 'chat-row' }, input, send),
+      h(
+        'small',
+        { class: 'chat-note' },
+        'Freie Frage (KI): Dein Text wird an unseren Server und die Claude-API gesendet. Bitte nichts Persönliches eingeben. Antworten sind frei formuliert, keine echten Zitate.',
+      ),
+    );
+    return form;
+  }
+
+  private async askFree(text: string): Promise<void> {
+    const fig = this.current;
+    if (!fig) return;
+    bus.emit('ui:click');
+    const mine = ++this.token;
+    this.bubbles.dismissAll();
+    this.wordCard.hide();
+    const textEl = h('p', { class: 'ans-text', 'aria-live': 'polite' }, '…');
+    const actions = h('div', { class: 'ans-actions' });
+    const nextBtn = h(
+      'button',
+      { class: 'btn primary', type: 'button', onclick: () => this.renderMenu() },
+      'Weitere Fragen',
+    );
+    clear(this.body);
+    this.body.append(
+      h(
+        'div',
+        { class: 'ans-q' },
+        h('span', { class: 'ans-quote' }, '„'),
+        text,
+        h('span', { class: 'ans-quote' }, '“'),
+      ),
+      textEl,
+      actions,
+    );
+    fig.react('think');
+    const res = await askChat(fig.style.id, text, this.chatHistory);
+    if (mine !== this.token) return;
+    const answer = res.ok ? res.answer : CHAT_MESSAGES[res.reason]!;
+    if (res.ok) {
+      this.chatHistory.push({ role: 'user', content: text }, { role: 'assistant', content: res.answer });
+      this.chatHistory = this.chatHistory.slice(-6);
+    }
+    fig.speaking = true;
+    bus.emit('voice:start', { who: fig.style.id });
+    this.typer = new Typer(textEl, answer, {
+      speed: 30,
+      instant: prefersReducedMotion() || store.settings.calm,
+      onBlip: (ch) => {
+        fig.pulse(1);
+        bus.emit('voice:blip', { who: fig.style.id, ch });
+      },
+      onDone: () => {
+        fig.speaking = false;
+        bus.emit('voice:end', { who: fig.style.id });
+        if (mine !== this.token) return;
+        if (res.ok) {
+          actions.append(h('span', { class: 'ai-tag' }, 'KI-generiert · fiktiv, kein echtes Zitat'));
+          if (res.word) {
+            const w = { id: 'ai', zh: res.word.zh, py: res.word.py, de: res.word.de };
+            window.setTimeout(() => mine === this.token && this.wordCard.show(w, false, 'KI-Vorschlag'), 250);
+          }
+        }
+        actions.append(nextBtn);
+        nextBtn.focus({ preventScroll: true });
+      },
+    });
+    this.typer.start();
+  }
+
   private switchFigure(): void {
     if (!this.current) return;
     this.open(this.current.style.id === 'jackie' ? 'yao' : 'jackie');
@@ -279,6 +383,7 @@ export class Dialog {
           catInfo.de,
         ),
         list,
+        this.chatForm(),
       ),
     );
     this.refreshHeader();

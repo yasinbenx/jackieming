@@ -160,7 +160,7 @@ export class InfoPage {
       h(
         'p',
         {},
-        'Gebaut mit TypeScript und PixiJS (MIT-Lizenz). Alle Bilder und Klänge entstehen live im Code, es werden keine fremden Bilder oder Audiodateien geladen. Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking.',
+        'Gebaut mit TypeScript und PixiJS (MIT-Lizenz). Alle Bilder und Klänge entstehen live im Code, es werden keine fremden Bilder oder Audiodateien geladen. Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking. Nur wenn der Betreiber die optionale „Eigene Frage“ (KI) aktiviert hat, wird der eingegebene Text an den Server und von dort an die Claude-API gesendet. Die Antworten sind frei formuliert und keine echten Zitate.',
       ),
       resetBtn,
     );

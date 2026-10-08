@@ -2,7 +2,7 @@
 //   npm run facts           → FAKTEN.md neu schreiben
 //   npm run facts -- --check → nur prüfen (Verweise, Länge der Antworten, Wörter)
 // Benötigt Node ≥ 22.18 (führt .ts-Dateien ohne Build aus).
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -104,3 +104,13 @@ Nur wo sie eine Tatsache berühren (z. B. gemeinsame Haifisch-Kampagne, Jahr 201
 `;
 writeFileSync(join(root, 'FAKTEN.md'), md);
 console.log('FAKTEN.md geschrieben.');
+
+// ───────── Wissensbasis für den KI-Chat (api/chat.ts) aktualisieren
+const knowledge = { jackie: [], yao: [], beide: [] };
+for (const f of FACTS) knowledge[f.who].push(f.text + (f.note ? ` (Hinweis: ${f.note})` : ''));
+const apiPath = join(root, 'api/chat.ts');
+const src = readFileSync(apiPath, 'utf8');
+const block = `// <generated:knowledge>\nconst KNOWLEDGE: Record<string, string[]> = ${JSON.stringify(knowledge, null, 2)};\n// </generated:knowledge>`;
+const next = src.replace(/\/\/ <generated:knowledge>[\s\S]*?\/\/ <\/generated:knowledge>/, () => block);
+if (next !== src) writeFileSync(apiPath, next);
+console.log('api/chat.ts: Wissensbasis aktualisiert.');

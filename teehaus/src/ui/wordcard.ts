@@ -23,7 +23,7 @@ export class WordCard {
 
   private counter: () => string;
 
-  show(word: Word, isNew: boolean): void {
+  show(word: Word, isNew: boolean, badge?: string): void {
     this.current = word;
     window.clearTimeout(this.timer);
     this.speakBtn.innerHTML = `${SPEAKER}<span>Aussprache</span>`;
@@ -32,7 +32,11 @@ export class WordCard {
         'div',
         { class: 'wc-head' },
         h('span', { class: 'wc-kicker' }, 'Wort des Moments'),
-        isNew ? h('span', { class: 'wc-new' }, 'neu') : h('span', { class: 'wc-old' }, 'bekannt'),
+        badge
+          ? h('span', { class: 'wc-old' }, badge)
+          : isNew
+            ? h('span', { class: 'wc-new' }, 'neu')
+            : h('span', { class: 'wc-old' }, 'bekannt'),
         h(
           'button',
           { class: 'wc-close', type: 'button', 'aria-label': 'Karte schließen', onclick: () => this.hide() },

@@ -43,6 +43,7 @@ export class Game {
     this.bubbles = new Bubbles(stage);
     this.wordCard = new WordCard(() => `${store.words.size} von ${WORDS.length} Wörtern`);
     this.dialog = new Dialog({ jackie, yao }, this.wordCard, this.bubbles);
+    void this.dialog.enableChat();
     this.info = new InfoPage(() => this.refresh());
     this.sound = new SoundPanel(() => this.onSoundChange());
     this.hud = createHud(stage, {
