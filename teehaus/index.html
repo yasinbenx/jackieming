@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>茶馆 · Das Teehaus</title>
+    <meta name="theme-color" content="#140b08" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <div id="stage" role="img" aria-label="Ein Teehaus in den Bergen"></div>
+
+    <!-- Bildunterschriften der Kamerafahrt -->
+    <div id="captions" aria-live="polite">
+      <p class="cap cap-a">
+        <span lang="zh">山中茶馆</span><i>shānzhōng cháguǎn</i>Ein Teehaus in den Bergen
+      </p>
+      <p class="cap cap-b"><span lang="zh">请进</span><i>qǐng jìn</i>Bitte eintreten</p>
+    </div>
+    <button id="skip" type="button">Überspringen</button>
+
+    <div id="flash"></div>
+
+    <!-- Ladescreen -->
+    <div id="loader">
+      <div class="loader-inner">
+        <div class="ink" aria-hidden="true">
+          <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="86" /></svg>
+          <span lang="zh">茶</span>
+        </div>
+        <h1><span lang="zh">茶馆</span> <i>cháguǎn</i></h1>
+        <p class="tagline">Das Teehaus · zwei berühmte Gäste, eine Kanne Tee</p>
+        <div class="bar"><div id="loader-bar"></div></div>
+        <p id="loader-msg" class="msg">…</p>
+        <button id="enter" type="button" disabled><span lang="zh">进</span> Eintreten <i>jìn</i></button>
+      </div>
+      <p class="notice">
+        Fiktives Gespräch, basiert auf öffentlich bekannten Fakten. Keine echten Zitate. Nicht mit den
+        dargestellten Personen verbunden.
+      </p>
+    </div>
+  </body>
+</html>
