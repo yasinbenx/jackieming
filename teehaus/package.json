@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "facts": "node scripts/facts.mjs",
-    "check:content": "node scripts/facts.mjs --check"
+    "check:content": "node scripts/facts.mjs --check",
+    "test:chat": "node --experimental-strip-types scripts/test-chat.mjs"
   },
   "engines": {
     "node": ">=20.19"
