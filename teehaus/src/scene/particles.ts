@@ -142,6 +142,8 @@ export class Petals {
   private acc = 0;
   /** Blütenblätter pro Sekunde */
   rate = 1.6;
+  /** Höchstzahl gleichzeitig sichtbarer Blütenblätter */
+  maxActive = 46;
 
   constructor(
     app: Application,
@@ -164,6 +166,7 @@ export class Petals {
   }
 
   private spawn(x?: number, y?: number): void {
+    if (this.petals.filter((q) => q.alive).length >= this.maxActive && x === undefined) return;
     const p = this.petals.find((q) => !q.alive);
     if (!p) return;
     const spot = this.spots.length ? this.spots[Math.floor(this.rng() * this.spots.length)]! : [1400, 120];
@@ -222,6 +225,10 @@ export class Motes {
   private motes: Mote[] = [];
   /** Gesamt-Sichtbarkeit (0..1) */
   level = 1;
+  /** Anteil sichtbarer Partikel (Qualitätsstufe) */
+  density = 1;
+  /** Bewegungsfaktor (Ruhe-Modus) */
+  motion = 1;
 
   constructor(
     glow: Texture,
@@ -257,9 +264,13 @@ export class Motes {
 
   update(dt: number, time: number): void {
     const a = this.area;
-    for (const m of this.motes) {
-      m.x += (m.vx + Math.sin(time * 0.5 + m.phase) * this.opts.speed * 0.6) * dt;
-      m.y += (m.vy + Math.cos(time * 0.4 + m.phase * 1.3) * this.opts.speed * 0.5) * dt;
+    const shown = Math.ceil(this.motes.length * this.density);
+    for (let i = 0; i < this.motes.length; i++) {
+      const m = this.motes[i]!;
+      m.s.visible = i < shown;
+      if (i >= shown) continue;
+      m.x += (m.vx + Math.sin(time * 0.5 + m.phase) * this.opts.speed * 0.6) * dt * this.motion;
+      m.y += (m.vy + Math.cos(time * 0.4 + m.phase * 1.3) * this.opts.speed * 0.5) * dt * this.motion;
       if (m.x < a.x0) m.x = a.x1;
       if (m.x > a.x1) m.x = a.x0;
       if (m.y < a.y0) m.y = a.y1;

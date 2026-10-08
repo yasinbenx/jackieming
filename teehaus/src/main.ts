@@ -5,6 +5,17 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 const nextFrame = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
 
+/** Schriften vor dem Zeichnen laden, damit Pixi-Texte (Fahne, Laternen) nicht mit Ersatzschrift entstehen. */
+async function loadFonts(): Promise<void> {
+  if (!('fonts' in document)) return;
+  const load = Promise.all([
+    document.fonts.load('400 1em "Ma Shan Zheng"', '茶馆福春喜进'),
+    document.fonts.load('700 1em "Noto Serif SC"', '茶馆以和为贵'),
+    document.fonts.load('400 1em "Noto Serif SC"', '茶馆以和为贵'),
+  ]).catch(() => undefined);
+  await Promise.race([load, new Promise((r) => setTimeout(r, 3000))]);
+}
+
 async function boot(): Promise<void> {
   const bar = $('loader-bar');
   const msg = $('loader-msg');
@@ -15,6 +26,7 @@ async function boot(): Promise<void> {
     await nextFrame();
   };
   await set(0.08, '<span lang="zh">研墨</span> <i>yánmò</i> · Tusche wird angerieben …');
+  await loadFonts();
   const { Stage } = await import('./scene/stage');
   await set(0.35, '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …');
   const stage = new Stage();
@@ -60,5 +72,13 @@ async function boot(): Promise<void> {
 
 boot().catch((err) => {
   console.error(err);
-  $('loader-msg').textContent = 'Das Teehaus konnte nicht geöffnet werden. Bitte Seite neu laden.';
+  const msg = $('loader-msg');
+  const webgl =
+    !!document.createElement('canvas').getContext('webgl2') ||
+    !!document.createElement('canvas').getContext('webgl');
+  msg.textContent = webgl
+    ? 'Das Teehaus konnte nicht geöffnet werden. Bitte lade die Seite neu.'
+    : 'Das Teehaus braucht WebGL. Bitte aktiviere die Hardwarebeschleunigung in deinem Browser oder probiere einen aktuellen Browser aus.';
+  msg.classList.add('error');
+  document.getElementById('loader-bar')!.style.background = '#b3261a';
 });

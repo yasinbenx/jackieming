@@ -1,6 +1,7 @@
 // Natur-Details: Wolken, Vögel, Elster, Pflaumenblüten, Lotos, Koi, Trauerweide, Uferböschungen.
 import { Container, Graphics } from 'pixi.js';
 import { mulberry32, rand, TAU } from '../core/util';
+import { bake } from './gfx';
 
 export function buildCloud(seed: number, w: number): Container {
   const rng = mulberry32(seed);
@@ -289,6 +290,7 @@ export function buildWillow(seed: number): { node: Container; fronds: { c: Conta
         g.ellipse(rand(rng, -12, 12), y, 2, 6).fill({ color: 0x8cb55a, alpha: 0.8 });
       }
       c.addChild(g);
+      bake(c);
       node.addChild(c);
       fronds.push({ c, phase: rng() * TAU });
     }

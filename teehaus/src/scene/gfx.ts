@@ -1,5 +1,6 @@
 // Prozedural erzeugte Texturen (Verläufe, Glow, Rauschen) – keine externen Bilddateien.
 import { Texture } from 'pixi.js';
+import type { Container } from 'pixi.js';
 import { TAU, cssColor } from '../core/util';
 
 function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
@@ -110,4 +111,13 @@ export function vignetteTexture(color: number): Texture {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   return Texture.from(c);
+}
+
+/**
+ * Statische Ebene einmal in eine Textur „einbacken“: spart pro Frame tausende Dreiecke.
+ * Tönung, Transparenz und Verschiebung des Containers wirken weiterhin.
+ */
+export function bake<T extends Container>(node: T, resolution = 1): T {
+  node.cacheAsTexture({ resolution, antialias: true });
+  return node;
 }

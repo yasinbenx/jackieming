@@ -1,12 +1,15 @@
 // Die Bühne: PixiJS-Anwendung, Kamera, Parallax, Tageszeit, Übergänge.
-import { Application, Container } from 'pixi.js';
+// Ohne eval() arbeiten, damit eine strenge Content-Security-Policy möglich ist.
+import 'pixi.js/unsafe-eval';
+import { Application, Container, Graphics } from 'pixi.js';
 import { clamp, easeInOutCubic, lerp } from '../core/util';
 import { DESIGN_H, DESIGN_W, TEAHOUSE_POS, World } from './world';
 import type { CamState } from './world';
-import { Room } from './room';
+import { Room, WINDOW } from './room';
 import { Petals, Motes } from './particles';
 import { TimeOfDay } from './timeOfDay';
 import { bus } from '../core/bus';
+import { store } from '../state/store';
 import { createCast } from '../figures/characters';
 import type { Cast } from '../figures/characters';
 import type { Palette, TimePreset } from './timeOfDay';
@@ -52,10 +55,18 @@ export class Stage {
   focusX = 800;
   private pointer = { x: 0, y: 0, sx: 0, sy: 0, cx: 0, cy: 0 };
   private palette!: Palette;
+  /** 2 = volle Qualität, 1 = mittel, 0 = sparsam (wird bei zu wenig FPS automatisch gesenkt) */
+  quality = 2;
+  /** Reduzierte Bewegung (Systemeinstellung oder Ruhe-Modus) */
+  calm = false;
+  private perf = { acc: 0, frames: 0, settle: 6, forced: false };
+  private maxRes = 2;
   /** Maximale Zeit pro Frame (Sekunden); Tests auf langsamen Rechnern erhöhen sie. */
   dtCap = 0.05;
   private target = { x: 0, y: 0 };
   private shift = 0;
+  /** Beschneidet die Außenwelt auf das Fenster: Drinnen wird nur gezeichnet, was man sieht. */
+  private windowMask = new Graphics();
   private lastBusT = -1;
   private lastMove = 0;
   private glanceT = 0;
@@ -78,7 +89,10 @@ export class Stage {
     this.world = new World(this.app);
     this.world.build();
     this.room = new Room();
-    this.view.addChild(this.world.root, this.room.root);
+    this.windowMask
+      .rect(WINDOW.x0 - 6, WINDOW.y0 - 6, WINDOW.x1 - WINDOW.x0 + 12, WINDOW.y1 - WINDOW.y0 + 12)
+      .fill(0xffffff);
+    this.view.addChild(this.windowMask, this.world.root, this.room.root);
     this.cast = createCast(this.room, this.world.ctx.glow);
     const cupSteam = this.cast.all.map((f) =>
       this.room.steam.add({
@@ -127,7 +141,64 @@ export class Stage {
     });
     this.app.renderer.on('resize', () => this.layout());
     this.layout();
-    this.app.ticker.add((t) => this.tick(Math.min(t.deltaMS / 1000, this.dtCap)));
+    this.maxRes = Math.min(window.devicePixelRatio || 1, 2);
+    this.syncCalm();
+    store.subscribe(() => this.syncCalm());
+    matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => this.syncCalm());
+    const forced = new URLSearchParams(location.search).get('q');
+    if (forced !== null && /^[0-2]$/.test(forced)) {
+      this.perf.forced = true;
+      this.setQuality(Number(forced));
+    }
+    this.app.ticker.add((t) => {
+      this.watchPerformance(t.deltaMS / 1000);
+      this.tick(Math.min(t.deltaMS / 1000, this.dtCap));
+    });
+  }
+
+  /** Ruhe-Modus: Systemeinstellung „Bewegung reduzieren“ oder Schalter in der Info-Seite */
+  private syncCalm(): void {
+    this.calm =
+      store.settings.calm ||
+      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.world.motion = this.calm ? 0.3 : 1;
+    this.petals.rate = this.calm ? 0.35 : 1.6;
+    this.fireflies.motion = this.calm ? 0.3 : 1;
+  }
+
+  /** Misst die Bildrate und senkt bei Bedarf die Qualität (nie automatisch wieder hoch). */
+  private watchPerformance(rawDt: number): void {
+    const p = this.perf;
+    if (p.forced || this.quality === 0 || document.hidden) return;
+    if (rawDt > 2) return; // Tab war im Hintergrund
+    if (p.settle > 0) {
+      p.settle -= rawDt;
+      return;
+    }
+    p.acc += rawDt;
+    p.frames++;
+    if (p.acc >= 3) {
+      const fps = p.frames / p.acc;
+      p.acc = 0;
+      p.frames = 0;
+      if (fps < 40) {
+        this.setQuality(this.quality - 1);
+        p.settle = 4;
+      }
+    }
+  }
+
+  /** Qualitätsstufe setzen: Auflösung, Wasser-Spiegelung, Partikel. */
+  setQuality(level: number): void {
+    this.quality = level;
+    const res = level >= 2 ? this.maxRes : level === 1 ? Math.min(this.maxRes, 1.25) : 1;
+    const r = this.app.renderer;
+    if (r.resolution !== res) r.resize(this.app.screen.width, this.app.screen.height, res);
+    this.world.setReflectionQuality(level >= 1);
+    this.room.dust.density = level >= 2 ? 1 : level === 1 ? 0.5 : 0.2;
+    this.fireflies.density = level >= 2 ? 1 : level === 1 ? 0.6 : 0.3;
+    this.petals.maxActive = level >= 2 ? 46 : level === 1 ? 24 : 10;
+    this.layout();
   }
 
   private applyPalette(p: Palette): void {
@@ -201,9 +272,11 @@ export class Stage {
       this.cam = { ...CAM_ROOM };
       this.world.setOutdoor(false);
       this.world.placeMagpieForRoom();
+      this.world.root.mask = this.windowMask;
       this.room.root.visible = true;
     } else {
       this.cam = { ...CAM_WIDE };
+      this.world.root.mask = null;
       this.world.setOutdoor(true);
       this.room.root.visible = false;
     }
@@ -212,6 +285,19 @@ export class Stage {
   /** Kamerafahrt durch die Landschaft bis zur Tür des Teehauses. */
   approach(seconds: number, skip: { requested: boolean }, onProgress?: (u: number) => void): Promise<void> {
     this.setMode('outside');
+    if (this.calm) {
+      // Ruhe-Modus: keine Kamerafahrt, nur ein ruhiger Blick auf die Tür
+      this.cam.p = 1;
+      this.cam.zoom = 3.85;
+      this.tod.jump(0.5);
+      onProgress?.(0.7);
+      return new Promise((resolve) =>
+        window.setTimeout(
+          () => (this.tod.setAuto(), onProgress?.(1), resolve()),
+          skip.requested ? 200 : 2600,
+        ),
+      );
+    }
     return new Promise((resolve) => {
       let u = 0;
       const hook = (dt: number): void => {
@@ -239,8 +325,10 @@ export class Stage {
 
   private tick(dt: number): void {
     this.time += dt;
-    this.pointer.sx += (this.pointer.x - this.pointer.sx) * (1 - Math.exp(-dt * 3));
-    this.pointer.sy += (this.pointer.y - this.pointer.sy) * (1 - Math.exp(-dt * 3));
+    const ptx = this.calm ? 0 : this.pointer.x;
+    const pty = this.calm ? 0 : this.pointer.y;
+    this.pointer.sx += (ptx - this.pointer.sx) * (1 - Math.exp(-dt * 3));
+    this.pointer.sy += (pty - this.pointer.sy) * (1 - Math.exp(-dt * 3));
     this.tod.update(dt);
     this.world.update(dt, this.time, this.palette);
     const wind = 0.3 + Math.max(0, Math.sin(this.time * 0.13)) * 0.9;

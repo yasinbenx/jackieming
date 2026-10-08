@@ -86,6 +86,9 @@ export class InfoPage {
 
   open(): void {
     let confirming = false;
+    const calm = h('input', { type: 'checkbox', id: 'calm-toggle' });
+    calm.checked = store.settings.calm;
+    calm.addEventListener('change', () => store.setSettings({ calm: calm.checked }));
     const resetBtn = h(
       'button',
       {
@@ -132,6 +135,18 @@ export class InfoPage {
           'Im Teehaus ist einiges versteckt: Probier die Teekanne, die Laternen, die Elster oder den Teich.',
         ),
         h('li', {}, 'Esc schließt Fenster. Mit Leertaste oder „Überspringen“ siehst du Antworten sofort.'),
+      ),
+      h('h3', {}, 'Bewegung und Barrierefreiheit'),
+      h(
+        'label',
+        { class: 'calm-row', for: 'calm-toggle' },
+        calm,
+        h(
+          'span',
+          {},
+          h('b', {}, 'Ruhe-Modus: '),
+          'weniger Bewegung (keine Kamerafahrt, kaum Parallaxe, ruhigere Partikel, Antworten sofort sichtbar). Wird automatisch aktiv, wenn dein System „Bewegung reduzieren“ meldet.',
+        ),
       ),
       h('h3', {}, 'Woher kommen die Inhalte?'),
       h(

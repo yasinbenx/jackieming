@@ -1,0 +1,24 @@
+/* Selbst gehostete Schriften (SIL Open Font License 1.1), auf die verwendeten Zeichen reduziert.
+   Neu erzeugen: python3 scripts/subset-fonts.py. Fehlende Zeichen (z. B. aus dem KI-Chat) fallen
+   automatisch auf Systemschriften zurück. */
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/noto-serif-sc-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/noto-serif-sc-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Ma Shan Zheng';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/ma-shan-zheng-400.woff2') format('woff2');
+}

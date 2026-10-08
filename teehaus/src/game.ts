@@ -25,6 +25,9 @@ export class Game {
   readonly dialog: Dialog;
   readonly bubbles: Bubbles;
   readonly wordCard: WordCard;
+  private lastActivity = performance.now();
+  private lastIdle = 0;
+  private idleCount = 0;
   private dict = new Dictionary();
   private heights = new HeightPanel();
   private info: InfoPage;
@@ -58,6 +61,10 @@ export class Game {
       store.addWord('chaguan');
       store.addWord('qingjin');
     }
+    for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) {
+      window.addEventListener(ev, () => (this.lastActivity = performance.now()), { passive: true });
+    }
+    window.setInterval(() => this.idleTick(), 2000);
     store.subscribe(() => this.refresh());
     this.refresh();
   }
@@ -82,6 +89,19 @@ export class Game {
   private onSoundChange(): void {
     this.audio.applySettings();
     this.hud.setSoundIcon(store.settings.muted);
+  }
+
+  /** Wenn länger nichts passiert, meldet sich einer der beiden mit einem Satz (selten, nie während eines Gesprächs). */
+  private idleTick(): void {
+    const now = performance.now();
+    if (!document.body.classList.contains('is-inside') || document.hidden) return;
+    if (this.dialog.isOpen || this.finaleActive || document.body.classList.contains('modal-open')) return;
+    if (this.idleCount >= 4 || now - this.lastActivity < 28000 || now - this.lastIdle < 50000) return;
+    this.lastIdle = now;
+    this.idleCount++;
+    const who = Math.random() < 0.5 ? this.stage.cast.jackie : this.stage.cast.yao;
+    const lines = (who.style.id === 'jackie' ? JACKIE : YAO).idle;
+    void this.bubbles.say(who, lines[Math.floor(Math.random() * lines.length)]!, 1600);
   }
 
   /** Zeigt die Messlatte mit dem Größenvergleich (Easter Egg) */

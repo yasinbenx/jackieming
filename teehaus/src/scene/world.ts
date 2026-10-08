@@ -22,7 +22,7 @@ import {
   updateKoi,
 } from './art-nature';
 import type { Koi } from './art-nature';
-import { gradientCanvas, rippleTexture } from './gfx';
+import { bake, gradientCanvas, rippleTexture } from './gfx';
 
 export const DESIGN_W = 1600;
 export const DESIGN_H = 900;
@@ -90,14 +90,16 @@ export class World {
   private mists: Mist[] = [];
   private stalks: Stalk[] = [];
   private frondSets: { c: Container; phase: number }[] = [];
-  private koi: Koi[] = [];
-  private glints: { g: Graphics; phase: number; base: number }[] = [];
+  koi: Koi[] = [];
+  glints: { g: Graphics; phase: number; base: number }[] = [];
   private waterTex: Texture;
   private waterCanvas = document.createElement('canvas');
-  private sunStreak = new Sprite();
+  sunStreak = new Sprite();
   private dispSprite!: Sprite;
-  private reflection = new Container();
+  reflection = new Container();
   private lanternNodes: Container[] = [];
+  /** Alles, was nur von draußen am Teich zu sehen ist (Wasser, Spiegelung, Koi, Lotos …) */
+  private pondOnly: Container[] = [];
   private fgBranch = new Container();
   private fgLantern = new Container();
   private flagNode!: Container;
@@ -106,6 +108,8 @@ export class World {
   private flockRng = mulberry32(99);
   private magpieFly = 0;
   private time = 0;
+  /** 1 = normal, kleiner = ruhiger (Ruhe-Modus) */
+  motion = 1;
   /** Bildschirm-Qualität (0 = niedrig, 1 = hoch) – niedrig lässt den Wasserfilter weg */
   private reflectionFilter: DisplacementFilter | null = null;
 
@@ -209,7 +213,7 @@ export class World {
       const c = buildCloud(100 + i, w);
       const base = rand(cr, -300, 1900);
       c.position.set(base, rand(cr, 70, 360));
-      cl.addChild(c);
+      cl.addChild(bake(c));
       this.clouds.push({ c, speed: rand(cr, 3, 9), base });
     }
     layer.addChild(cl);
@@ -273,7 +277,7 @@ export class World {
     };
     const orig = new Container();
     build(orig);
-    layer.addChild(ctx.tint(orig, kind));
+    layer.addChild(ctx.tint(bake(orig), kind));
     this.mirrorSources.push({ build, kind });
 
     // Nebelbänder
@@ -369,7 +373,7 @@ export class World {
     };
     const orig = new Container();
     buildAll(orig, true);
-    layer.addChild(ctx.tint(orig, 'mid'));
+    layer.addChild(ctx.tint(bake(orig), 'mid'));
 
     this.teahouse = buildTeahouse(ctx);
     this.teahouse.node.position.set(TEAHOUSE_POS.x, TEAHOUSE_POS.y);
@@ -382,9 +386,11 @@ export class World {
       const t = buildTeahouse(ctx);
       t.node.position.set(TEAHOUSE_POS.x, TEAHOUSE_POS.y);
       n.addChild(t.node);
+      this.mirrorTeahouse.push(t.node);
     };
   }
 
+  private mirrorTeahouse: Container[] = [];
   private mirrorHill: ((n: Container) => void) | null = null;
 
   // ───────────────────────────── Teich, Brücke, Ufer
@@ -397,6 +403,7 @@ export class World {
     water.width = 3000;
     water.height = 330;
     layer.addChild(water);
+    this.pondOnly.push(water);
 
     // Spiegelung: gespiegelte Kopien von Bergen, Hügel, Teehaus, Brücke
     const refl = this.reflection;
@@ -406,12 +413,12 @@ export class World {
     for (const src of this.mirrorSources) {
       const n = new Container();
       src.build(n);
-      mirror.addChild(ctx.tint(n, src.kind));
+      mirror.addChild(ctx.tint(bake(n), src.kind));
     }
     if (this.mirrorHill) {
       const n = new Container();
       this.mirrorHill(n);
-      mirror.addChild(ctx.tint(n, 'mid'));
+      mirror.addChild(ctx.tint(bake(n), 'mid'));
     }
     const rb = buildBridge(ctx);
     mirror.addChild(rb.node);
@@ -421,6 +428,7 @@ export class World {
     refl.addChild(mask);
     refl.mask = mask;
     layer.addChild(refl);
+    this.pondOnly.push(refl);
 
     // Verschiebungsfilter für lebendige Spiegelung
     this.dispSprite = new Sprite(rippleTexture(256));
@@ -447,6 +455,7 @@ export class World {
     fade.height = 330;
     this.fadeSprite = fade;
     layer.addChild(fade);
+    this.pondOnly.push(fade);
 
     // Sonnenglitzern
     this.sunStreak.texture = this.ctx.glow;
@@ -455,6 +464,7 @@ export class World {
     this.sunStreak.position.set(1000, W);
     this.sunStreak.scale.set(1.0, 2.6);
     layer.addChild(this.sunStreak);
+    this.pondOnly.push(this.sunStreak);
 
     // Koi unter der Brücke
     const koiCols = [0xe8642a, 0xf2a03a, 0xdd4a2a];
@@ -470,6 +480,7 @@ export class World {
       );
       k.node.alpha = 0.85;
       layer.addChild(k.node);
+      this.pondOnly.push(k.node);
       this.koi.push(k);
     }
 
@@ -483,13 +494,14 @@ export class World {
         .stroke({ width: 1.6, color: 0xffffff, alpha: 1, cap: 'round' });
       g.position.set(rand(gr, -100, 1700), rand(gr, W + 8, 900));
       layer.addChild(g);
+      this.pondOnly.push(g);
       this.glints.push({ g, phase: gr() * TAU, base: rand(gr, 0.15, 0.4) });
     }
 
     // Ufer, Weide, Lotos
     const bl = buildBank(41, -1);
     const br = buildBank(42, 1);
-    layer.addChild(ctx.tint(bl, 'near'), ctx.tint(br, 'near'));
+    layer.addChild(ctx.tint(bake(bl), 'near'), ctx.tint(bake(br), 'near'));
     const willow = buildWillow(51);
     willow.node.position.set(250, 735);
     layer.addChild(ctx.tint(willow.node, 'near'));
@@ -503,7 +515,9 @@ export class World {
       const l = buildLotus(Math.floor(x));
       l.position.set(x, y);
       l.scale.set(s);
-      layer.addChild(ctx.tint(l, 'near'));
+      const lot = ctx.tint(bake(l), 'near');
+      layer.addChild(lot);
+      this.pondOnly.push(lot);
     }
 
     // Brücke (Original)
@@ -585,6 +599,7 @@ export class World {
     const { node, spots } = buildBlossomBranch(81);
     this.fgBranch.addChild(node);
     this.blossomSpots = spots;
+    bake(node);
     layer.addChild(ctx.tint(this.fgBranch, 'near'));
 
     const lant = this.fgLantern;
@@ -656,13 +671,16 @@ export class World {
     this.sunGlow2.tint = p.sunColor;
     this.sunGlow1.alpha = 0.5 * sunA;
     this.sunGlow2.alpha = 0.9 * sunA;
+    this.sunGlow1.visible = this.sunGlow2.visible = this.sunDisc.visible = sunA > 0.01;
     this.sunDisc.position.set(p.sunX, p.sunY);
     this.sunDisc.tint = p.sunColor;
     this.sunDisc.alpha = clamp(sunA * 2);
     // Mond und Sterne
     this.moon.position.set(p.moonX, p.moonY);
     this.moon.alpha = p.moonAlpha;
+    this.moon.visible = p.moonAlpha > 0.01;
     this.stars.alpha = p.starAlpha;
+    this.stars.visible = p.starAlpha > 0.01;
     // Nebel
     for (const m of this.mists) {
       m.s.tint = p.haze;
@@ -690,12 +708,16 @@ export class World {
 
   setOutdoor(visible: boolean): void {
     this.teahouse.node.visible = visible;
+    this.mirrorTeahouse.forEach((n) => (n.visible = visible));
+    // Drinnen sieht man den Teich nicht (das Fensterbrett verdeckt ihn): gar nicht erst zeichnen.
+    this.pondOnly.forEach((n) => (n.visible = visible));
   }
 
   update(dt: number, time: number, p: Palette): void {
     this.time = time;
     // Wind: sanfte Böen
     this.wind = 0.3 + Math.max(0, Math.sin(time * 0.13)) * 0.9 + Math.max(0, Math.sin(time * 0.31 + 2)) * 0.4;
+    this.wind *= this.motion;
     swayStalks(this.stalks, time, this.wind);
     for (const f of this.frondSets)
       f.c.rotation = Math.sin(time * 0.6 + f.phase) * 0.05 * (0.6 + this.wind * 0.5);
@@ -713,7 +735,7 @@ export class World {
     }
     // Wolken & Nebel
     for (const c of this.clouds) {
-      c.base += c.speed * dt;
+      c.base += c.speed * dt * this.motion;
       if (c.base > 2100) c.base = -500;
       c.c.x = c.base;
     }
@@ -732,7 +754,7 @@ export class World {
     // Vögel: gelegentlich ein Schwarm
     if (!this.flock.active) {
       this.nextFlock -= dt;
-      if (this.nextFlock <= 0 && p.moonAlpha < 0.6) {
+      if (this.nextFlock <= 0 && p.moonAlpha < 0.6 && this.motion > 0.5) {
         this.flock.launch(rand(this.flockRng, 110, 300), rand(this.flockRng, 45, 75));
         this.nextFlock = rand(this.flockRng, 35, 70);
       }

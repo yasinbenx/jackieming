@@ -1,6 +1,7 @@
 // Bambushain (竹林 zhúlín): Halme mit Knoten und Blättern, die sich im Wind wiegen.
 import { Container, Graphics } from 'pixi.js';
 import { mulberry32, rand, TAU } from '../core/util';
+import { bake } from './gfx';
 
 export interface Stalk {
   node: Container;
@@ -115,9 +116,10 @@ export function buildGrove(o: GroveOpts): { node: Container; stalks: Stalk[] } {
       const col = o.leafColors[Math.floor(rng() * o.leafColors.length)]!;
       leaf(leavesG, xAt(1), -H, a, rand(rng, 0.8, 1.2) * o.leafSize, rand(rng, 0.09, 0.14) * o.leafSize, col);
     }
-    root.addChild(g);
+    root.addChild(bake(g));
     const leaves = new Container();
     leaves.addChild(leavesG);
+    bake(leaves);
     root.addChild(leaves);
     node.addChild(root);
     stalks.push({ node: root, leaves, phase: rng() * TAU, amp: rand(rng, 0.007, 0.016) });

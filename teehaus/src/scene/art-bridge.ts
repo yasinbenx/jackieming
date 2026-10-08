@@ -1,6 +1,7 @@
 // Steinbogenbrücke (拱桥 gǒngqiáo) mit roten Geländern und Laternen.
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { SceneCtx } from './ctx';
+import { bake } from './gfx';
 
 export const WATERLINE = 705;
 const X0 = 360;
@@ -70,7 +71,7 @@ export function buildBridge(ctx: SceneCtx): BridgeResult {
   };
   rail(33, 6);
   rail(15, 3.5);
-  node.addChild(body);
+  node.addChild(bake(body));
 
   // Laternen an drei Pfosten
   const lanterns: Container[] = [];
