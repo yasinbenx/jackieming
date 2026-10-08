@@ -30,7 +30,6 @@ import {
   RenderPass,
   ToneMappingEffect,
   ToneMappingMode,
-  VignetteEffect,
 } from 'postprocessing';
 import type { Effect } from 'postprocessing';
 import { buildLandscape, heightAt, makeSky, makeWater, updateSky } from './landscape';
@@ -259,6 +258,7 @@ export class Stage {
     this.controls.zoomSpeed = 0.7;
     this.controls.addEventListener('start', () => {
       this.fly = null;
+      this.beforeFocus = null;
       if (this.preset) {
         this.preset = null;
         this.onPreset?.(null);
@@ -308,7 +308,7 @@ export class Stage {
       });
       effects.push(this.dof);
     }
-    effects.push(new VignetteEffect({ offset: 0.28, darkness: 0.52 }));
+    // Vignette liegt als CSS-Verlauf über dem Canvas (#stage::after): weich, ohne Shader-Kosten
     effects.push(new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }));
     if (spec.msaa === 0) effects.push(new FXAAEffect());
     this.effectPass = new EffectPass(this.camera, ...effects);
@@ -480,25 +480,47 @@ export class Stage {
     return { pos, target: v.target.clone() };
   }
 
-  /** Kamera auf eine Figur ausrichten (beim Öffnen des Dialogs), ohne die Freiheit zu nehmen */
-  focusFigure(id: FigureId | null): void {
+  /**
+   * Beim Gespräch: Kamera sanft zur Figur drehen (nur im Querformat) und den Bildausschnitt nach oben schieben,
+   * damit die Figuren über der Dialogtafel sichtbar bleiben. Mit null wird alles zurückgenommen.
+   */
+  focusFigure(id: FigureId | null, panelHeight = 0): void {
     if (!this.free) return;
-    if (!id) return;
-    const f = this.cast[id].face;
-    const t = new Vector3(
-      f.x * 0.6,
-      lerp(PRESETS.table.target.y, f.y, 0.45),
-      lerp(PRESETS.table.target.z, f.z, 0.5),
-    );
+    const h = window.innerHeight;
+    this.shiftTarget = id ? Math.min(h * 0.3, Math.max(0, panelHeight - h * 0.22) * 0.75) : 0;
+    if (!id) {
+      if (this.beforeFocus) this.flyTo(this.beforeFocus, this.calm ? 0.01 : 1.0);
+      this.beforeFocus = null;
+      return;
+    }
     const cur = this.camera.position.clone();
-    const dist = cur.distanceTo(this.controls.target);
-    if (dist > 7) {
+    if (!this.beforeFocus) this.beforeFocus = { pos: cur.clone(), target: this.controls.target.clone() };
+    if (cur.distanceTo(this.controls.target) > 7) {
+      // von weit draußen: an den Tisch fahren
       this.flyTo(this.view('table'), this.calm ? 0.01 : 1.4);
       this.preset = 'table';
       this.onPreset?.('table');
       return;
     }
+    if (this.camera.aspect < 1) return; // Hochformat: beide im Bild lassen
+    const f = this.cast[id].face;
+    const base = this.beforeFocus.target;
+    const t = new Vector3(lerp(base.x, f.x, 0.45), lerp(base.y, f.y, 0.35), lerp(base.z, f.z, 0.4));
     this.flyTo({ pos: cur, target: t }, this.calm ? 0.01 : 0.9);
+  }
+
+  private beforeFocus: View | null = null;
+  private shift = 0;
+  private shiftTarget = 0;
+
+  private updateShift(dt: number): void {
+    if (Math.abs(this.shiftTarget - this.shift) < 0.5 && this.shift === this.shiftTarget) return;
+    this.shift += (this.shiftTarget - this.shift) * Math.min(1, dt * 4);
+    if (Math.abs(this.shiftTarget - this.shift) < 0.5) this.shift = this.shiftTarget;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (this.shift > 0.5) this.camera.setViewOffset(w, h, 0, this.shift, w, h);
+    else this.camera.clearViewOffset();
   }
 
   private flyTo(to: View, dur: number): void {
@@ -539,6 +561,7 @@ export class Stage {
     this.camera.aspect = w / h;
     // Hochformat: größeres Sichtfeld, damit beide Figuren ins Bild passen
     this.camera.fov = this.camera.aspect < 1 ? 62 : this.camera.aspect < 1.4 ? 52 : 46;
+    if (this.shift > 0.5) this.camera.setViewOffset(w, h, 0, this.shift, w, h);
     this.camera.updateProjectionMatrix();
     SHARED.uPx.value =
       (h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
@@ -704,6 +727,7 @@ export class Stage {
     for (let i = this.tickers.length - 1; i >= 0; i--)
       if (this.tickers[i]!(dt) === true) this.tickers.splice(i, 1);
     this.updateFly(dt);
+    this.updateShift(dt);
     if (this.free) this.controls.update(dt);
     const c = this.camera.position;
     const inside = Math.abs(c.x) < HX + 0.4 && c.z < HZ + 1.5 && c.z > -HZ;
@@ -735,7 +759,7 @@ export class Stage {
 
     // Partikel und Tiere
     const sunUp = Math.max(0, p.sunDir.y);
-    const shaftK = (1 - p.stars) * (0.12 + 0.33 * clamp(1 - sunUp * 1.6, 0, 1));
+    const shaftK = (1 - p.stars) * (0.18 + 0.5 * clamp(1 - sunUp * 1.6, 0, 1));
     this.shafts.update(p.sunDir.clone().negate(), shaftK, p.sun, this.time, motion);
     this.steam.update(dt, this.time, QUALITY[this.quality].steam);
     this.petals.update(dt, this.time, motion);

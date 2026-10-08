@@ -25,17 +25,20 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
 await page.goto(url);
-await page.waitForSelector('body.is-loaded', { timeout: 90000 });
+await page.waitForSelector('#enter:not([disabled])', { timeout: 240000 });
+await page.evaluate(() => document.querySelector('#enter').click());
+await page.evaluate(() => document.querySelector('#skip')?.click());
+await page.waitForFunction(() => document.body.classList.contains('is-inside'), null, { timeout: 240000 });
 await page.evaluate(() => {
   const s = window.__teehaus;
-  s.dtCap = 0.2;
-  document.body.classList.add('is-entering', 'is-inside');
-  s.tickers.length = 0;
-  s.setMode('inside');
-  s.tod.jump(0.5);
-  // Oberfläche ausblenden, nur die Szene zeigen
+  s.setTime('golden', true);
+  s.goTo('outside');
+  if (s.fly) s.fly.t = 1;
+  // Ohne Fotos: das Vorschaubild zeigt nur die selbst erzeugte Szene (keine Lizenzpflichten beim Teilen)
+  for (const f of Object.values(s.cast)) f.group.visible = false;
   const css = document.createElement('style');
-  css.textContent = '#hud,#pick,#loader,#captions,#skip,#bubbles,.wordcard,#toast{display:none!important}';
+  css.textContent =
+    '#hud,#pick,#loader,#captions,#skip,#bubbles,.wordcard,#toast,.cam-seg{display:none!important}';
   document.head.appendChild(css);
 });
 await page.waitForTimeout(8000);

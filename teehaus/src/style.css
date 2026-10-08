@@ -2219,3 +2219,38 @@ body.is-finale .cam-seg {
 .hud-brand [lang='zh'] {
   font-family: var(--font-brush);
 }
+
+/* Vignette über der 3D-Szene (CSS statt Shader: weich auf allen Geräten) */
+#stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 55%, rgba(24, 12, 6, 0.38) 100%);
+}
+
+/* Tonfarben auf Papier: dunklere Varianten für ausreichenden Kontrast */
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-1 {
+  color: #c0291c;
+}
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-2 {
+  color: #b46a00;
+}
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-3 {
+  color: #237a3a;
+}
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-4 {
+  color: #1f5fae;
+}
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-5 {
+  color: #6b5d4b;
+}
+#toast {
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  #toast {
+    white-space: normal;
+    font-size: 14px;
+  }
+}

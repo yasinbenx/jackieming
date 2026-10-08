@@ -14,6 +14,7 @@ const { YAO } = await load('yao.ts');
 const { WORDS } = await load('words.ts');
 const { QUIZ } = await load('quiz.ts');
 const { EGGS } = await load('extras.ts');
+const { CREDITS } = await load('credits.ts');
 
 const profiles = [JACKIE, YAO];
 const factIds = new Set(FACTS.map((f) => f.id));
@@ -101,6 +102,17 @@ Nur wo sie eine Tatsache berühren (z. B. gemeinsame Haifisch-Kampagne, Jahr 201
 - Namensgeschichte „Jackie“: zwei Versionen, beide mit einem Kollegen namens Jack.
 - „Kung Fu Panda“-Sprechrolle: bitte mit dem offiziellen Abspann abgleichen.
 - Yao Ming: aktuelle Ämter (z. B. Verband) ändern sich – im Text steht nur die Zeitspanne 2017–2024.
+
+## Darstellung in der 3D-Szene
+
+- Die Papierfiguren zeigen echte, frei lizenzierte Fotos (siehe unten). Die Gesichter sind unverändert; es wurde nur freigestellt, zugeschnitten, skaliert und ein Papierrand ergänzt. Im Spiel tönt das Szenenlicht die Fotos leicht.
+- Größenverhältnis: Die Scheitelhöhe im Sitzen ist aus der Körpergröße abgeleitet (Hocker 0,45 m + 52 % der Körpergröße; Jackie ca. 1,73 m, Yao 2,29 m). Beide Köpfe sind gleich groß und etwas größer als in echt (Papierfiguren-Maßstab), damit die Gesichter lesbar sind.
+
+## Bildquellen (Papierfiguren)
+
+| Person | Datei | Urheber | Lizenz | Bearbeitung |
+|---|---|---|---|---|
+${CREDITS.map((c) => `| ${c.who} | [${c.file}](${c.url}) | ${c.author} | [${c.license}](${c.licenseUrl}) | ${c.changes}${c.note ? ' ' + c.note : ''} |`).join('\n')}
 `;
 writeFileSync(join(root, 'FAKTEN.md'), md);
 console.log('FAKTEN.md geschrieben.');

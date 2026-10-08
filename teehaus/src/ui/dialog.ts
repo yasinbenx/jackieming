@@ -38,7 +38,7 @@ export class Dialog {
   private chatMax = 200;
   private chatHistory: ChatTurn[] = [];
   onChange?: () => void;
-  onOpenFigure?: (id: FigureId) => void;
+  onOpenFigure?: (id: FigureId | null) => void;
 
   constructor(
     private figures: Record<FigureId, Figure>,
@@ -160,7 +160,6 @@ export class Dialog {
 
     this.seal.className = `dlg-seal seal-${id}`;
     this.seal.replaceChildren(this.portrait(id));
-    this.onOpenFigure?.(id);
     this.refreshHeader();
     this.el.className = `dialog dlg-${id}`;
     this.el.hidden = false;
@@ -170,6 +169,7 @@ export class Dialog {
     void this.bubbles.say(fig, greet, 1400);
     this.activeCat = this.firstAvailableCat();
     this.renderMenu(true);
+    this.onOpenFigure?.(id);
     this.onChange?.();
   }
 
@@ -181,6 +181,7 @@ export class Dialog {
     this.current = null;
     this.el.hidden = true;
     document.body.classList.remove('dialog-open');
+    this.onOpenFigure?.(null);
     bus.emit('ui:close');
     this.onChange?.();
   }

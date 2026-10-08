@@ -89,7 +89,7 @@ export class Game {
       }
     });
     // Kamera richtet sich beim Gespräch sanft auf die Figur aus
-    this.dialog.onOpenFigure = (id) => stage.focusFigure(id);
+    this.dialog.onOpenFigure = (id) => stage.focusFigure(id, this.dialog.el.getBoundingClientRect().height);
     this.refresh();
   }
 
