@@ -93,6 +93,10 @@ export class Figure {
   private lastPointer: Pt = { x: 0, y: 0 };
 
   speaking = false;
+  /** Tasse zum Anstoßen heben (Finale) */
+  cheersOn = false;
+  cheersPoint: Pt = { x: 810, y: 440 };
+  private cheersK = 0;
   hovered = false;
   selected = false;
   /** Zielposition für den Blick (Designkoordinaten), null = Mauszeiger folgen */
@@ -250,7 +254,7 @@ export class Figure {
     // Klickfläche über Kopf + Oberkörper
     const hw = s.shoulderHalf + 10;
     this.hit
-      .rect(-hw, s.headY - s.headRy - 20, hw * 2, s.shoulderY - s.headY + s.headRy + 190)
+      .rect(-hw, s.headY - s.headRy - 20, hw * 2, 548 - (s.headY - s.headRy - 20))
       .fill({ color: 0xffffff, alpha: 0.001 });
     this.hit.eventMode = 'static';
     this.hit.cursor = 'pointer';
@@ -395,6 +399,12 @@ export class Figure {
       P.blush = 0.25;
     }
     if (this.selected) P.lean = 1;
+    if (this.cheersOn) {
+      P.smile = 0.95;
+      P.brow = 0.4;
+      P.blush = 0.3;
+      P.headRot += -0.03;
+    }
 
     // Sprechen
     this.talkEnergy *= Math.exp(-dt * 6);
@@ -631,11 +641,16 @@ export class Figure {
       y: s.headY + s.mouthY + 22 + this.head.y - (s.shoulderY - 14),
     };
     const rest = s.cupRest;
-    const kk = sipK;
-    const cupT: Pt = {
-      x: lerp(rest.x, mouthT.x, kk) + Math.sin(t * 1.3) * 0.6,
-      y: lerp(rest.y, mouthT.y, kk) + Math.sin(t * 1.7) * 0.8 * (1 - kk),
+    // Anstoßen: die Tasse geht zur gemeinsamen Mitte (cheersPoint), danach wieder zurück
+    this.cheersK += ((this.cheersOn ? 1 : 0) - this.cheersK) * (1 - Math.exp(-dt * 3.2));
+    const ck = this.cheersK;
+    const kk = Math.max(sipK, ck * 0.85);
+    const aim = this.cheersPoint;
+    const baseT: Pt = {
+      x: lerp(rest.x, mouthT.x, sipK) + Math.sin(t * 1.3) * 0.6,
+      y: lerp(rest.y, mouthT.y, sipK) + Math.sin(t * 1.7) * 0.8 * (1 - sipK),
     };
+    const cupT: Pt = { x: lerp(baseT.x, aim.x, ck), y: lerp(baseT.y, aim.y, ck) };
     // Freie Hand: Ruheposition + Gestik beim Sprechen
     this.freeGesture += ((this.speaking ? 1 : 0) - this.freeGesture) * (1 - Math.exp(-dt * 4));
     const g = this.freeGesture;

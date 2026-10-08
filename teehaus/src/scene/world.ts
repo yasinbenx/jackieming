@@ -761,6 +761,29 @@ export class World {
     return true;
   }
 
+  /** Für den Blick aus dem Fenster: Elster auf eine sichtbare Blüte setzen. */
+  placeMagpieForRoom(): void {
+    const toScreen = (x: number, y: number): { sx: number; sy: number } => ({
+      sx: 800 + 0.85 * (x - 800),
+      sy: 500 + 0.85 * (y - 720),
+    });
+    let best: [number, number] | null = null;
+    let bestScore = Infinity;
+    for (const [x, y] of this.blossomSpots) {
+      const { sx, sy } = toScreen(x, y);
+      if (sx < 1120 || sx > 1330 || sy < 150) continue;
+      const score = Math.abs(sy - 215) + Math.abs(sx - 1230) * 0.2;
+      if (score < bestScore) {
+        bestScore = score;
+        best = [x, y];
+      }
+    }
+    const [bx, by] = best ?? [1460, 330];
+    this.magpieSpot.x = bx + 6;
+    this.magpieSpot.y = by - 8;
+    this.resetMagpie();
+  }
+
   /** Elster kehrt später zurück. */
   resetMagpie(): void {
     this.magpiePerched = true;

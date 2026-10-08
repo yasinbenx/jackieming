@@ -6,11 +6,18 @@ import type { CamState } from './world';
 import { Room } from './room';
 import { Petals, Motes } from './particles';
 import { TimeOfDay } from './timeOfDay';
+import { bus } from '../core/bus';
 import { createCast } from '../figures/characters';
 import type { Cast } from '../figures/characters';
 import type { Palette, TimePreset } from './timeOfDay';
 
 export type StageMode = 'outside' | 'inside';
+
+/** Hochformat: so viel Designbreite ist sichtbar, und so liegt der Kopf von Yao unter der Leiste */
+const PORTRAIT_VISIBLE_W = 720;
+const PORTRAIT_CENTER_X = 810;
+const PORTRAIT_ANCHOR_Y = 120;
+const PORTRAIT_TOP_INSET = 124;
 
 const CAM_WIDE: CamState = {
   p: 0,
@@ -30,6 +37,10 @@ export class Stage {
   room!: Room;
   tod!: TimeOfDay;
   petals!: Petals;
+  /** Blütenblätter im Raum (für das Finale) */
+  roomPetals!: Petals;
+  /** Wenn gesetzt, schauen beide Gäste dorthin (Finale, Quiz) */
+  attentionOverride: { x: number; y: number } | null = null;
   fireflies!: Motes;
   cast!: Cast;
   mode: StageMode = 'outside';
@@ -43,6 +54,9 @@ export class Stage {
   private palette!: Palette;
   /** Maximale Zeit pro Frame (Sekunden); Tests auf langsamen Rechnern erhöhen sie. */
   dtCap = 0.05;
+  private target = { x: 0, y: 0 };
+  private shift = 0;
+  private lastBusT = -1;
   private lastMove = 0;
   private glanceT = 0;
   private zoomBoost = 1;
@@ -82,6 +96,9 @@ export class Stage {
 
     this.petals = new Petals(this.app, this.world.blossomSpots, { x0: -300, x1: 1900, y0: -100, y1: 1000 });
     this.world.fgLayer.addChild(this.petals.node);
+    this.roomPetals = new Petals(this.app, [], { x0: -200, x1: 1800, y0: -200, y1: 1000 }, 70);
+    this.roomPetals.rate = 0;
+    this.room.front.addChild(this.roomPetals.node);
     this.fireflies = new Motes(
       this.world.ctx.glow,
       { x0: 0, x1: 1600, y0: 380, y1: 860 },
@@ -91,7 +108,14 @@ export class Stage {
     );
     this.world.midLayer.addChild(this.fireflies.node);
 
-    this.tod = new TimeOfDay((p) => this.applyPalette(p));
+    this.tod = new TimeOfDay((p, t) => {
+      this.applyPalette(p);
+      if (Math.abs(t - this.lastBusT) > 0.01) {
+        this.lastBusT = t;
+        bus.emit('time:changed', { t });
+      }
+    });
+    this.cast.all.forEach((f) => (f.onSip = () => bus.emit('scene:sip', { who: f.style.id })));
     this.room.root.visible = false;
 
     window.addEventListener('pointermove', (e) => {
@@ -114,21 +138,45 @@ export class Stage {
   }
 
   /** Skaliert die 1600×900-Designfläche auf den Bildschirm (cover). */
-  layout(): void {
+  layout(immediate = true): void {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    const s = Math.max(w / DESIGN_W, h / DESIGN_H);
-    this.view.scale.set(s);
-    const visW = w / s;
-    const fx = visW >= DESIGN_W ? DESIGN_W / 2 : clamp(this.focusX, visW / 2, DESIGN_W - visW / 2);
-    this.view.x = w / 2 - fx * s;
-    this.view.y = (h - DESIGN_H * s) / 2;
+    if (w / h < 1) {
+      // Hochformat (Smartphone): nach Breite skalieren, beide Gäste sichtbar; Raum ist oben/unten verlängert.
+      const s = w / PORTRAIT_VISIBLE_W;
+      this.view.scale.set(s);
+      this.target.x = w / 2 - PORTRAIT_CENTER_X * s;
+      this.target.y = PORTRAIT_TOP_INSET - PORTRAIT_ANCHOR_Y * s - this.shift * s;
+    } else {
+      const s = Math.max(w / DESIGN_W, h / DESIGN_H);
+      this.view.scale.set(s);
+      const visW = w / s;
+      const fx = visW >= DESIGN_W ? DESIGN_W / 2 : clamp(this.focusX, visW / 2, DESIGN_W - visW / 2);
+      this.target.x = w / 2 - fx * s;
+      this.target.y = (h - DESIGN_H * s) / 2 - this.shift * s;
+    }
+    if (immediate) {
+      this.view.x = this.target.x;
+      this.view.y = this.target.y;
+    }
+  }
+
+  /** Bild nach oben schieben (z. B. wenn unten ein Dialog offen ist), in Designpixeln. */
+  setShift(designPx: number): void {
+    this.shift = designPx;
+    this.layout(false);
   }
 
   /** Auf schmalen Bildschirmen auf eine Designkoordinate schwenken. */
   setFocusX(x: number): void {
     this.focusX = x;
-    this.layout();
+    this.layout(false);
+  }
+
+  /** Designkoordinate → Bildschirmkoordinate (z. B. für Sprechblasen) */
+  designToScreen(x: number, y: number): { x: number; y: number } {
+    const s = this.view.scale.x;
+    return { x: this.view.x + x * s, y: this.view.y + y * s };
   }
 
   /** Bildschirmkoordinaten → Designkoordinaten (1600×900) */
@@ -152,6 +200,7 @@ export class Stage {
     if (m === 'inside') {
       this.cam = { ...CAM_ROOM };
       this.world.setOutdoor(false);
+      this.world.placeMagpieForRoom();
       this.room.root.visible = true;
     } else {
       this.cam = { ...CAM_WIDE };
@@ -204,6 +253,7 @@ export class Stage {
       const pointerActive = performance.now() - this.lastMove < 4500;
       this.glanceT += dt;
       const phase = Math.floor(this.glanceT / 4.5) % 3;
+      this.roomPetals.update(dt, this.time, wind);
       this.cast.all.forEach((f, i) => {
         const other = this.cast.all[1 - i]!;
         f.attention = pointerActive
@@ -221,6 +271,9 @@ export class Stage {
     for (const t of [...this.tickers]) t(dt, this.time);
     this.zoomBoost += (1 - this.zoomBoost) * (1 - Math.exp(-dt * 4));
     this.world.applyCamera(this.cam, this.pointer.sx, this.pointer.sy);
-    this.view.pivot.set(0, 0);
+    // sanfte Kamera-Bewegung zum Ziel
+    const k = 1 - Math.exp(-dt * 4);
+    this.view.x += (this.target.x - this.view.x) * k;
+    this.view.y += (this.target.y - this.view.y) * k;
   }
 }

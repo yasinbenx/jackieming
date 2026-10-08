@@ -41,6 +41,9 @@ export class Room {
   readonly scroll = new Container();
   readonly ruler = new Container();
   readonly cat = new Container();
+  readonly koiBowl = new Container();
+  private koiFish: { g: Graphics; phase: number; r: number }[] = [];
+  private koiBoost = 0;
   /** Ankerpunkte für Tassen in M2 */
   readonly cupSpots = { jackie: { x: 664, y: 590 }, yao: { x: 962, y: 592 } };
   steamTeapot: ReturnType<Steam['add']>;
@@ -123,13 +126,17 @@ export class Room {
 
     // Boden
     const floor = new Graphics();
-    floor.rect(0, 700, DESIGN_W, 260).fill(0x5a3a24);
+    floor.rect(0, 700, DESIGN_W, 900).fill(0x5a3a24);
     const vpx = 800;
     const vpy = 330;
     for (let i = -12; i <= 12; i++) {
       const xb = vpx + i * 150;
       const xt = vpx + (i * 150 * (700 - vpy)) / (960 - vpy);
-      floor.moveTo(xt, 700).lineTo(xb, 960).stroke({ width: 2, color: 0x2b1810, alpha: 0.5 });
+      floor
+        .moveTo(xt, 700)
+        .lineTo(xb, 960)
+        .lineTo(xb + (xb - xt) * 1.5, 1500)
+        .stroke({ width: 2, color: 0x2b1810, alpha: 0.5 });
     }
     for (let y = 716; y < 960; y += 28 + (y - 700) * 0.12)
       floor.moveTo(0, y).lineTo(DESIGN_W, y).stroke({ width: 1.2, color: 0x2b1810, alpha: 0.28 });
@@ -138,7 +145,7 @@ export class Room {
 
     // Rückwand mit Fensteröffnung (Ausschnitt!)
     const wall = new Graphics();
-    wall.rect(0, 0, DESIGN_W, 704).fill(WOOD);
+    wall.rect(0, -700, DESIGN_W, 1404).fill(WOOD);
     wall.roundRect(x0, y0, x1 - x0, y1 - y0, 6).cut();
     // Holzmaserung der Wand
     for (let x = 0; x < DESIGN_W; x += 46) {
@@ -237,7 +244,7 @@ export class Room {
 
     // Deckenbalken mit Bemalung (彩画 cǎihuà)
     const beams = new Graphics();
-    beams.rect(0, 0, DESIGN_W, 96).fill(WOOD_D);
+    beams.rect(0, -700, DESIGN_W, 796).fill(WOOD_D);
     for (let x = 40; x < DESIGN_W; x += 120) beams.rect(x, 0, 16, 60).fill({ color: 0x000000, alpha: 0.35 });
     beams.rect(0, 58, DESIGN_W, 50).fill(0x5c2a1c);
     beams.rect(0, 58, DESIGN_W, 6).fill({ color: 0xffffff, alpha: 0.14 });
@@ -272,6 +279,10 @@ export class Room {
     this.buildScroll();
     this.buildRuler();
     back.addChild(this.scroll, this.ruler);
+
+    // Koi-Schale (锦鲤 jǐnlǐ) auf der Fensterbank
+    this.buildKoiBowl();
+    back.addChild(this.koiBowl);
 
     // Schlafende Katze auf der Fensterbank rechts (Easter Egg)
     this.buildCat();
@@ -369,6 +380,37 @@ export class Room {
   /** Marker für die Körpergrößen (Zentimeter) auf der Messlatte */
   heightMarkerY(cm: number): number {
     return 700 - (cm / 100) * 240;
+  }
+
+  private buildKoiBowl(): void {
+    const c = this.ctx;
+    const b = this.koiBowl;
+    b.position.set(540, 492);
+    const g = new Graphics();
+    g.ellipse(0, -10, 50, 12).fill(0xf6f2ea);
+    g.poly([-50, -10, 50, -10, 38, 0, -38, 0]).fill(0xf6f2ea);
+    g.poly([-47, -20, 47, -20, 50, -10, -50, -10]).fill(0xf6f2ea);
+    g.ellipse(0, -20, 47, 10).fill(0xd8e9ee);
+    g.ellipse(0, -20, 47, 10).stroke({ width: 3, color: 0x2f5f9a });
+    g.poly([-49, -6, 49, -6, 46, -2, -46, -2]).fill(0x2f5f9a);
+    g.ellipse(-12, -22, 18, 3).fill({ color: 0xffffff, alpha: 0.5 });
+    b.addChild(c.tint(g, 'room'));
+    for (let i = 0; i < 2; i++) {
+      const f = new Graphics();
+      f.ellipse(0, 0, 9, 3.4).fill(i ? 0xf2a03a : 0xe8642a);
+      f.poly([8, 0, 15, -4, 14, 0, 15, 4]).fill(i ? 0xf2a03a : 0xe8642a);
+      f.circle(-5, -1, 0.9).fill(0x101010);
+      b.addChild(c.tint(f, 'room'));
+      this.koiFish.push({ g: f, phase: i * 3.1, r: 26 - i * 6 });
+    }
+    b.hitArea = new Rectangle(-54, -34, 108, 40);
+    b.eventMode = 'static';
+    b.cursor = 'pointer';
+  }
+
+  /** Koi flitzen kurz hektisch (nach einem Klick) */
+  startleKoi(): void {
+    this.koiBoost = 1;
   }
 
   private buildCat(): void {
@@ -629,8 +671,15 @@ export class Room {
       l.boost *= Math.exp(-dt * 1.4);
       l.c.rotation = Math.sin(time * 1.1 + l.phase) * 0.02 + Math.sin(time * 4.2) * l.boost * 0.12;
     }
+    // Koi schwimmen im Kreis (nach Klick schneller)
+    this.koiBoost *= Math.exp(-dt * 0.9);
+    for (const k of this.koiFish) {
+      const a = time * (0.9 + this.koiBoost * 4) + k.phase;
+      k.g.position.set(Math.cos(a) * k.r, -20 + Math.sin(a) * 4.5);
+      k.g.rotation = Math.atan2(Math.cos(a) * 4.5, -Math.sin(a) * k.r) + Math.PI;
+    }
     // Katze atmet
-    this.cat.scale.y = 1 + Math.sin(time * 1.4) * 0.015;
+    this.cat.rotation = Math.sin(time * 1.4) * 0.006;
   }
 
   /** Laterne anstoßen (Klick / Kopf-Stoß). */

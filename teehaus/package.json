@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "facts": "node scripts/facts.mjs",
+    "check:content": "node scripts/facts.mjs --check"
   },
   "engines": {
     "node": ">=20.19"
