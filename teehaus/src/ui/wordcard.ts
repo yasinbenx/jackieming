@@ -43,7 +43,7 @@ export class WordCard {
           '×',
         ),
       ),
-      h('div', { class: 'wc-zh', lang: 'zh' }, word.zh),
+      h('div', { class: `wc-zh${[...word.zh].length > 2 ? ' long' : ''}`, lang: 'zh' }, word.zh),
       h('div', { class: 'wc-py', html: pinyinHtml(word.py), 'aria-label': pinyinText(word.py) }),
       h('div', { class: 'wc-de' }, word.de),
       word.note ? h('div', { class: 'wc-note' }, word.note) : null,

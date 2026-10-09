@@ -120,7 +120,7 @@ Nur wo sie eine Tatsache berühren (z. B. gemeinsame Haifisch-Kampagne, Jahr 201
 
 ## Darstellung im Spiel
 
-- Alle Figuren sind stilisierte 3D-Figuren. Gäste, Teemeister und Spielfigur haben generische Gesichter. Jackie Chan und Yao Ming sind ihren Vorbildern im selben Stil nachempfunden (Gesichtsform, Augen, Brauen, Nase, Lächeln, Frisur, Körperbau; Größen 1,74 m und 2,29 m), ohne Karikatur. Es sind keine Porträts und keine Fotos; Namensschild, Kleidung und Basketball helfen zusätzlich beim Erkennen.
+- Alle Figuren sind stilisierte 3D-Figuren mit generischen Gesichtern (Quaternius-Modelle, CC0). Jackie Chan und Yao Ming sind **nicht** nach ihren echten Gesichtern modelliert; erkennbar sind sie über Kontext: Größe (1,73 m und 2,29 m), Statur, Kleidung (dunkle Kampfkunst-Jacke bzw. roter Mantel mit Drachenstickerei), Basketball, Namensschild und Charakterkarte.
 - Größenverhältnis: Yao Ming 2,29 m, Jackie Chan ca. 1,73 m (Angaben zu Jackie schwanken). Die Köpfe sind stilisiert etwas größer als in echt.
 - Die Kleidung (roter Mantel mit Golddrachen, Kampfkunst-Jacke) ist eine freie Gestaltung und keine Nachbildung bestimmter Auftritte.
 `;

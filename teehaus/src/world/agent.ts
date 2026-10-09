@@ -208,7 +208,9 @@ export class Agent {
       }
     }
     const maxV = run ? this.runSpeed : this.walkSpeed;
-    const tv = new Vector2(dx, dz).multiplyScalar(maxV);
+    const tv = new Vector2(dx, dz);
+    if (tv.lengthSq() > 1) tv.normalize();
+    tv.multiplyScalar(maxV);
     const acc = tv.lengthSq() > this.vel.lengthSq() ? 7 : 9;
     this.vel.lerp(tv, Math.min(1, dt * acc));
     if (this.vel.lengthSq() < 1e-4) this.vel.set(0, 0);

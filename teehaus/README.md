@@ -43,9 +43,20 @@ Test-Adressen:
 | Gespräch schließen     | ×                                            | Esc              |
 | Ton                    | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | M                |
 
+## Figuren und Animation
+
+- **Modelle:** Quaternius „Ultimate Modular Men“ (CC0). Jede Rolle wird aus Kopf, Körper, Beinen und Füßen verschiedener Grundfiguren zusammengesetzt (`src/world/looks.ts`, Feld `rig`), umgefärbt und mit am Skelett hängenden Gewändern, Gürteln, Quasten, Schürze und Haarteilen ergänzt (`src/world/rigchar.ts`). Die Low-Poly-Flächen werden beim Laden geglättet; Stickerei und Stofffalten liegen auf selbst berechneten UV-Koordinaten.
+- **Körpertypen** über Knochen-Skalierung: Kopf, Schulterbreite, Rumpf, Arme, Hände, Füße, Hosenweite (Kind, Frauen, kräftige Figuren, Yao mit 2,29 m).
+- **Gesichter** sind generisch. Jackie Chan und Yao Ming werden nur über Kontext erkennbar (Größe, Statur, Kleidung, Basketball, Namensschild, Charakterkarte).
+- **Bewegung:** Idle/Gehen/Laufen werden nach Geschwindigkeit gemischt; das Abspieltempo kommt aus der gemessenen Bodengeschwindigkeit der Animation (kaum Fußrutschen). Dazu Kurvenneigung, Blick führt in die Kurve, Trippeln beim Drehen im Stand, Fuß-IK auf Stufen und Brücke.
+- **Lebendigkeit:** zwei Idle-Varianten mit Zufallsversatz, Atmen, Gewichtsverlagerung, Blinzeln (Morph Target), Mund zu Sprechblasen und Simlish, Sprechgesten, Zuhören mit Nicken, nachschwingende Quasten und Haare.
+- **Alltag:** Sitzen, Trinken, Einschenken, Polieren, Schreiben, Fächeln, Brettspielzüge, Verbeugen, Winken, Streicheln; Gäste stehen auf und gehen zu Theke, Brüstung oder Fenster, zwei Gäste drehen Runden.
+- **Kamera:** über die Schulter; Figuren, die den Blick verdecken, werden durchscheinend; Tiefenschärfe auf dem Blickpunkt; Kontaktschatten unter den Figuren.
+- Rückfall: Fehlen die Modelle, erscheinen die gezeichneten Figuren (`?gezeichnet` erzwingt das zum Vergleich).
+
 ## Qualitätsstufen
 
-Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe und Teich-Spiegelung. Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
+Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe und Teich-Spiegelung. Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, Animation nur jedes zweite Bild). Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
 ## Auf Vercel veröffentlichen
 

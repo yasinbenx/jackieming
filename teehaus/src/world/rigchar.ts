@@ -433,6 +433,13 @@ export class RigCharacter {
     // erst jetzt skalieren: alle Bindungen oben wurden in der Ruhepose bei Maßstab 1 berechnet
     this.model.scale.setScalar(this.S);
     this.ownMaterials();
+    // kleine Teile werfen keinen Schatten (spart Zeichenaufrufe im Schattendurchgang)
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const mn = (m.material as Material).name;
+      if (mn === 'Eye' || mn === 'Eyebrows' || !(m as SkinnedMesh).isSkinnedMesh) m.castShadow = false;
+    });
     // Kontaktschatten: weicher dunkler Fleck unter der Figur (folgt dem Boden, nicht dem Körper)
     const blob = new Mesh(new CircleGeometry(1, 24), blobMaterial());
     blob.rotation.x = -Math.PI / 2;

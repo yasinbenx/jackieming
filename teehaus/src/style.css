@@ -1060,6 +1060,11 @@ body.dialog-open #pick,
   font: 700 clamp(56px, 8vw, 84px) / 1.1 var(--font-brush);
   text-shadow: 0 0 30px rgba(179, 38, 26, 0.6);
 }
+.wc-zh.long {
+  /* vier Zeichen (z. B. 欢迎光临) in einer Zeile, damit die Karte nicht über das Gesprächsfenster wächst */
+  font-size: clamp(40px, 5vw, 58px);
+  white-space: nowrap;
+}
 .wc-py {
   font: italic 26px var(--font-latin);
   margin-top: 2px;

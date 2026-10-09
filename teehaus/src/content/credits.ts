@@ -32,7 +32,7 @@ export const CREDITS: Credit[] = [
   },
   {
     name: 'Ultimate Modular Men',
-    what: 'Charaktermodelle mit Skelett und 24 Animationen (komprimiert, im Modell-Labor)',
+    what: 'Figuren mit Skelett und 24 Animationen (Körper, Köpfe, Gehen, Laufen, Winken …)',
     author: 'Quaternius',
     license: 'CC0 1.0',
     url: 'https://quaternius.com',
@@ -54,4 +54,4 @@ export const CREDITS: Credit[] = [
 ];
 
 export const CREDITS_EXTRA =
-  'Alle Figuren, das Teehaus, die Landschaft, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Einzige Ausnahme sind die oben genannten CC0-Haarmodelle. Es werden keine Fotos oder Tonaufnahmen von außen geladen.';
+  'Teehaus, Landschaft, Gewänder, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Von außen kommen nur die oben genannten CC0-Figuren, -Animationen und -Haarmodelle von Quaternius. Es werden keine Fotos oder Tonaufnahmen geladen.';
