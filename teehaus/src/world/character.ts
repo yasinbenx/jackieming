@@ -1,5 +1,6 @@
-// Stilisierte Figur (alle Personen im Spiel): Gelenkhierarchie aus weichen Grundformen, generisches freundliches
-// Gesicht, Kleidung mit Stickerei und prozedurale Animationen. Keine Modelldateien, keine Porträts realer Personen.
+// Stilisierte Figur (alle Personen im Spiel): Gelenkhierarchie aus weichen Grundformen, Gesicht aus Parametern
+// (Kopfform, Augen, Nase, Mund, Ohren), Kleidung mit Stickerei und prozedurale Animationen. Frisuren entweder
+// gezeichnet oder aus den CC0-Haarmodellen (hairkit.ts).
 import {
   BufferGeometry,
   CircleGeometry,
@@ -17,12 +18,113 @@ import {
 } from 'three';
 import type { Material, Object3D } from 'three';
 import { ballTexture, embroidery, vinyl } from './materials';
+import { hairKit } from './hairkit';
+import type { HairPiece } from './hairkit';
 import type { Front } from './materials';
 
 export type HairStyle =
-  'fringe' | 'crop' | 'elder' | 'bun' | 'kidBuns' | 'cap' | 'straw' | 'ponytail' | 'side';
+  'fringe' | 'crop' | 'elder' | 'bun' | 'kidBuns' | 'cap' | 'straw' | 'ponytail' | 'side' | 'sweep' | 'none';
 export type Motif = 'dragon' | 'cloud' | 'hem' | 'plain';
 export type Prop = 'ball' | 'fan' | 'brush' | 'teapot' | 'cup' | 'bowl' | null;
+
+/** Gesichtsform. Alle Werte relativ; die Vorgaben ergeben das bisherige freundliche Standardgesicht. */
+export interface Face {
+  /** Schädel-Skalierung (Breite, Höhe, Tiefe) */
+  skull: [number, number, number];
+  /** Untere Gesichtshälfte: Masse (0 = keine), Breite, Höhe */
+  jaw: number;
+  jawW: number;
+  jawH: number;
+  /** Kinn: Größe (0 = keins), Breite */
+  chin: number;
+  chinW: number;
+  /** Wangenknochen (seitlich, auf Augenhöhe) und volle Wangen (unter den Augen) */
+  cheekbones: number;
+  cheeks: number;
+  eyeW: number;
+  eyeH: number;
+  /** Abstand der Augenmitten (in Kopfradien) und Höhe */
+  eyeGap: number;
+  eyeY: number;
+  iris: string;
+  /** Augen werden beim Lächeln schmaler (0..1); wirkt auch leicht in Ruhe */
+  smileEyes: number;
+  /** Lachfältchen an den äußeren Augenwinkeln (0..1) */
+  laughLines: number;
+  browThick: number;
+  browLen: number;
+  /** Neigung (positiv = außen tiefer), Höhe, Schwung */
+  browTilt: number;
+  browY: number;
+  browArch: number;
+  noseW: number;
+  noseH: number;
+  noseTip: number;
+  /** Nasenrücken (0 = keiner) und Nasenflügel (0 = keine) */
+  noseBridge: number;
+  noseWings: number;
+  mouthW: number;
+  /** schiefes Lächeln: ein Mundwinkel höher (−1..1) */
+  smirk: number;
+  /** Unterlippe (0 = keine) */
+  lip: number;
+  mouthY: number;
+  earSize: number;
+  /** Abstehen der Ohren (Radiant) */
+  earOut: number;
+  /** Stirnfalten (0..1) */
+  foreheadLines: number;
+  blush: number;
+}
+
+const FACE: Face = {
+  skull: [1, 1.04, 0.97],
+  jaw: 0,
+  jawW: 0.8,
+  jawH: 0.6,
+  chin: 0,
+  chinW: 1,
+  cheekbones: 0,
+  cheeks: 0,
+  eyeW: 1,
+  eyeH: 1,
+  eyeGap: 0.36,
+  eyeY: 0.06,
+  iris: '#2a1a12',
+  smileEyes: 0,
+  laughLines: 0,
+  browThick: 1,
+  browLen: 1,
+  browTilt: 0.12,
+  browY: 0.33,
+  browArch: 0,
+  noseW: 1,
+  noseH: 1,
+  noseTip: 1,
+  noseBridge: 0,
+  noseWings: 0,
+  mouthW: 1,
+  smirk: 0,
+  lip: 0,
+  mouthY: -0.36,
+  earSize: 1,
+  earOut: 0,
+  foreheadLines: 0,
+  blush: 0.35,
+};
+
+/** Ein Haarmodell aus haare.glb, auf den Kopf eingepasst */
+export interface HairFit {
+  piece: HairPiece;
+  /** Zusatz-Skalierung (relativ zum Kopf) */
+  scale?: [number, number, number];
+  /** Verschiebung in Kopfradien */
+  offset?: [number, number, number];
+  /** Kippen um die x-Achse */
+  tilt?: number;
+  /** eigene Farbe (sonst Haarfarbe) */
+  color?: string;
+}
 
 export interface Look {
   id: string;
@@ -39,6 +141,18 @@ export interface Look {
   hairStyle: HairStyle;
   beard?: boolean;
   brows?: string;
+  /** Gesichtsform (nur abweichende Werte) */
+  face?: Partial<Face>;
+  /** Haarmodelle; ersetzen die gezeichnete Frisur, sobald haare.glb geladen ist */
+  hairModel?: HairFit[];
+  /** gezeichnete Frisur trotz Haarmodell behalten (als Ergänzung, z. B. Pony) */
+  keepDrawnHair?: boolean;
+  /** Schulterbreite zusätzlich zu build */
+  shoulders?: number;
+  /** Armlänge relativ */
+  armRatio?: number;
+  handScale?: number;
+  footScale?: number;
   top: {
     color: string;
     gold?: string;
@@ -137,6 +251,53 @@ function skirtGeo(rTop: number, rBot: number, len: number): BufferGeometry {
   return new LatheGeometry(pts, 20);
 }
 
+const smooth = (a: number, b: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * Kopfform als glatte Verformung einer Einheitskugel: Schädelmaße, breiterer/eckigerer Kiefer, Wangen,
+ * Wangenknochen und Kinn als weiche Ausbuchtungen. Liefert den Oberflächenpunkt (in Kopfradien) zu einer Richtung.
+ */
+function headShape(F: Face): (n: Vector3) => Vector3 {
+  const [kx, ky, kz] = F.skull;
+  const bump = (n: Vector3, cx: number, cy: number, cz: number, sxy: number, sy: number): number => {
+    const dx = (n.x - cx) / sxy;
+    const dy = (n.y - cy) / sy;
+    const dz = (n.z - cz) / sxy;
+    return Math.exp(-(dx * dx + dy * dy + dz * dz));
+  };
+  return (n: Vector3): Vector3 => {
+    const lower = smooth(0.05, -0.85, n.y);
+    const front = smooth(-0.5, 0.4, n.z);
+    // Kiefer: untere Gesichtshälfte breiter und (bei jawH klein) eckiger
+    const jawWide = 1 + F.jaw * (F.jawW - 0.7) * 0.55 * lower * (0.6 + 0.4 * front);
+    const square = F.jaw * (1 - F.jawH) * 0.35 * smooth(-0.35, -0.8, n.y) * smooth(0.15, 0.6, Math.abs(n.x));
+    let d = 0;
+    for (const sx of [-1, 1]) {
+      d += 0.075 * F.cheeks * bump(n, sx * 0.52, -0.32, 0.78, 0.36, 0.3);
+      d += 0.05 * F.cheekbones * bump(n, sx * 0.8, -0.05, 0.58, 0.3, 0.22);
+      d += 0.018 * bump(n, sx * 0.36, 0.3, 0.86, 0.24, 0.12);
+    }
+    d += 0.09 * F.chin * bump(n, 0, -0.84, 0.52, 0.3 * F.chinW, 0.22);
+    const x = n.x * kx * jawWide * (1 + square);
+    const y = n.y * ky;
+    const z = n.z * kz;
+    return new Vector3(x + n.x * d, y + n.y * d, z + n.z * d);
+  };
+}
+
+/** Farbe abdunkeln (f < 1) */
+function shade(hex: string, f: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const c = (v: number): string =>
+    Math.round(Math.min(255, v * f))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${c((n >> 16) & 255)}${c((n >> 8) & 255)}${c(n & 255)}`;
+}
+
 const mk = (geo: BufferGeometry, mat: Material, shadow = true): Mesh => {
   const m = new Mesh(geo, mat);
   m.castShadow = shadow;
@@ -162,6 +323,10 @@ export class Character {
   private eyes: Group[] = [];
   private mouthSmile!: Mesh;
   private mouthOpen!: Mesh;
+  private brows: Mesh[] = [];
+  private modelHair = false;
+  private faceShape: Face = FACE;
+  private skull: [number, number, number] = FACE.skull;
   private detail: Object3D[] = [];
   private props: Partial<Record<Exclude<Prop, null>, Mesh | Group>> = {};
   private ball: Mesh | null = null;
@@ -206,9 +371,10 @@ export class Character {
     const T = h - this.L - this.hd - neckLen;
     this.thighLen = this.L * 0.5;
     this.shinLen = this.L * 0.5 - h * 0.035;
-    this.upLen = h * 0.18;
-    this.foLen = h * 0.15;
-    this.shoulderW = h * 0.23 * look.build;
+    const arm = look.armRatio ?? 1;
+    this.upLen = h * 0.18 * arm;
+    this.foLen = h * 0.15 * arm;
+    this.shoulderW = h * 0.23 * look.build * (look.shoulders ?? 1);
     const b = look.build;
     const s = h / 1.75; // Maßstab für Radien
 
@@ -357,11 +523,11 @@ export class Character {
       }
       arm.hand.position.y = -this.foLen - 0.03 * s;
       arm.fo.add(arm.hand);
-      const hand = mk(new SphereGeometry(0.058 * s * b, 12, 10), skin);
+      const hand = mk(new SphereGeometry(0.058 * s * b * (look.handScale ?? 1), 12, 10), skin);
       hand.scale.set(0.85, 1.15, 0.7);
       hand.position.y = -0.02 * s;
       arm.hand.add(hand);
-      const thumb = mk(new SphereGeometry(0.018 * s, 6, 5), skin, false);
+      const thumb = mk(new SphereGeometry(0.018 * s * (look.handScale ?? 1), 6, 5), skin, false);
       thumb.position.set(-side * 0.02 * s, -0.005, 0.03 * s);
       arm.hand.add(thumb);
       this.detail.push(thumb);
@@ -384,13 +550,14 @@ export class Character {
       );
       leg.ft.position.y = -this.shinLen;
       leg.sh.add(leg.ft);
+      const fs = look.footScale ?? 1;
       const shoeM = mk(new SphereGeometry(1, 12, 8), shoe);
-      shoeM.scale.set(0.062 * s, 0.052 * s, 0.125 * s);
-      shoeM.position.set(0, -0.025 * s, 0.035 * s);
+      shoeM.scale.set(0.062 * s * fs, 0.052 * s, 0.125 * s * fs);
+      shoeM.position.set(0, -0.025 * s, 0.035 * s * fs);
       leg.ft.add(shoeM);
       const soleM = mk(new CylinderGeometry(1, 1, 1, 12), sole, false);
-      soleM.scale.set(0.066 * s, 0.024 * s, 0.132 * s);
-      soleM.position.set(0, -0.062 * s, 0.035 * s);
+      soleM.scale.set(0.066 * s * fs, 0.024 * s, 0.132 * s * fs);
+      soleM.position.set(0, -0.062 * s, 0.035 * s * fs);
       leg.ft.add(soleM);
       if (look.shoes.stripe) {
         const st = mk(
@@ -418,22 +585,62 @@ export class Character {
   private buildHead(skin: Material, hair: Material): void {
     const r = this.hd * 0.5;
     const L = this.look;
-    const headM = mk(new SphereGeometry(r, 24, 18), skin);
-    headM.scale.set(1, 1.04, 0.97);
+    const F: Face = { ...FACE, ...L.face };
+    this.faceShape = F;
+    const [kx, ky] = F.skull;
+    this.skull = F.skull;
+    const shape = headShape(F);
+    const geo = new SphereGeometry(1, 40, 30);
+    const pos = geo.getAttribute('position');
+    const v = new Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const p = shape(v.normalize());
+      pos.setXYZ(i, p.x * r, p.y * r, p.z * r);
+    }
+    geo.computeVertexNormals();
+    const headM = mk(geo, skin);
     this.head.add(headM);
+    // Punkt auf der Gesichtsoberfläche zu (x, y): z-Wert, iterativ über die Verformung gelöst
+    const surf = (x: number, y: number): number => {
+      let ux = x / (r * kx);
+      let uy = y / (r * ky);
+      let p = new Vector3();
+      for (let k = 0; k < 5; k++) {
+        const uz = Math.sqrt(Math.max(0.02, 1 - ux * ux - uy * uy));
+        p = shape(new Vector3(ux, uy, uz).normalize());
+        if (Math.abs(p.x) > 1e-4) ux *= x / r / p.x;
+        if (Math.abs(p.y) > 1e-4) uy *= y / r / p.y;
+        ux = Math.max(-0.99, Math.min(0.99, ux));
+        uy = Math.max(-0.99, Math.min(0.99, uy));
+      }
+      return p.z * r;
+    };
     for (const sx of [-1, 1]) {
-      const ear = mk(new SphereGeometry(r * 0.17, 8, 6), skin, false);
-      ear.scale.set(0.6, 1, 0.8);
-      ear.position.set(sx * r * 0.97, -r * 0.05, -r * 0.02);
+      const side = shape(new Vector3(sx, -0.05, -0.05).normalize());
+      const ear = mk(new SphereGeometry(r * 0.17 * F.earSize, 10, 8), skin, false);
+      ear.scale.set(0.55, 1.1, 0.8);
+      ear.position.set(side.x * r * 0.97, -r * 0.05, -r * 0.04);
+      ear.rotation.y = sx * F.earOut;
+      ear.rotation.z = -sx * F.earOut * 0.3;
       this.head.add(ear);
     }
     this.head.add(this.face);
     const white = vinyl('#fbf7f0', { rough: 0.3, rim: 0 });
-    const iris = vinyl('#2a1a12', { rough: 0.2, rim: 0 });
+    const iris = vinyl(F.iris, { rough: 0.2, rim: 0 });
     const shine = new MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 1 });
+    const crease = vinyl(shade(L.skin, 0.72), { rough: 0.7, rim: 0 });
+    const browMat = vinyl(L.brows ?? L.hair, { rough: 0.6 });
+    const lash = vinyl('#1c120c', { rough: 0.5, rim: 0 });
     for (const sx of [-1, 1]) {
       const eye = new Group();
-      eye.position.set(sx * r * 0.36, r * 0.06, r * 0.82);
+      const ex = sx * r * F.eyeGap * kx;
+      const ey = r * F.eyeY;
+      eye.position.set(ex, ey, surf(ex, ey) - r * 0.08);
+      const shape = new Group();
+      shape.scale.set(F.eyeW, F.eyeH, 1);
+      // mandelförmig: außen leicht höher
+      shape.rotation.z = sx * 0.08 * (1 - F.eyeH);
       const ew = mk(new SphereGeometry(r * 0.2, 14, 10), white, false);
       ew.scale.set(0.85, 1.05, 0.55);
       const ir = mk(new SphereGeometry(r * 0.13, 12, 8), iris, false);
@@ -441,42 +648,152 @@ export class Character {
       ir.position.z = r * 0.08;
       const sh = mk(new SphereGeometry(r * 0.04, 6, 5), shine, false);
       sh.position.set(r * 0.04, r * 0.05, r * 0.15);
-      eye.add(ew, ir, sh);
+      shape.add(ew, ir, sh);
+      eye.add(shape);
+      // Oberlid-Linie: macht schmale Augen mandelförmig
+      if (F.eyeH < 0.9) {
+        const lid = mk(new TorusGeometry(r * 0.19, r * 0.022, 5, 12, Math.PI * 0.8), lash, false);
+        lid.scale.set(F.eyeW * 0.95, F.eyeH * 1.05, 0.6);
+        lid.rotation.z = Math.PI * 0.1 + sx * 0.06;
+        lid.position.set(0, r * 0.012, r * 0.055);
+        eye.add(lid);
+      }
       this.face.add(eye);
       this.eyes.push(eye);
+      // Lachfältchen: zwei, drei feine Bögen am äußeren Augenwinkel
+      if (F.laughLines > 0) {
+        const n = F.laughLines > 0.6 ? 3 : 2;
+        for (let i = 0; i < n; i++) {
+          // kurze, leicht gebogene Linien, fächerförmig vom Augenwinkel nach außen
+          const len = r * (0.11 + F.laughLines * 0.04);
+          const ln = mk(limbGeo(r * 0.01, r * 0.006, len, 5), crease, false);
+          const x = ex + sx * r * (0.2 * F.eyeW + 0.03);
+          const y = ey + r * (0.03 - i * 0.05);
+          ln.position.set(x, y, surf(x, y) - r * 0.004);
+          ln.rotation.order = 'YZX';
+          ln.rotation.set(0, sx * 0.8, sx * (Math.PI / 2 + 0.35 - i * 0.35));
+          this.face.add(ln);
+          this.detail.push(ln);
+        }
+      }
       // Augenbrauen
-      const brow = mk(
-        limbGeo(r * 0.045, r * 0.035, r * 0.26, 6),
-        vinyl(L.brows ?? L.hair, { rough: 0.6 }),
-        false,
-      );
-      brow.rotation.z = (sx * Math.PI) / 2 + sx * 0.12 * (L.beard ? -2 : 1);
-      brow.position.set(sx * r * 0.42, r * 0.33, r * 0.86);
+      const bl = r * 0.26 * F.browLen;
+      const brow = mk(limbGeo(r * 0.045 * F.browThick, r * 0.035 * F.browThick, bl, 6), browMat, false);
+      const bx = ex + sx * r * 0.05;
+      const by = r * F.browY;
+      brow.rotation.order = 'YZX';
+      brow.rotation.z = (sx * Math.PI) / 2 + sx * F.browTilt * (L.beard ? -2 : 1);
+      brow.rotation.y = sx * 0.35;
+      brow.position.set(bx - sx * bl * 0.5, by, surf(bx, by) + r * 0.03 * F.browThick);
+      brow.scale.set(1, 1, 0.7);
+      if (F.browArch > 0) brow.rotation.x = -F.browArch * 0.3;
       this.face.add(brow);
-      // Wangen
-      const blush = mk(
-        new SphereGeometry(r * 0.13, 8, 6),
-        vinyl('#f08a7a', { transparent: true, opacity: 0.35, rim: 0 }),
-        false,
-      );
-      blush.scale.set(1, 0.6, 0.3);
-      blush.position.set(sx * r * 0.55, -r * 0.2, r * 0.8);
-      this.face.add(blush);
+      this.brows.push(brow);
+      // Wangenröte
+      if (F.blush > 0) {
+        const blush = mk(
+          new SphereGeometry(r * 0.13, 8, 6),
+          vinyl('#f08a7a', { transparent: true, opacity: F.blush, rim: 0 }),
+          false,
+        );
+        blush.scale.set(1, 0.6, 0.3);
+        const x = sx * r * 0.55 * kx;
+        const y = -r * 0.2;
+        blush.position.set(x, y, surf(x, y) + r * (F.cheeks > 0 ? 0.03 : -0.04));
+        this.face.add(blush);
+      }
     }
-    const nose = mk(new SphereGeometry(r * 0.11, 10, 8), skin, false);
-    nose.scale.set(1, 0.85, 0.9);
-    nose.position.set(0, -r * 0.12, r * 0.97);
+    // Stirnfalten
+    if (F.foreheadLines > 0) {
+      const fl = vinyl(shade(L.skin, 0.8), {
+        transparent: true,
+        opacity: 0.35 + F.foreheadLines * 0.4,
+        rim: 0,
+      });
+      for (let i = 0; i < 2; i++) {
+        const y = r * (0.52 + i * 0.12);
+        const line = mk(new TorusGeometry(surf(0, y) * 0.99, r * 0.008, 3, 16, 0.7), fl, false);
+        line.rotation.set(Math.PI / 2 - (y / (r * ky)) * 0.9, 0, Math.PI / 2 - 0.35);
+        line.position.y = y;
+        this.face.add(line);
+        this.detail.push(line);
+      }
+    }
+    // Nase: Rücken, Spitze, Flügel
+    const ny = -r * 0.12 * F.noseH;
+    const nz = surf(0, ny);
+    if (F.noseBridge > 0) {
+      // Nasenrücken: flaches, längliches Polster zwischen den Augen bis zur Spitze
+      const by = ny + r * 0.2 * F.noseH;
+      const bridge = mk(new SphereGeometry(r * 0.1, 12, 10), skin, false);
+      bridge.scale.set(0.6 * F.noseW * F.noseBridge, 1.9 * F.noseH, 0.5);
+      bridge.position.set(0, by, surf(0, by) - r * 0.02);
+      bridge.rotation.x = -0.25;
+      this.face.add(bridge);
+    }
+    const nose = mk(new SphereGeometry(r * 0.11 * F.noseTip, 12, 10), skin, false);
+    nose.scale.set(F.noseW, 0.85, 0.8);
+    nose.position.set(0, ny, nz - r * 0.005);
     this.face.add(nose);
-    const lip = vinyl('#8a2a24', { rough: 0.4, rim: 0 });
-    this.mouthSmile = mk(new TorusGeometry(r * 0.17, r * 0.03, 6, 14, Math.PI), lip, false);
-    this.mouthSmile.rotation.z = Math.PI;
-    this.mouthSmile.position.set(0, -r * 0.36, r * 0.88);
+    if (F.noseWings > 0) {
+      for (const sx of [-1, 1]) {
+        const wing = mk(new SphereGeometry(r * 0.07 * F.noseWings, 8, 6), skin, false);
+        wing.scale.set(1, 0.8, 0.8);
+        const x = sx * r * 0.1 * F.noseW;
+        wing.position.set(x, ny - r * 0.03, surf(x, ny) - r * 0.02);
+        this.face.add(wing);
+      }
+    }
+    // Mund (schiefes Lächeln: Bogen gedreht, ein Winkel höher)
+    const lipMat = vinyl('#8a2a24', { rough: 0.4, rim: 0 });
+    const my = r * F.mouthY;
+    const mz = surf(0, my) - r * 0.06;
+    this.mouthSmile = mk(new TorusGeometry(r * 0.17 * F.mouthW, r * 0.03, 6, 14, Math.PI), lipMat, false);
+    this.mouthSmile.rotation.z = Math.PI + F.smirk * 0.16;
+    this.mouthSmile.scale.set(1, 0.8, 1);
+    this.mouthSmile.position.set(F.smirk * r * 0.02, my, mz);
     this.mouthOpen = mk(new SphereGeometry(r * 0.15, 12, 8), vinyl('#5a1a16', { rough: 0.4, rim: 0 }), false);
-    this.mouthOpen.scale.set(1, 0.2, 0.4);
-    this.mouthOpen.position.set(0, -r * 0.42, r * 0.86);
+    this.mouthOpen.scale.set(F.mouthW, 0.2, 0.4);
+    this.mouthOpen.position.set(0, my - r * 0.06, mz);
     this.face.add(this.mouthSmile, this.mouthOpen);
+    if (F.lip > 0) {
+      const lower = mk(new SphereGeometry(r * 0.1, 10, 6), vinyl(shade(L.skin, 0.88), { rough: 0.5 }), false);
+      lower.scale.set(1.3 * F.mouthW, 0.35 * F.lip, 0.5);
+      lower.position.set(0, my - r * 0.17, surf(0, my - r * 0.17) - r * 0.03);
+      this.face.add(lower);
+    }
     this.detail.push(this.face);
-    this.buildHair(r, hair);
+    const kit = L.hairModel ? hairKit() : null;
+    if (kit && L.hairModel) {
+      this.modelHair = true;
+      for (const fit of L.hairModel) this.addHairModel(fit, r);
+      if (L.keepDrawnHair) this.buildHair(r, hair);
+      else if (L.beard && !L.hairModel.some((f) => f.piece === 'Hair_Beard')) this.buildBeard(r);
+      if (L.hairModel.some((f) => f.piece.startsWith('Eyebrows')))
+        for (const b of this.brows) b.visible = false;
+    } else this.buildHair(r, hair);
+  }
+
+  /** Haarmodell auf den Kopf setzen: Einheitsschädel → Kopfradius × Schädelform */
+  private addHairModel(fit: HairFit, r: number): void {
+    const part = hairKit()?.get(fit.piece);
+    if (!part) return;
+    const mat = vinyl(fit.color ?? this.look.hair, { rough: 0.55 });
+    mat.map = part.map;
+    mat.normalMap = part.normalMap;
+    mat.side = DoubleSide;
+    // Die Grundtextur ist grau (~0.55); aufhellen, damit die Haarfarbe stimmt
+    const hsl = { h: 0, s: 0, l: 0 };
+    mat.color.getHSL(hsl);
+    mat.color.multiplyScalar(hsl.l > 0.5 ? 1.75 : 1.35);
+    const m = mk(part.geo, mat);
+    const [kx, ky, kz] = this.skull;
+    const [sx, sy, sz] = fit.scale ?? [1, 1, 1];
+    m.scale.set(r * kx * sx, r * ky * sy, r * kz * sz);
+    const [ox, oy, oz] = fit.offset ?? [0, 0, 0];
+    m.position.set(ox * r, oy * r, oz * r);
+    m.rotation.x = fit.tilt ?? 0;
+    this.head.add(m);
   }
 
   private buildHair(r: number, hair: Material): void {
@@ -511,6 +828,32 @@ export class Character {
         tuft.position.set(Math.sin(a) * r * 0.85, r * 0.5, Math.cos(a) * r * 0.78);
         tuft.rotation.set(Math.PI + 0.55, 0, -a * 0.6 + (st === 'side' ? 0.4 : 0));
         this.head.add(tuft);
+      }
+    }
+    if (st === 'sweep') {
+      // dichter, seitlich fallender Pony: flache Strähnen vom Scheitel schräg über die Stirn
+      const [kx, ky, kz] = this.skull;
+      if (!this.modelHair) {
+        cap(0.5, 1.08, -0.45);
+        const back = mk(
+          new SphereGeometry(r * 1.07, 18, 10, Math.PI, Math.PI, Math.PI * 0.15, Math.PI * 0.55),
+          hair,
+        );
+        this.head.add(back);
+      }
+      const locks = 6;
+      for (let i = 0; i < locks; i++) {
+        const t = i / (locks - 1);
+        const x = r * kx * (0.42 - t * 0.78);
+        const y = r * ky * (0.66 - t * 0.12 - Math.abs(t - 0.4) * 0.1);
+        const nx = x / (r * kx);
+        const ny = y / (r * ky);
+        const z = r * kz * Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)) + r * 0.03;
+        const lock = mk(new SphereGeometry(r * 0.24, 10, 8), hair, false);
+        lock.scale.set(0.5, 1.25, 0.32);
+        lock.position.set(x, y, z);
+        lock.rotation.set(-0.55 + ny * 0.3, nx * 0.6, 0.9 - t * 0.3);
+        this.head.add(lock);
       }
     }
     if (st === 'kidBuns') {
@@ -574,7 +917,12 @@ export class Character {
       top.scale.set(1, 0.6, 1);
       this.head.add(top);
     }
-    if (this.look.beard) {
+    if (this.look.beard && !this.look.hairModel?.some((f) => f.piece === 'Hair_Beard' && hairKit()))
+      this.buildBeard(r);
+  }
+
+  private buildBeard(r: number): void {
+    {
       const beard = mk(new ConeGeometry(r * 0.42, r * 1.5, 12), vinyl(this.look.hair, { rough: 0.6 }));
       beard.rotation.x = Math.PI + 0.25;
       beard.position.set(0, -r * 1.05, r * 0.6);
@@ -1061,7 +1409,10 @@ export class Character {
     let lid = 1;
     if (this.blink < 0.12) lid = Math.abs(this.blink - 0.06) / 0.06;
     if (this.blink < 0) this.blink = 2.5 + Math.random() * 3.5;
-    if (laughOpen > 0.3) lid = Math.min(lid, 0.35);
+    // Augen werden beim Lächeln/Lachen schmaler; bei manchen Gesichtern auch leicht beim Sprechen
+    const se = this.faceShape.smileEyes;
+    lid = Math.min(lid, 1 - se * (0.18 + this.talkSmooth * 0.25));
+    if (laughOpen > 0.3) lid = Math.min(lid, 0.35 - se * 0.12);
     for (const eye of this.eyes) eye.scale.y = Math.max(0.08, lid);
     this.talkSmooth += (this.talk - this.talkSmooth) * Math.min(1, dt * 18);
     const open = Math.max(this.talkSmooth, laughOpen * (0.6 + Math.abs(Math.sin(t * 16)) * 0.4));

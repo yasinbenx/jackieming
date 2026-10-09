@@ -25,6 +25,35 @@ export function gallery(world: World, action: string | null, view: 'front' | 'si
   });
   world.player.ch.root.visible = false;
   world.mode = 'cutscene';
+  // Porträt einer Figur: ?galerie&ansicht=portrait&fig=jackie&winkel=0.6
+  const params = new URLSearchParams(location.search);
+  const fig = params.get('fig');
+  if (fig) {
+    const i = looks.findIndex((l) => l.id === fig);
+    const c = chars[i];
+    if (c) {
+      const ang = Number(params.get('winkel') ?? 0);
+      for (const o of chars) o.root.visible = o === c;
+      c.root.position.set(0, FLOOR, 5.2);
+      c.root.updateMatrixWorld(true);
+      const head = c.headWorld();
+      const dist = params.get('nah') ? c.H * 0.32 : c.H * 1.25;
+      const ly = params.get('nah') ? head.y : FLOOR + c.H * 0.55;
+      world.cam.setShot(
+        {
+          pos: new Vector3(
+            Math.sin(ang) * dist,
+            ly + (params.get('nah') ? 0.02 : 0.1),
+            5.2 + Math.cos(ang) * dist,
+          ),
+          look: new Vector3(0, ly, 5.2),
+        },
+        0.01,
+      );
+      world.tickers.push((dt) => c.update(dt));
+      return chars;
+    }
+  }
   const look =
     view === 'close' ? new Vector3(x0 + gap * 0.5, FLOOR + 1.6, 5.2) : new Vector3(0, FLOOR + 1.1, 5.2);
   const pos =

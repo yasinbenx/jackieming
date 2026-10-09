@@ -41,6 +41,7 @@ import { bus } from '../core/bus';
 import { store } from '../state/store';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
+import { loadHairKit } from './hairkit';
 import { NavGrid } from './nav';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
@@ -239,6 +240,8 @@ export class World {
     this.nav = new NavGrid();
     await progress(0.7);
 
+    // Haarmodelle (klein, ~0,4 MB) vor den Figuren laden
+    await loadHairKit();
     // Spielfigur
     this.outfit = Math.min(PLAYER_LOOKS.length - 1, Math.max(0, store.settings.outfit ?? 0));
     this.player = new Agent(PLAYER_LOOKS[this.outfit]!, this.nav);
