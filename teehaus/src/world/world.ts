@@ -672,8 +672,9 @@ export class World {
       this.onInsideChange?.(inside);
     }
 
-    // Detailstufe der Figuren (Gesicht, Finger erst in der Nähe)
+    // Detailstufe der Figuren (Gesicht, Feinbewegung erst in der Nähe)
     for (const a of this.agents) a.ch.setDetail(a.ch.root.position.distanceTo(c) < 11);
+    this.fadeOccluders(dt);
 
     // ── Laternen und Effekte
     for (const l of this.cafe.lanterns) {
@@ -710,9 +711,46 @@ export class World {
       if (this.markerT <= 0 || !this.player.path.length) this.markerT = Math.min(this.markerT, 0.3);
     }
     if (this.dof) {
-      this.dof.target = this.playerTarget();
+      // Schärfe dort, wo die Kamera hinschaut (im Gespräch: das Gesicht des Gegenübers)
+      this.dof.target = this.cam.lookPoint;
     }
     this.composer.render(dt);
+  }
+
+  /**
+   * Figuren, die zwischen Kamera und Blickpunkt stehen, werden durchscheinend (z. B. ein Gast vor dem
+   * Gesprächspartner). Abstand Strecke Kamera→Blickpunkt zur senkrechten Körperachse der Figur.
+   */
+  private fadeOccluders(dt: number): void {
+    const cp = this.camera.position;
+    const lp = this.cam.lookPoint;
+    const seg = lp.clone().sub(cp);
+    const len = seg.length();
+    if (len < 0.01) return;
+    seg.divideScalar(len);
+    for (const a of this.agents) {
+      const ch = a.ch;
+      const r = ch.root.position;
+      let want = 1;
+      if (ch.root.visible && (a !== this.player || this.mode === 'dialog')) {
+        // nächster Punkt auf der Kamerastrecke zur Achse (x/z), Höhe prüfen
+        const t = Math.max(
+          0,
+          Math.min(len, (r.x - cp.x) * seg.x + (r.z - cp.z) * seg.z) /
+            Math.max(1e-3, Math.hypot(seg.x, seg.z)),
+        );
+        const px = cp.x + seg.x * t;
+        const py = cp.y + seg.y * t;
+        const pz = cp.z + seg.z * t;
+        const dxz = Math.hypot(px - r.x, pz - r.z);
+        const inBody = py > r.y && py < r.y + ch.H * 1.02;
+        const isTarget = Math.hypot(lp.x - r.x, lp.z - r.z) < 0.45 && lp.y > r.y && lp.y < r.y + ch.H + 0.2;
+        if (dxz < 0.34 && inBody && !isTarget && t < len - 0.3) want = 0.22;
+      }
+      const f = a.fade ?? 1;
+      a.fade = f + (want - f) * Math.min(1, dt * 8);
+      ch.setFade(a.fade);
+    }
   }
 
   get walkSpeed(): number {

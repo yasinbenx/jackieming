@@ -32,6 +32,8 @@ export class Agent {
   /** Kollisionen mit dem Raster beachten (Skripte dürfen das kurz abschalten, z. B. hinter der Theke) */
   collide = true;
   private y = FLOOR;
+  /** Durchsichtigkeit, wenn die Figur die Sicht verdeckt (1 = normal) */
+  fade = 1;
 
   constructor(
     look: Look,

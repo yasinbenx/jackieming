@@ -4,6 +4,9 @@
 // und Hauptfiguren unverändert bleiben.
 import {
   AnimationMixer,
+  CanvasTexture,
+  CircleGeometry,
+  MeshBasicMaterial,
   BufferAttribute,
   BufferGeometry,
   ConeGeometry,
@@ -148,6 +151,22 @@ const smoothstep = (a: number, b: number, x: number): number => {
   return t * t * (3 - 2 * t);
 };
 
+let blobMat: MeshBasicMaterial | null = null;
+function blobMaterial(): MeshBasicMaterial {
+  if (blobMat) return blobMat;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(20,10,5,0.55)');
+  gr.addColorStop(0.55, 'rgba(20,10,5,0.25)');
+  gr.addColorStop(1, 'rgba(20,10,5,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  blobMat = new MeshBasicMaterial({ map: new CanvasTexture(c), transparent: true, depthWrite: false });
+  return blobMat;
+}
+
 /** Morph-Ziele für Blinzeln (Augen schließen) und Brauen heben, einmal je Geometrie */
 const morphDone = new WeakSet<BufferGeometry>();
 function addMorph(geo: BufferGeometry, world: Matrix4, kind: 'blink' | 'brow'): void {
@@ -267,6 +286,10 @@ export class RigCharacter {
   private gestPose = { side: 1, lift: 0.5, open: 0.5 };
   private talkHold = 0;
   // Nachschwingen (Quasten, Haare)
+  private mats: MeshStandardMaterial[] = [];
+  private fade = 1;
+  private blob!: Mesh;
+  private lodSkip = 0;
   private dangles: {
     obj: Object3D;
     rest: Quaternion;
@@ -409,6 +432,15 @@ export class RigCharacter {
     this.shapeBody(spec.shape ?? {});
     // erst jetzt skalieren: alle Bindungen oben wurden in der Ruhepose bei Maßstab 1 berechnet
     this.model.scale.setScalar(this.S);
+    this.ownMaterials();
+    // Kontaktschatten: weicher dunkler Fleck unter der Figur (folgt dem Boden, nicht dem Körper)
+    const blob = new Mesh(new CircleGeometry(1, 24), blobMaterial());
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.y = 0.012;
+    blob.scale.setScalar(0.36 * this.S * (spec.shape?.shoulders ?? 1));
+    blob.renderOrder = -1;
+    this.root.add(blob);
+    this.blob = blob;
 
     // Animationen: Bewegungs-Mischung (Idle/Gehen/Laufen) mit zufälligem Zeitversatz
     this.mixer = new AnimationMixer(this.inst);
@@ -799,6 +831,41 @@ export class RigCharacter {
     this.lookTarget = p ? p.clone() : null;
   }
 
+  /** Eigene Material-Kopien je Figur, damit sie einzeln durchscheinend werden kann */
+  private ownMaterials(): void {
+    const map = new Map<Material, MeshStandardMaterial>();
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+      const src = m.material as MeshStandardMaterial;
+      let c = map.get(src);
+      if (!c) {
+        c = src.clone();
+        c.onBeforeCompile = src.onBeforeCompile;
+        c.customProgramCacheKey = src.customProgramCacheKey;
+        map.set(src, c);
+        this.mats.push(c);
+      }
+      m.material = c;
+    });
+  }
+
+  /** Durchscheinend machen (verdeckt die Sicht auf den Gesprächspartner o. Ä.) */
+  setFade(f: number): void {
+    if (Math.abs(f - this.fade) < 0.01) return;
+    this.fade = f;
+    const t = f < 0.99;
+    for (const m of this.mats) {
+      if (m.transparent !== t) {
+        m.transparent = t;
+        m.needsUpdate = true;
+      }
+      m.opacity = f;
+      m.depthWrite = f > 0.6;
+    }
+    this.blob.visible = f > 0.5;
+  }
+
   setDetail(on: boolean): void {
     this.detail = on;
     this.mouth.visible = on;
@@ -1022,6 +1089,13 @@ export class RigCharacter {
       b.position.copy(s.p);
     }
     this.touched.clear();
+    // Ferne Figuren: Animation nur jedes zweite Bild (mit doppeltem Zeitschritt)
+    if (!this.detail) {
+      this.lodSkip += dt;
+      if (this.lodSkip < 0.03) return;
+      dt = this.lodSkip;
+    }
+    this.lodSkip = 0;
     this.mixer.update(dt);
     this.root.updateMatrixWorld(true);
 

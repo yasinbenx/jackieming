@@ -26,6 +26,9 @@ export class FollowCam {
   /** tatsächlicher Abstand nach Kollision (zum Ausblenden der Figur bei sehr kleinem Abstand) */
   close = 4;
   maxDist = 7;
+  /** Über-die-Schulter-Versatz nach rechts (Meter); die Figur steht links der Bildmitte */
+  shoulder = 0.42;
+  private side = 0;
 
   constructor(readonly camera: PerspectiveCamera) {}
 
@@ -66,6 +69,9 @@ export class FollowCam {
     this.locked = true;
   }
 
+  /** aktueller Blickpunkt (für Tiefenschärfe und das Ausblenden verdeckender Figuren) */
+  readonly lookPoint = new Vector3();
+
   get forwardYaw(): number {
     return this.yaw + Math.PI;
   }
@@ -89,6 +95,15 @@ export class FollowCam {
       const hit = this.ray.intersectObjects(blockers, false)[0];
       return { dir, d: hit ? Math.max(0.35, hit.distance - 0.3) : this.dist };
     };
+    // Schulterversatz: Drehpunkt seitlich neben die Figur, aber nie in eine Wand hinein
+    const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    this.ray.set(target, right);
+    this.ray.far = this.shoulder + 0.3;
+    const sideHit = this.ray.intersectObjects(blockers, false)[0];
+    const sideWant = sideHit ? Math.max(0, sideHit.distance - 0.25) : this.shoulder;
+    this.side +=
+      (Math.min(this.shoulder, sideWant) * Math.min(1, this.dist / 3) - this.side) * Math.min(1, dt * 4);
+    target = target.clone().addScaledVector(right, this.side);
     let { dir, d } = cast(this.pitch);
     if (d < this.dist * 0.55) {
       const alt = cast(Math.min(1.25, this.pitch + 0.55));
@@ -117,10 +132,12 @@ export class FollowCam {
       const sp = s.from.pos.clone().lerp(s.to.pos, u);
       const sl = s.from.look.clone().lerp(s.to.look, u);
       this.camera.position.copy(this.pos).lerp(sp, e);
-      this.camera.lookAt(this.look.clone().lerp(sl, e));
+      this.lookPoint.copy(this.look).lerp(sl, e);
+      this.camera.lookAt(this.lookPoint);
       if (!this.locked && e <= 0) this.shot = null;
     } else {
       this.camera.position.copy(this.pos);
+      this.lookPoint.copy(this.look);
       this.camera.lookAt(this.look);
     }
   }

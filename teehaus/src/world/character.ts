@@ -1101,6 +1101,11 @@ export class Character {
     this.lookTarget = p ? p.clone() : null;
   }
 
+  /** Verdeckende Figur: die gezeichnete Rückfall-Figur bleibt sichtbar (geteilte Materialien) */
+  setFade(f: number): void {
+    void f;
+  }
+
   /** Feinheiten (Gesicht, Finger) nur in der Nähe zeigen */
   setDetail(on: boolean): void {
     for (const d of this.detail) d.visible = on;
