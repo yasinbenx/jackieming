@@ -31,6 +31,8 @@ export const VOICES: Record<string, VoiceProfile> = {
   boardB: { base: 205, range: 5, rate: 0.12, formant: 1.18, wave: 'triangle', breath: 0.2, gain: 0.8 },
   poet: { base: 225, range: 6, rate: 0.135, formant: 1.22, wave: 'triangle', breath: 0.3, gain: 0.75 },
   merchant: { base: 125, range: 6, rate: 0.11, formant: 0.95, wave: 'sawtooth', breath: 0.15, gain: 0.85 },
+  wanderer: { base: 132, range: 5, rate: 0.14, formant: 0.96, wave: 'sawtooth', breath: 0.3, gain: 0.8 },
+  visitor: { base: 215, range: 6, rate: 0.12, formant: 1.2, wave: 'triangle', breath: 0.2, gain: 0.75 },
   terrace: { base: 195, range: 4, rate: 0.15, formant: 1.12, wave: 'triangle', breath: 0.35, gain: 0.75 },
   player: { base: 175, range: 5, rate: 0.12, formant: 1.08, wave: 'triangle', breath: 0.2, gain: 0.8 },
 };

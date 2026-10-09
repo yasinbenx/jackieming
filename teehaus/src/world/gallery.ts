@@ -22,7 +22,11 @@ export function gallery(world: World, action: string | null, view: 'front' | 'si
     if (action === 'walk') c.speed = 1.4;
     else if (action === 'run') c.speed = 3.6;
     else if (action === 'sit') c.sitDown(0.46);
-    else if (action) c.hold(action as Action);
+    else if (action) {
+      c.hold(action as Action);
+      const prop = { drink: 'cup', pour: 'teapot', write: 'brush', fan: 'fan', polish: 'bowl' }[action];
+      if (prop) c.showProp(prop as 'cup', true);
+    }
   });
   world.player.ch.root.visible = false;
   world.mode = 'cutscene';
@@ -38,8 +42,9 @@ export function gallery(world: World, action: string | null, view: 'front' | 'si
       c.root.position.set(0, FLOOR, 5.2);
       c.root.updateMatrixWorld(true);
       const head = c.headWorld();
-      const dist = params.get('nah') ? c.H * 0.32 : c.H * 1.25;
-      const ly = params.get('nah') ? head.y : FLOOR + c.H * 0.55;
+      const nah = params.get('nah');
+      const dist = nah === '2' ? c.H * 0.75 : nah ? c.H * 0.32 : c.H * 1.25;
+      const ly = nah === '2' ? FLOOR + c.H * 0.72 : nah ? head.y : FLOOR + c.H * 0.55;
       world.cam.setShot(
         {
           pos: new Vector3(

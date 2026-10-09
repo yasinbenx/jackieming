@@ -46,6 +46,8 @@ export interface RestInfo {
   chestZ: number;
   /** Kopfmitte und Halbachsen (aus der Kopfhaut des Kopfteils) */
   head: { c: Vector3; r: Vector3 };
+  /** Mundpunkt auf der Gesichtsoberfläche (die Modelle haben keinen Mund) */
+  mouth: Vector3;
 }
 
 export interface RigAssets {
@@ -163,6 +165,18 @@ function measureRest(scene: Group): RestInfo {
   });
   const c = box.min.clone().add(box.max).multiplyScalar(0.5);
   const r = box.max.clone().sub(box.min).multiplyScalar(0.5);
+  // Mund: vorderster Hautpunkt in der Mitte, etwa auf 30 % der Kopfhöhe
+  const mouthY = box.min.y + (box.max.y - box.min.y) * 0.3;
+  let mouthZ = c.z;
+  scene.traverse((o) => {
+    const m = o as SkinnedMesh;
+    if (!m.isSkinnedMesh || partOf(m.name) !== 'Head' || (m.material as Material).name !== 'Skin') return;
+    const pos = m.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      if (Math.abs(v.x - c.x) < 0.02 && Math.abs(v.y - mouthY) < 0.015) mouthZ = Math.max(mouthZ, v.z);
+    }
+  });
   return {
     hipY: hip.y,
     waistY: hip.y + (neck.y - hip.y) * 0.22,
@@ -176,6 +190,7 @@ function measureRest(scene: Group): RestInfo {
     kneeY: knee.y,
     chestZ: chest.z,
     head: { c, r },
+    mouth: new Vector3(c.x, mouthY, mouthZ),
   };
 }
 

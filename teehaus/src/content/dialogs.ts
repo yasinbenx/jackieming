@@ -521,6 +521,26 @@ export const NPCS: Record<string, NpcProfile> = {
       { text: 'Fang mich doch! Haha!' },
     ],
   },
+  wanderer: {
+    id: 'wanderer',
+    name: 'Wanderer',
+    zh: '旅人',
+    py: 'lv3ren2',
+    lines: [
+      { text: 'Ich bin über die Brücke gekommen. Der Weg durch den Bambus ist wunderschön.' },
+      { text: 'Nach dem Aufstieg schmeckt der Tee doppelt so gut.', word: 'cha' },
+    ],
+  },
+  visitor: {
+    id: 'visitor',
+    name: 'Besucherin',
+    zh: '客人',
+    py: 'ke4ren2',
+    lines: [
+      { text: 'Hast du die Schriftrolle gesehen? Die Pinselstriche sind so ruhig.' },
+      { text: 'Ich komme jede Woche her. Hier wird man ganz still.' },
+    ],
+  },
   terrace: {
     id: 'terrace',
     name: 'Gast auf der Terrasse',

@@ -304,22 +304,67 @@ class Master extends Npc {
 
 // ───────────────────────────────────────── Gäste
 
+/** Ein Ziel für einen kurzen Ausflug: Ort, Blickrichtung, was die Figur dort tut */
+interface Spot {
+  x: number;
+  z: number;
+  yaw: number;
+  act: Action;
+  dur: number;
+  icon?: string;
+}
+
 class Seated extends Npc {
+  private home: ReturnType<typeof seat>;
+  private outing: number;
+
   constructor(
     ctx: NpcContext,
     id: string,
     seatId: string,
     private work: Action | null,
     private pause: Action[],
+    /** gelegentlich aufstehen und hierhin gehen (Theke, Brüstung, Fenster …) */
+    private spots: Spot[] = [],
   ) {
     super(ctx, GUEST_LOOKS[id]!, NPCS[id]!);
-    this.agent.placeSeated(seat(seatId));
+    this.home = seat(seatId);
+    this.agent.placeSeated(this.home);
     if (work) this.ch.hold(work);
     if (id === 'poet') this.ch.showProp('brush', true);
     this.next = rand(3, 10);
+    this.outing = rand(40, 90);
+  }
+
+  override update(dt: number): void {
+    super.update(dt);
+    if (!this.spots.length) return;
+    this.outing -= dt;
+    if (this.outing > 0 || !this.agent.seated || this.ctx.busy() || this.engaged) return;
+    this.outing = rand(70, 130);
+    const sp = pick(this.spots);
+    if (this.work) this.ch.stop(this.work);
+    const ok = this.agent.goTo(sp.x, sp.z, false, () => {
+      this.agent.faceYaw(sp.yaw);
+      this.ch.play(sp.act, sp.dur);
+      if (sp.icon) this.ctx.icon(this.speaker, sp.icon);
+      window.setTimeout(
+        () => {
+          this.agent.sitAt(this.home, () => {
+            if (this.work) this.ch.hold(this.work);
+          });
+        },
+        sp.dur * 1000 + 1500,
+      );
+    });
+    if (!ok && this.work) this.ch.hold(this.work);
   }
 
   protected override step(): void {
+    if (!this.agent.seated) {
+      this.next = 3;
+      return;
+    }
     const a = pick(this.pause);
     if (this.work) this.ch.stop(this.work);
     this.ch.play(a, a === 'drink' ? 2.4 : 2.2);
@@ -466,6 +511,47 @@ class Child extends Npc {
   }
 }
 
+/** Geht eine Runde ab: an jedem Ort stehen bleiben, schauen, etwas tun, weitergehen */
+class Stroller extends Npc {
+  private i = 0;
+  private waiting = false;
+
+  constructor(
+    ctx: NpcContext,
+    id: string,
+    private route: Spot[],
+  ) {
+    super(ctx, GUEST_LOOKS[id]!, NPCS[id]!);
+    const s0 = route[0]!;
+    this.agent.place(s0.x, s0.z, s0.yaw);
+    this.agent.walkSpeed = rand(1.0, 1.25);
+    this.next = rand(2, 6);
+  }
+
+  protected override step(): void {
+    if (this.agent.busy || this.waiting || this.ctx.busy() || this.engaged) {
+      this.next = 2;
+      return;
+    }
+    // nächster Ort, manchmal einen überspringen, damit die Runde nicht gleichförmig wirkt
+    this.i = (this.i + 1 + (Math.random() < 0.25 ? 1 : 0)) % this.route.length;
+    const sp = this.route[this.i]!;
+    const ok = this.agent.goTo(sp.x, sp.z, false, () => {
+      this.agent.faceYaw(sp.yaw);
+      this.waiting = true;
+      window.setTimeout(
+        () => {
+          this.ch.play(sp.act, sp.dur);
+          if (sp.icon) this.ctx.icon(this.speaker, sp.icon);
+          window.setTimeout(() => (this.waiting = false), sp.dur * 1000 + rand(1500, 4000));
+        },
+        rand(300, 900),
+      );
+    });
+    this.next = ok ? rand(3, 6) : 1;
+  }
+}
+
 // ───────────────────────────────────────── Verwaltung
 
 export class Npcs {
@@ -483,10 +569,43 @@ export class Npcs {
     const boardB = new Seated(ctx, 'boardB', 'board-1', null, ['drink', 'nod']);
     this.pair = new BoardPair(ctx, boardA, boardB);
     const poet = new Poet(ctx);
-    const merchant = new Seated(ctx, 'merchant', 'merchant-0', 'fan', ['drink', 'laugh']);
-    const terrace = new Seated(ctx, 'terrace', 'terrace-0', null, ['drink', 'drink', 'nod']);
+    const merchant = new Seated(
+      ctx,
+      'merchant',
+      'merchant-0',
+      'fan',
+      ['drink', 'laugh'],
+      [
+        { x: -3.2, z: -3.65, yaw: Math.PI, act: 'nod', dur: 2.5, icon: '☺' },
+        { x: 2.0, z: -5.2, yaw: Math.PI, act: 'think', dur: 3.5 },
+      ],
+    );
+    const terrace = new Seated(
+      ctx,
+      'terrace',
+      'terrace-0',
+      null,
+      ['drink', 'drink', 'nod'],
+      [
+        { x: 5.6, z: 6.0, yaw: 0, act: 'think', dur: 5, icon: '♪' },
+        { x: 3.6, z: 6.0, yaw: 0.3, act: 'point', dur: 2.2 },
+      ],
+    );
+    // zwei Gäste, die herumgehen statt zu sitzen
+    const wanderer = new Stroller(ctx, 'wanderer', [
+      { x: 2.8, z: 6.0, yaw: 0, act: 'think', dur: 4 },
+      { x: -5.6, z: 6.0, yaw: -0.4, act: 'point', dur: 2.2, icon: '!' },
+      { x: -2.2, z: 5.2, yaw: Math.PI, act: 'bow', dur: 1.4 },
+      { x: 6.2, z: 5.0, yaw: Math.PI / 2, act: 'think', dur: 3 },
+    ]);
+    const visitor = new Stroller(ctx, 'visitor', [
+      { x: -6.2, z: -0.6, yaw: -Math.PI / 2, act: 'think', dur: 4, icon: '…' },
+      { x: 1.6, z: -5.0, yaw: Math.PI, act: 'point', dur: 2 },
+      { x: 6.2, z: -1.2, yaw: Math.PI / 2, act: 'think', dur: 3.5 },
+      { x: 1.4, z: 3.3, yaw: 0, act: 'nod', dur: 1.6 },
+    ]);
     const child = new Child(ctx, this.cat);
-    this.list.push(this.master, boardA, boardB, poet, merchant, terrace, child);
+    this.list.push(this.master, boardA, boardB, poet, merchant, terrace, child, wanderer, visitor);
     this.registerInteractions();
     w.tickers.push((dt) => {
       for (const n of this.list) n.update(dt);

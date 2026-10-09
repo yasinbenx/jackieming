@@ -402,6 +402,9 @@ export class RigCharacter {
 
     this.addClothes(mats);
     this.addHead();
+    // Requisiten in der Ruhepose anhängen (später nur ein-/ausblenden)
+    for (const p of ['cup', 'teapot', 'brush', 'fan', 'bowl'] as const) this.makeProp(p);
+    if (look.prop === 'ball') this.makeProp('ball');
     if (look.prop) this.showProp(look.prop, true);
     this.shapeBody(spec.shape ?? {});
     // erst jetzt skalieren: alle Bindungen oben wurden in der Ruhepose bei Maßstab 1 berechnet
@@ -615,28 +618,27 @@ export class RigCharacter {
     const kit = hairKit();
     if (kit && this.look.rig?.hair) for (const fit of this.look.rig.hair) this.addHair(fit, headBone);
     // Mund: kleines Lächeln und Mundöffnung beim Sprechen (die Modelle haben keinen Mund)
-    const c = R.head.c;
     const r = R.head.r;
+    const mp = R.mouth;
     const lip = vinyl('#7a2a22', { rough: 0.4, rim: 0 });
-    const smile = new Mesh(new TorusGeometry(r.x * 0.24, r.x * 0.035, 6, 14, Math.PI), lip);
-    smile.scale.set(1, 0.7, 1);
+    const smile = new Mesh(new TorusGeometry(r.x * 0.22, r.x * 0.03, 6, 14, Math.PI), lip);
     attachRigid(
       headBone,
       smile,
       new Matrix4().compose(
-        new Vector3(c.x, c.y - r.y * 0.52, c.z + r.z * 0.9),
+        new Vector3(mp.x, mp.y + r.y * 0.02, mp.z - 0.002),
         new Quaternion().setFromAxisAngle(Z, Math.PI),
-        new Vector3(1, 0.7, 1),
+        new Vector3(1, 0.65, 1),
       ),
     );
-    const open = new Mesh(new SphereGeometry(r.x * 0.2, 12, 8), vinyl('#4a1612', { rough: 0.5, rim: 0 }));
+    const open = new Mesh(new SphereGeometry(r.x * 0.18, 12, 8), vinyl('#4a1612', { rough: 0.5, rim: 0 }));
     attachRigid(
       headBone,
       open,
       new Matrix4().compose(
-        new Vector3(c.x, c.y - r.y * 0.6, c.z + r.z * 0.86),
+        new Vector3(mp.x, mp.y - r.y * 0.04, mp.z - 0.006),
         new Quaternion(),
-        new Vector3(1.2, 0.25, 0.5),
+        new Vector3(1.2, 0.25, 0.45),
       ),
     );
     this.mouth = smile;
@@ -695,10 +697,10 @@ export class RigCharacter {
 
   // ───────────────────────────────────────── Requisiten
 
-  showProp(p: Exclude<Prop, null>, on: boolean): void {
-    let m = this.props[p];
-    if (!m && on) {
-      m = makeProp(p, 1);
+  private makeProp(p: Exclude<Prop, null>): void {
+    {
+      const m = makeProp(p, 1);
+      m.visible = false;
       const R = this.A.rest;
       if (p === 'ball') {
         // unter dem linken Arm
@@ -707,22 +709,28 @@ export class RigCharacter {
           m,
           new Matrix4().makeTranslation(R.shoulderX + 0.12, R.armY - 0.33, R.chestZ - 0.01),
         );
-        this.hasBall = true;
       } else {
         const left = p === 'bowl';
-        const wrist = this.bones.get(left ? 'WristL' : 'WristR')!;
-        const sx = left ? 1 : -1;
-        // Ruhepose: Arm waagerecht; Griff knapp hinter dem Handgelenk, Requisit zeigt nach oben
-        attachRigid(
-          wrist,
-          m,
-          new Matrix4().makeTranslation(sx * (R.wristX + 0.07), R.armY - 0.03, R.chestZ + 0.03),
-        );
+        const s = left ? 'L' : 'R';
+        const wrist = this.bones.get(`Wrist${s}`)!;
+        // Griffpunkt in der Ruhepose: ein Stück über das Handgelenk hinaus in Armrichtung, leicht unter der
+        // Handfläche; das Requisit steht dabei aufrecht und folgt danach der Hand
+        this.inst.updateMatrixWorld(true);
+        const w = wrist.getWorldPosition(new Vector3());
+        const e = this.bones.get(`LowerArm${s}`)!.getWorldPosition(new Vector3());
+        const dir = w.clone().sub(e).normalize();
+        const grip = w.addScaledVector(dir, 0.075);
+        grip.y -= 0.025;
+        attachRigid(wrist, m, new Matrix4().makeTranslation(grip.x, grip.y, grip.z));
       }
       this.props[p] = m;
     }
+  }
+
+  showProp(p: Exclude<Prop, null>, on: boolean): void {
+    const m = this.props[p];
     if (m) m.visible = on;
-    if (p === 'ball') this.hasBall = on;
+    if (p === 'ball') this.hasBall = on && !!m;
   }
 
   // ───────────────────────────────────────── Steuerung (wie character.ts)
