@@ -5,6 +5,8 @@ export interface Buses {
   music: GainNode;
   sfx: GainNode;
   amb: GainNode;
+  /** Stimmen (Simlish) */
+  voice: GainNode;
   /** Hall-Eingang: mit Anteil zuspielen */
   reverb: GainNode;
 }
@@ -43,6 +45,7 @@ export class AudioEngine {
     const music = ctx.createGain();
     const sfx = ctx.createGain();
     const amb = ctx.createGain();
+    const voice = ctx.createGain();
     const reverb = ctx.createGain();
     const conv = ctx.createConvolver();
     conv.buffer = this.impulse(2.8, 2.4);
@@ -52,10 +55,12 @@ export class AudioEngine {
     music.connect(this.master);
     sfx.connect(this.master);
     amb.connect(this.master);
+    voice.connect(this.master);
     music.gain.value = 0.6;
     sfx.gain.value = 0.8;
     amb.gain.value = 0.7;
-    this.buses = { music, sfx, amb, reverb };
+    voice.gain.value = 0.8;
+    this.buses = { music, sfx, amb, reverb, voice };
 
     this.noiseBuf = this.makeNoise(3);
     this.started = true;
@@ -76,9 +81,10 @@ export class AudioEngine {
   }
 
   /** Lautstärken 0..1 (Regler) bzw. Stumm */
-  setLevels(music: number, sfx: number, muted: boolean): void {
+  setLevels(music: number, sfx: number, muted: boolean, voices = 0.8): void {
     if (!this.started) return;
     const t = this.now;
+    this.buses.voice.gain.setTargetAtTime(voices, t, 0.08);
     this.master.gain.setTargetAtTime(muted ? 0 : 1, t, 0.08);
     this.buses.music.gain.setTargetAtTime(music, t, 0.08);
     this.buses.sfx.gain.setTargetAtTime(sfx, t, 0.08);

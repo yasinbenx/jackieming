@@ -193,6 +193,28 @@ export class Sfx {
     am.stop(t + 2.5);
   }
 
+  /** Schnurren beim Streicheln */
+  purr(): void {
+    this.cat();
+  }
+
+  /** Holztür knarrt auf */
+  door(): void {
+    const e = this.e;
+    e.tone({ freq: 140, glideTo: 95, dur: 0.9, gain: 0.05, type: 'sawtooth', bus: this.b });
+    e.noiseBurst({
+      dur: 0.8,
+      type: 'bandpass',
+      freq: 600,
+      sweepTo: 380,
+      q: 6,
+      gain: 0.08,
+      attack: 0.1,
+      bus: this.b,
+    });
+    e.noiseBurst({ dur: 0.12, type: 'lowpass', freq: 300, gain: 0.12, bus: this.b, when: e.now + 0.85 });
+  }
+
   steam(): void {
     this.e.noiseBurst({ dur: 0.9, type: 'highpass', freq: 3200, gain: 0.09, attack: 0.08, bus: this.b });
   }

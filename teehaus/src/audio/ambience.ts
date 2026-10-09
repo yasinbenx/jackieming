@@ -94,6 +94,7 @@ export class Ambience {
     this.loopDrops();
     this.loopBirds();
     this.loopChimes();
+    this.loopDishes();
   }
 
   stop(): void {
@@ -135,6 +136,37 @@ export class Ambience {
   private later(fn: () => void, ms: number): void {
     this.timers.push(window.setTimeout(fn, ms));
     if (this.timers.length > 40) this.timers.shift();
+  }
+
+  /** Geschirr im Hintergrund: Tassen auf Untertassen, ein Löffel am Porzellan (nur im Haus) */
+  private loopDishes(): void {
+    if (!this.running) return;
+    const e = this.e;
+    if (this.inside) {
+      const t = e.now;
+      const hits = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < hits; i++) {
+        const f = 2300 + Math.random() * 1500;
+        e.tone({
+          freq: f,
+          dur: 0.18,
+          gain: 0.006,
+          type: 'sine',
+          bus: e.buses.amb,
+          when: t + i * 0.11,
+          reverb: 0.2,
+        });
+        e.tone({
+          freq: f * 2.76,
+          dur: 0.08,
+          gain: 0.003,
+          type: 'sine',
+          bus: e.buses.amb,
+          when: t + i * 0.11,
+        });
+      }
+    }
+    this.later(() => this.loopDishes(), 3500 + Math.random() * 8000);
   }
 
   /** Einzelne Wassertropfen */

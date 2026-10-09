@@ -11,6 +11,7 @@ import { SoundPanel } from './ui/sound';
 import { GameAudio } from './audio';
 import { Toast } from './ui/toast';
 import { Bubbles } from './ui/bubbles';
+import { Soundscape } from './world/soundscape';
 import { Npcs } from './world/npcs';
 import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
@@ -79,6 +80,12 @@ export class Game {
       onTalk: (id) => this.startTalk(id),
     });
     this.heroSay = (by, text) => this.heroes.say(by, text);
+    const scape = new Soundscape(world, this.audio.voice, () => this.talking);
+    scape.add(world.playerSpeaker);
+    for (const n of this.npcs.list)
+      scape.add(n.speaker, n === this.npcs.master ? undefined : () => n.agent.seated && !n.engaged);
+    for (const hero of [this.heroes.jackie, this.heroes.yao])
+      scape.add(hero.speaker, () => this.heroes.yaoHere && hero.agent.seated);
     this.talk = new TalkPanel({
       answer: (id, text) => this.bubbles.say(this.heroes.get(id).speaker, text, { hold: 0, cls: 'answer' }),
       banter: (by, text) => {

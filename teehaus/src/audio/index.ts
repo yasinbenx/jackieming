@@ -5,14 +5,14 @@ import { AudioEngine } from './engine';
 import { Music } from './music';
 import { Ambience } from './ambience';
 import { Sfx } from './sfx';
-import { Voice } from './voice';
+import { Simlish } from './simlish';
 
 export class GameAudio {
   readonly engine = new AudioEngine();
   readonly music = new Music(this.engine);
   readonly amb = new Ambience(this.engine);
   readonly sfx = new Sfx(this.engine, this.amb);
-  readonly voice = new Voice(this.engine);
+  readonly voice = new Simlish(this.engine);
   private wired = false;
   private inside = false;
 
@@ -33,7 +33,7 @@ export class GameAudio {
 
   applySettings(): void {
     const s = store.settings;
-    this.engine.setLevels(s.music, s.sfx, s.muted);
+    this.engine.setLevels(s.music, s.sfx, s.muted, s.voices);
     if (this.engine.started) {
       if (s.muted) this.music.stop();
       else this.music.start();
@@ -59,7 +59,7 @@ export class GameAudio {
     on('ui:unlock', () => this.sfx.unlock());
     on('ui:word', () => this.sfx.word());
     on('ui:select', (p) => this.sfx.select(p.who));
-    on('voice:blip', (p) => this.voice.blip(p.who, p.ch));
+    on('voice:blip', (p) => this.voice.syllable(p.who, p.ch));
     on('scene:sip', (p) => this.sfx.sip(p.who));
     on('scene:pour', () => this.sfx.pour());
     on('scene:clink', () => this.sfx.clink());
@@ -70,6 +70,9 @@ export class GameAudio {
     on('scene:lantern', () => this.sfx.lantern());
     on('scene:cat', () => this.sfx.cat());
     on('scene:steam', () => this.sfx.steam());
+    on('scene:door', () => this.sfx.door());
+    on('scene:purr', () => this.sfx.purr());
+    on('scene:tea', () => this.sfx.clink());
     on('scene:finale', () => this.music.swell());
     on('quiz:right', () => this.sfx.right());
     on('quiz:wrong', () => this.sfx.wrong());
