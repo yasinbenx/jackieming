@@ -1,8 +1,6 @@
 // Obere Leiste: Marke, Fortschritt, Wörterbuch, Tageszeit (日 黄昏 夜 自动), Info.
-import type { Stage } from '../three/stage';
+import type { World } from '../world/world';
 import type { TimePreset } from '../three/palette';
-import { PRESET_LABELS } from '../three/stage';
-import type { CameraPreset } from '../three/stage';
 import { bus } from '../core/bus';
 import { h } from './dom';
 
@@ -18,12 +16,6 @@ const TIME_BUTTONS: TimeBtn[] = [
   { id: 'golden', zh: '黄昏', pinyin: 'huánghūn', de: 'Abend' },
   { id: 'night', zh: '夜', pinyin: 'yè', de: 'Nacht' },
   { id: 'auto', zh: '自动', pinyin: 'zìdòng', de: 'Auto' },
-];
-
-const CAM_BUTTONS: { id: CameraPreset; zh: string; pinyin: string }[] = [
-  { id: 'overview', zh: '全景', pinyin: 'quánjǐng' },
-  { id: 'table', zh: '桌边', pinyin: 'zhuōbiān' },
-  { id: 'outside', zh: '外面', pinyin: 'wàimiàn' },
 ];
 
 export interface HudHandlers {
@@ -43,7 +35,7 @@ export interface Hud {
 const ICON_SOUND_ON = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" fill="currentColor"/></svg>`;
 const ICON_SOUND_OFF = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.6.4-1.4 1.4 1.8 1.8-1.8 1.8 1.4 1.4 1.8-1.8 1.8 1.8 1.4-1.4-1.8-1.8 1.8-1.8-1.4-1.4-1.8 1.8-1.8-1.8z" fill="currentColor"/></svg>`;
 
-export function createHud(stage: Stage, handlers: HudHandlers): Hud {
+export function createHud(stage: World, handlers: HudHandlers): Hud {
   const progress = h('span', { class: 'hud-progress-text' }, '0 / 28');
   const wordsCount = h('span', { class: 'hud-badge' }, '0');
   const toastBtn = h(
@@ -88,30 +80,6 @@ export function createHud(stage: Stage, handlers: HudHandlers): Hud {
     buttons.push(btn);
   }
   mark('auto');
-
-  // Kamera-Presets (unten links)
-  const cam = h('nav', { class: 'cam-seg seg', 'aria-label': 'Kamera' });
-  const camButtons: HTMLButtonElement[] = [];
-  for (const c of CAM_BUTTONS) {
-    const btn = h('button', {
-      type: 'button',
-      'data-cam': c.id,
-      title: `${PRESET_LABELS[c.id]} · ${c.pinyin} (Taste ${CAM_BUTTONS.indexOf(c) + 1})`,
-      onclick: () => {
-        bus.emit('ui:click');
-        stage.goTo(c.id);
-      },
-      html: `<span lang="zh">${c.zh}</span><small>${PRESET_LABELS[c.id]}</small>`,
-    });
-    cam.appendChild(btn);
-    camButtons.push(btn);
-  }
-  const markCam = (id: CameraPreset | null): void => {
-    for (const b of camButtons) b.setAttribute('aria-pressed', String(b.dataset.cam === id));
-  };
-  stage.onPreset = markCam;
-  markCam(stage.preset);
-  document.body.appendChild(cam);
 
   const el = h(
     'header',

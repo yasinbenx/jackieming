@@ -27,6 +27,7 @@ export interface BusEvents {
   'scene:cat': undefined;
   'scene:steam': undefined;
   'scene:enter': undefined;
+  'scene:door': undefined;
   'scene:finale': undefined;
   'quiz:right': undefined;
   'quiz:wrong': undefined;

@@ -137,11 +137,16 @@ export class InfoPage {
       h(
         'ul',
         { class: 'info-list' },
-        h('li', {}, 'Tippe oder klicke auf Jackie Chan (成龙) oder Yao Ming (姚明), oder drücke J und Y.'),
         h(
           'li',
           {},
-          'Kamera: ziehen zum Drehen, Mausrad oder zwei Finger zum Zoomen. Tastatur: Pfeiltasten drehen und zoomen, 1 Überblick, 2 Am Tisch, 3 Draußen.',
+          'Laufen: WASD oder Pfeiltasten (Umschalt = schneller), auf dem Handy der Joystick links unten. Oder einfach auf den Boden klicken bzw. tippen.',
+        ),
+        h('li', {}, 'Ansprechen und Benutzen: E-Taste oder den Hinweis antippen. Winken: G.'),
+        h(
+          'li',
+          {},
+          'Kamera: mit der Maus ziehen oder auf dem Handy wischen, Mausrad oder zwei Finger zum Zoomen.',
         ),
         h(
           'li',
@@ -195,7 +200,7 @@ export class InfoPage {
       h(
         'p',
         {},
-        'Gebaut mit TypeScript und three.js. Landschaft, Teehaus und Klänge entstehen live im Code. Die beiden Porträtfotos stammen von Wikimedia Commons (freie Lizenzen, siehe Bildnachweise). Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking. Nur wenn der Betreiber die optionale „Eigene Frage“ (KI) aktiviert hat, wird der eingegebene Text an den Server und von dort an die Claude-API gesendet. Die Antworten sind frei formuliert und keine echten Zitate.',
+        'Gebaut mit TypeScript und three.js. Figuren, Teehaus, Landschaft und Klänge entstehen live im Code. Es gibt keinen Server und keine KI: Alle Fragen und Antworten stehen fest im Spiel. Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking.',
       ),
       h(
         'p',
@@ -203,7 +208,7 @@ export class InfoPage {
         h(
           'button',
           { class: 'btn ghost', type: 'button', onclick: () => this.onCredits() },
-          'Bildnachweise und Lizenzen',
+          'Credits und Lizenzen',
         ),
       ),
       resetBtn,
@@ -212,42 +217,22 @@ export class InfoPage {
   }
 }
 
-/** Bildnachweise: Urheber, Lizenz, Link und Bearbeitungshinweis pro Foto */
+/** Credits: alle verwendeten Fremdinhalte mit Lizenz und Link */
 export class CreditsPage {
-  readonly modal = new Modal('credits', 'Bildnachweise', '鸣谢');
+  readonly modal = new Modal('credits', 'Credits und Lizenzen', '鸣谢');
 
   open(): void {
     const items = CREDITS.map((c) =>
       h(
         'article',
         { class: 'credit' },
-        h('img', {
-          class: 'credit-img',
-          src: `avatars/${c.who.startsWith('Jackie') ? 'jackie' : 'yao'}-portrait.webp`,
-          alt: '',
-        }),
+        h('h3', {}, c.name),
+        h('p', {}, c.what),
         h(
-          'div',
-          {},
-          h('h3', {}, c.who),
-          h(
-            'p',
-            {},
-            'Foto: ',
-            c.authorUrl
-              ? h('a', { href: c.authorUrl, target: '_blank', rel: 'noopener' }, c.author)
-              : c.author,
-            ' · Lizenz: ',
-            h('a', { href: c.licenseUrl, target: '_blank', rel: 'noopener' }, c.license),
-          ),
-          h(
-            'p',
-            {},
-            'Quelle: ',
-            h('a', { href: c.url, target: '_blank', rel: 'noopener' }, `Wikimedia Commons, „${c.file}“`),
-          ),
-          h('p', { class: 'dict-note' }, 'Bearbeitung: ', c.changes),
-          c.note ? h('p', { class: 'dict-note' }, c.note) : null,
+          'p',
+          { class: 'dict-note' },
+          `${c.author} · Lizenz: ${c.license} · `,
+          h('a', { href: c.url, target: '_blank', rel: 'noopener' }, 'Quelle'),
         ),
       ),
     );
@@ -256,7 +241,7 @@ export class CreditsPage {
         'div',
         { class: 'notice-box', role: 'note' },
         h('b', {}, 'Fiktives Gespräch, basiert auf öffentlich bekannten Fakten.'),
-        ' Keine echten Zitate. Nicht mit den dargestellten Personen verbunden. Die Fotos zeigen die Personen bei öffentlichen Auftritten; ihre Verwendung bedeutet keine Unterstützung dieses Projekts.',
+        ' Keine echten Zitate. Nicht mit den dargestellten Personen verbunden. Die Figuren von Jackie Chan und Yao Ming sind frei gestaltet und nicht nach ihren Gesichtern modelliert.',
       ),
       ...items,
       h('p', { class: 'dict-note' }, CREDITS_EXTRA),

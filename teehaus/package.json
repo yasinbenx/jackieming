@@ -13,14 +13,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "facts": "node scripts/facts.mjs",
-    "check:content": "node scripts/facts.mjs --check",
-    "test:chat": "node --experimental-strip-types scripts/test-chat.mjs"
+    "check:content": "node scripts/facts.mjs --check"
   },
   "engines": {
     "node": ">=20.19"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.1",
     "postprocessing": "^6.39.5",
     "three": "^0.186.1"
   },

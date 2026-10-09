@@ -2,7 +2,7 @@
 //   npm run facts           → FAKTEN.md neu schreiben
 //   npm run facts -- --check → nur prüfen (Verweise, Länge der Antworten, Wörter)
 // Benötigt Node ≥ 22.18 (führt .ts-Dateien ohne Build aus).
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -14,7 +14,6 @@ const { YAO } = await load('yao.ts');
 const { WORDS } = await load('words.ts');
 const { QUIZ } = await load('quiz.ts');
 const { EGGS } = await load('extras.ts');
-const { CREDITS } = await load('credits.ts');
 
 const profiles = [JACKIE, YAO];
 const factIds = new Set(FACTS.map((f) => f.id));
@@ -103,26 +102,11 @@ Nur wo sie eine Tatsache berühren (z. B. gemeinsame Haifisch-Kampagne, Jahr 201
 - „Kung Fu Panda“-Sprechrolle: bitte mit dem offiziellen Abspann abgleichen.
 - Yao Ming: aktuelle Ämter (z. B. Verband) ändern sich – im Text steht nur die Zeitspanne 2017–2024.
 
-## Darstellung in der 3D-Szene
+## Darstellung im Spiel
 
-- Die Papierfiguren zeigen echte, frei lizenzierte Fotos (siehe unten). Die Gesichter sind unverändert; es wurde nur freigestellt, zugeschnitten, skaliert und ein Papierrand ergänzt. Im Spiel tönt das Szenenlicht die Fotos leicht.
-- Größenverhältnis: Die Scheitelhöhe im Sitzen ist aus der Körpergröße abgeleitet (Hocker 0,45 m + 52 % der Körpergröße; Jackie ca. 1,73 m, Yao 2,29 m). Beide Köpfe sind gleich groß und etwas größer als in echt (Papierfiguren-Maßstab), damit die Gesichter lesbar sind.
-
-## Bildquellen (Papierfiguren)
-
-| Person | Datei | Urheber | Lizenz | Bearbeitung |
-|---|---|---|---|---|
-${CREDITS.map((c) => `| ${c.who} | [${c.file}](${c.url}) | ${c.author} | [${c.license}](${c.licenseUrl}) | ${c.changes}${c.note ? ' ' + c.note : ''} |`).join('\n')}
+- Alle Figuren sind stilisierte 3D-Figuren mit einem generischen, freundlichen Gesicht. Jackie Chan und Yao Ming sind **nicht** nach ihren echten Gesichtern modelliert; erkennbar sind sie über Kontext (Größe, Kleidung, Basketball, Namensschild).
+- Größenverhältnis: Yao Ming 2,29 m, Jackie Chan ca. 1,73 m (Angaben zu Jackie schwanken). Die Köpfe sind stilisiert etwas größer als in echt.
+- Die Kleidung (roter Mantel mit Golddrachen, Kampfkunst-Jacke) ist eine freie Gestaltung und keine Nachbildung bestimmter Auftritte.
 `;
 writeFileSync(join(root, 'FAKTEN.md'), md);
 console.log('FAKTEN.md geschrieben.');
-
-// ───────── Wissensbasis für den KI-Chat (api/chat.ts) aktualisieren
-const knowledge = { jackie: [], yao: [], beide: [] };
-for (const f of FACTS) knowledge[f.who].push(f.text + (f.note ? ` (Hinweis: ${f.note})` : ''));
-const apiPath = join(root, 'api/chat.ts');
-const src = readFileSync(apiPath, 'utf8');
-const block = `// <generated:knowledge>\nconst KNOWLEDGE: Record<string, string[]> = ${JSON.stringify(knowledge, null, 2)};\n// </generated:knowledge>`;
-const next = src.replace(/\/\/ <generated:knowledge>[\s\S]*?\/\/ <\/generated:knowledge>/, () => block);
-if (next !== src) writeFileSync(apiPath, next);
-console.log('api/chat.ts: Wissensbasis aktualisiert.');

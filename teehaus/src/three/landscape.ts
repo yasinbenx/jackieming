@@ -36,6 +36,7 @@ import {
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { clamp, fbm, lerp, noise2, rand, rng, smoothstep } from './noise';
 import { addWind, flat, mesh, POND, SHARED } from './shared';
+import { BRIDGE, bridgeY } from '../world/layout';
 import { glowTexture, mistTexture } from './textures';
 import type { Palette } from './palette';
 
@@ -334,11 +335,11 @@ export function makeWater(reflect: boolean, res: number): Mesh {
 function bridge(): Group {
   const g = new Group();
   g.name = 'bridge';
-  const x = -1.2;
-  const z0 = POND.z - POND.rz - 0.6;
-  const z1 = POND.z + POND.rz + 0.6;
+  const x = BRIDGE.x;
+  const z0 = BRIDGE.z0;
+  const z1 = BRIDGE.z1;
   const L = z1 - z0;
-  const yAt = (s: number): number => 0.15 + Math.sin(s * Math.PI) * 1.05;
+  const yAt = bridgeY;
   const wood = flat('#7a5636', { rough: 0.8 });
   const red = flat('#8f2a1c', { rough: 0.55 });
   const N = 26;
@@ -382,13 +383,8 @@ function bridge(): Group {
 }
 
 function pathStones(): InstancedMesh {
-  const curveA = new CatmullRomCurve3([
-    new Vector3(0, 0, 3.7),
-    new Vector3(-0.4, 0, 5.4),
-    new Vector3(-1.1, 0, POND.z - POND.rz - 0.8),
-  ]);
   const curveB = new CatmullRomCurve3([
-    new Vector3(-1.2, 0, POND.z + POND.rz + 0.8),
+    new Vector3(BRIDGE.x, 0, BRIDGE.z1 + 0.5),
     new Vector3(-0.6, 0, 18),
     new Vector3(1.2, 0, 23),
     new Vector3(2.4, 0, 30),
@@ -396,10 +392,7 @@ function pathStones(): InstancedMesh {
   ]);
   const r = rng(21);
   const pts: Vector3[] = [];
-  for (const [c, n] of [
-    [curveA, 7],
-    [curveB, 26],
-  ] as const) {
+  for (const [c, n] of [[curveB, 26]] as const) {
     for (let i = 0; i < n; i++) pts.push(c.getPoint(i / (n - 1)));
   }
   const geo = new CylinderGeometry(0.42, 0.46, 0.1, 7);
@@ -433,7 +426,7 @@ function rocks(): InstancedMesh {
       const a = r() * Math.PI * 2;
       x = POND.x + Math.cos(a) * POND.rx * 1.02;
       z = POND.z + Math.sin(a) * POND.rz * 1.05;
-      if (Math.abs(x - -1.2) < 1.2) continue; // Brückenköpfe frei
+      if (Math.abs(x - BRIDGE.x) < 1.4) continue; // Brückenköpfe frei
     } else {
       const a = rand(r, 0, Math.PI * 2);
       const d = rand(r, 8, 22);
@@ -610,10 +603,10 @@ function bamboo(count: number): Group {
   const leaves = new InstancedMesh(leafGeo, leafMat, count * perStalk);
   const o = new Object3D();
   const groves = [
-    { x: -8.6, z: -2.5, rx: 2.0, rz: 3.2 },
-    { x: 8.4, z: -2.5, rx: 2.0, rz: 3.0 },
-    { x: 0, z: -9, rx: 7, rz: 1.8 },
-    { x: -7.5, z: 4.2, rx: 1.4, rz: 1.4 },
+    { x: -10.6, z: -2.5, rx: 1.8, rz: 3.4 },
+    { x: 10.6, z: -2.5, rx: 1.8, rz: 3.2 },
+    { x: 0, z: -9.4, rx: 8, rz: 1.6 },
+    { x: -10.2, z: 6.6, rx: 1.4, rz: 1.4 },
   ];
   const m4 = new Matrix4();
   const q = new Quaternion();
@@ -682,7 +675,7 @@ function lotus(): Group {
     const d = Math.sqrt(r()) * 0.82;
     const x = POND.x + Math.cos(a) * POND.rx * d;
     const z = POND.z + Math.sin(a) * POND.rz * d;
-    if (Math.abs(x + 1.2) < 1.1) continue;
+    if (Math.abs(x - BRIDGE.x) < 1.1) continue;
     const pad = mesh(padGeo, padMat, 'receive');
     pad.position.set(x, 0.035, z);
     pad.rotation.y = r() * 6;
@@ -1019,7 +1012,7 @@ export function buildLandscape(opts: {
   group.add(pines());
   group.add(bamboo(opts.bamboo));
   const bt = blossomTree();
-  const blossomPos = new Vector3(5.5, heightAt(5.5, 2.4), 2.4);
+  const blossomPos = new Vector3(9.4, heightAt(9.4, 5.6), 5.6);
   bt.group.position.copy(blossomPos);
   group.add(bt.group);
   const w = willow();

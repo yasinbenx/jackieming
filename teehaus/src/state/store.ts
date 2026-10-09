@@ -11,6 +11,10 @@ export interface Settings {
   calm: boolean;
   /** Grafikqualität: automatisch oder fest (0 niedrig, 1 mittel, 2 hoch) */
   quality: 'auto' | 0 | 1 | 2;
+  /** gewähltes Outfit der Spielfigur */
+  outfit: number;
+  /** Lautstärke der Stimmen (Simlish) */
+  voices: number;
 }
 
 interface Persisted {
@@ -28,7 +32,7 @@ const DEFAULTS: Persisted = {
   eggs: [],
   quizBest: 0,
   toasted: false,
-  settings: { muted: false, music: 0.6, sfx: 0.8, calm: false, quality: 'auto' },
+  settings: { muted: false, music: 0.6, sfx: 0.8, calm: false, quality: 'auto', outfit: 0, voices: 0.8 },
 };
 
 type Listener = () => void;

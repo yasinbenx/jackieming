@@ -79,14 +79,8 @@ Nur wo sie eine Tatsache berühren (z. B. gemeinsame Haifisch-Kampagne, Jahr 201
 - „Kung Fu Panda“-Sprechrolle: bitte mit dem offiziellen Abspann abgleichen.
 - Yao Ming: aktuelle Ämter (z. B. Verband) ändern sich – im Text steht nur die Zeitspanne 2017–2024.
 
-## Darstellung in der 3D-Szene
+## Darstellung im Spiel
 
-- Die Papierfiguren zeigen echte, frei lizenzierte Fotos (siehe unten). Die Gesichter sind unverändert; es wurde nur freigestellt, zugeschnitten, skaliert und ein Papierrand ergänzt. Im Spiel tönt das Szenenlicht die Fotos leicht.
-- Größenverhältnis: Die Scheitelhöhe im Sitzen ist aus der Körpergröße abgeleitet (Hocker 0,45 m + 52 % der Körpergröße; Jackie ca. 1,73 m, Yao 2,29 m). Beide Köpfe sind gleich groß und etwas größer als in echt (Papierfiguren-Maßstab), damit die Gesichter lesbar sind.
-
-## Bildquellen (Papierfiguren)
-
-| Person | Datei | Urheber | Lizenz | Bearbeitung |
-|---|---|---|---|---|
-| Jackie Chan (成龙) | [Jackie Chan (7588072360) (cropped).jpg](https://commons.wikimedia.org/wiki/File:Jackie_Chan_(7588072360)_(cropped).jpg) | Gage Skidmore | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/deed.de) | Hintergrund entfernt (freigestellt), zugeschnitten, verkleinert, heller Papierrand und gerissene Kante ergänzt. Das Gesicht wurde nicht verändert. Die bearbeitete Fassung steht ebenfalls unter CC BY-SA 2.0. Aufnahme: San Diego Comic-Con 2012. |
-| Yao Ming (姚明) | [Yao Ming, Former NBA player, Founder, The Yao Foundation (13982586406).jpg](https://commons.wikimedia.org/wiki/File:Yao_Ming,_Former_NBA_player,_Founder,_The_Yao_Foundation_(13982586406).jpg) | World Travel & Tourism Council | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/deed.de) | Hintergrund entfernt (freigestellt), zugeschnitten, verkleinert, heller Papierrand und gerissene Kante ergänzt. Das Gesicht wurde nicht verändert. Aufnahme: Global Summit des WTTC, Hainan, April 2014. |
+- Alle Figuren sind stilisierte 3D-Figuren mit einem generischen, freundlichen Gesicht. Jackie Chan und Yao Ming sind **nicht** nach ihren echten Gesichtern modelliert; erkennbar sind sie über Kontext (Größe, Kleidung, Basketball, Namensschild).
+- Größenverhältnis: Yao Ming 2,29 m, Jackie Chan ca. 1,73 m (Angaben zu Jackie schwanken). Die Köpfe sind stilisiert etwas größer als in echt.
+- Die Kleidung (roter Mantel mit Golddrachen, Kampfkunst-Jacke) ist eine freie Gestaltung und keine Nachbildung bestimmter Auftritte.

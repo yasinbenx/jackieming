@@ -1,47 +1,43 @@
-// Bildnachweise für die Papierfiguren. Lizenzbedingungen: Urheber nennen, Lizenz verlinken, Änderungen angeben;
-// bei CC BY-SA steht die bearbeitete Fassung unter derselben Lizenz.
+// Fremdinhalte und ihre Lizenzen. Alles andere (Figuren, Teehaus, Landschaft, Texturen, Klänge) ist im Code erzeugt.
 
 export interface Credit {
-  who: string;
-  file: string;
-  url: string;
+  name: string;
+  what: string;
   author: string;
-  authorUrl?: string;
   license: string;
-  licenseUrl: string;
-  /** Was am Bild verändert wurde */
-  changes: string;
-  /** Hinweis zur Nachprüfung, falls etwas nicht eindeutig belegt ist */
-  note?: string;
+  url: string;
 }
-
-const CHANGES =
-  'Hintergrund entfernt (freigestellt), zugeschnitten, verkleinert, heller Papierrand und gerissene Kante ergänzt. Das Gesicht wurde nicht verändert.';
 
 export const CREDITS: Credit[] = [
   {
-    who: 'Jackie Chan (成龙)',
-    file: 'Jackie Chan (7588072360) (cropped).jpg',
-    url: 'https://commons.wikimedia.org/wiki/File:Jackie_Chan_(7588072360)_(cropped).jpg',
-    author: 'Gage Skidmore',
-    authorUrl: 'https://www.flickr.com/people/gageskidmore/',
-    license: 'CC BY-SA 2.0',
-    licenseUrl: 'https://creativecommons.org/licenses/by-sa/2.0/deed.de',
-    changes: `${CHANGES} Die bearbeitete Fassung steht ebenfalls unter CC BY-SA 2.0.`,
-    note: 'Aufnahme: San Diego Comic-Con 2012.',
+    name: 'three.js',
+    what: '3D-Darstellung im Browser',
+    author: 'three.js authors',
+    license: 'MIT',
+    url: 'https://github.com/mrdoob/three.js',
   },
   {
-    who: 'Yao Ming (姚明)',
-    file: 'Yao Ming, Former NBA player, Founder, The Yao Foundation (13982586406).jpg',
-    url: 'https://commons.wikimedia.org/wiki/File:Yao_Ming,_Former_NBA_player,_Founder,_The_Yao_Foundation_(13982586406).jpg',
-    author: 'World Travel & Tourism Council',
-    authorUrl: 'https://www.flickr.com/photos/wttc/13982586406',
-    license: 'CC BY 2.0',
-    licenseUrl: 'https://creativecommons.org/licenses/by/2.0/deed.de',
-    changes: CHANGES,
-    note: 'Aufnahme: Global Summit des WTTC, Hainan, April 2014.',
+    name: 'postprocessing',
+    what: 'Bloom, Tiefenunschärfe, Tone Mapping',
+    author: 'Raoul van Rüschen (pmndrs)',
+    license: 'Zlib',
+    url: 'https://github.com/pmndrs/postprocessing',
+  },
+  {
+    name: 'Noto Serif SC',
+    what: 'Schrift für chinesische Zeichen (Subset)',
+    author: 'Google, Adobe',
+    license: 'SIL Open Font License 1.1',
+    url: 'https://fonts.google.com/noto/specimen/Noto+Serif+SC',
+  },
+  {
+    name: 'Ma Shan Zheng',
+    what: 'Pinselschrift für Titel und Schilder (Subset)',
+    author: 'Ma Shan Zheng',
+    license: 'SIL Open Font License 1.1',
+    url: 'https://fonts.google.com/specimen/Ma+Shan+Zheng',
   },
 ];
 
 export const CREDITS_EXTRA =
-  'Alle übrigen Bilder, Figuren-Bühnen, Landschaft und Klänge sind im Code erzeugt. Schriften: Noto Serif SC und Ma Shan Zheng (SIL Open Font License). 3D: three.js (MIT), postprocessing (Zlib).';
+  'Alle Figuren, das Teehaus, die Landschaft, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Es werden keine Fotos, Modelle oder Tonaufnahmen von außen geladen.';
