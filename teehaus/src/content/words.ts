@@ -65,6 +65,29 @@ export const WORDS: Word[] = [
   { id: 'ganbei', zh: '干杯', py: 'gan1bei1', de: 'Prost!', note: 'wörtlich: „die Tasse leeren“' },
   { id: 'xiexie', zh: '谢谢', py: 'xie4xie5', de: 'danke' },
   { id: 'qingjin', zh: '请进', py: 'qing3jin4', de: 'bitte eintreten' },
+  // Café und Gäste
+  { id: 'nihao', zh: '你好', py: 'ni3hao3', de: 'Hallo, guten Tag', note: 'wörtlich: „du gut“' },
+  {
+    id: 'huanying',
+    zh: '欢迎光临',
+    py: 'huan1ying2 guang1lin2',
+    de: 'Herzlich willkommen!',
+    note: 'typische Begrüßung in Geschäften und Restaurants',
+  },
+  {
+    id: 'qinghecha',
+    zh: '请喝茶',
+    py: 'qing3 he1 cha2',
+    de: 'Bitte trink Tee!',
+    note: '请 = bitte, 喝 = trinken, 茶 = Tee',
+  },
+  { id: 'shifu', zh: '师傅', py: 'shi1fu5', de: 'Meister (höfliche Anrede für Handwerker)' },
+  { id: 'xiangqi', zh: '象棋', py: 'xiang4qi2', de: 'Chinesisches Schach (Xiangqi)' },
+  { id: 'shi', zh: '诗', py: 'shi1', de: 'Gedicht' },
+  { id: 'maobi', zh: '毛笔', py: 'mao2bi3', de: 'Pinsel (zum Schreiben)', note: 'wörtlich: „Haar-Stift“' },
+  { id: 'shanzi', zh: '扇子', py: 'shan4zi5', de: 'Fächer' },
+  { id: 'shan', zh: '山', py: 'shan1', de: 'Berg', note: 'Das Zeichen sieht aus wie drei Gipfel.' },
+  { id: 'zaijian', zh: '再见', py: 'zai4jian4', de: 'Auf Wiedersehen' },
 ];
 
 export const wordById = (id: string): Word | undefined => WORDS.find((w) => w.id === id);

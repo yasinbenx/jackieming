@@ -23,6 +23,8 @@ export class FollowCam {
   /** Wird gerade ein fester Bildausschnitt gezeigt? */
   locked = false;
   minDist = 1.4;
+  /** tatsächlicher Abstand nach Kollision (zum Ausblenden der Figur bei sehr kleinem Abstand) */
+  close = 4;
   maxDist = 7;
 
   constructor(readonly camera: PerspectiveCamera) {}
@@ -75,16 +77,24 @@ export class FollowCam {
     this.yaw += dy * k;
     this.pitch += (this.dPitch - this.pitch) * k;
     this.dist += (this.dDist - this.dist) * Math.min(1, dt * 6);
-    // gewünschte Position auf der Kugel um den Zielpunkt
-    const dir = new Vector3(
-      Math.sin(this.yaw) * Math.cos(this.pitch),
-      Math.sin(this.pitch),
-      Math.cos(this.yaw) * Math.cos(this.pitch),
-    );
-    this.ray.set(target, dir);
-    this.ray.far = this.dist + 0.3;
-    const hit = this.ray.intersectObjects(blockers, false)[0];
-    const d = hit ? Math.max(0.35, hit.distance - 0.3) : this.dist;
+    // gewünschte Position auf der Kugel um den Zielpunkt; ist es dahinter zu eng, steiler von oben schauen
+    const cast = (pitch: number): { dir: Vector3; d: number } => {
+      const dir = new Vector3(
+        Math.sin(this.yaw) * Math.cos(pitch),
+        Math.sin(pitch),
+        Math.cos(this.yaw) * Math.cos(pitch),
+      );
+      this.ray.set(target, dir);
+      this.ray.far = this.dist + 0.3;
+      const hit = this.ray.intersectObjects(blockers, false)[0];
+      return { dir, d: hit ? Math.max(0.35, hit.distance - 0.3) : this.dist };
+    };
+    let { dir, d } = cast(this.pitch);
+    if (d < this.dist * 0.55) {
+      const alt = cast(Math.min(1.25, this.pitch + 0.55));
+      if (alt.d > d * 1.3) ({ dir, d } = alt);
+    }
+    this.close = d;
     const want = target.clone().addScaledVector(dir, d);
     // Kollisionen sofort, Zurückweichen weich
     const cur = this.pos.distanceTo(target);

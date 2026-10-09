@@ -47,6 +47,8 @@ import { FollowCam } from './camera';
 import { Input } from './input';
 import { PLAYER_LOOKS } from './looks';
 import { RIM } from './materials';
+import type { Speaker } from '../ui/bubbles';
+import type { Egg } from '../content/extras';
 import { FLOOR, HALL, START, TERRACE } from './layout';
 
 export type Quality = 0 | 1 | 2;
@@ -135,6 +137,21 @@ export class World {
   private inside = false;
   onInsideChange?: (inside: boolean) => void;
   onFocusChange?: (i: Interactable | null) => void;
+  /** Ein Fundstück wurde benutzt */
+  onEgg?: (id: Egg['id']) => void;
+  /** Spieler hat gewinkt */
+  onWave?: () => void;
+  /** Sprecher für kleine Symbol-Blasen über der Spielfigur */
+  readonly playerSpeaker: Speaker = {
+    id: 'player',
+    name: '我',
+    anchor: () => this.player.ch.headWorld().add(new Vector3(0, this.player.ch.H * 0.12 + 0.12, 0)),
+  };
+
+  /** Laufzeit in Sekunden (für Abklingzeiten) */
+  get clock(): number {
+    return this.time;
+  }
   private base = import.meta.env.BASE_URL;
 
   async init(host: HTMLElement, progress: (f: number) => Promise<void>): Promise<void> {
@@ -532,6 +549,10 @@ export class World {
 
   // ───────────────────────────────────────── Hilfen
 
+  nudgeLantern(l: { swing: number }, k: number): void {
+    l.swing = Math.min(1.2, l.swing + 0.6 * k);
+  }
+
   toScreen(v: Vector3): { x: number; y: number; visible: boolean } {
     const p = v.clone().project(this.camera);
     const r = this.renderer.domElement.getBoundingClientRect();
@@ -595,7 +616,10 @@ export class World {
       }
       for (const t of inp.taps) this.handleTap(t.x, t.y);
       if (inp.interact) this.useFocus();
-      if (inp.wave && !this.player.seated) this.player.ch.play('wave', 1.6);
+      if (inp.wave) {
+        this.player.ch.play(this.player.seated ? 'nod' : 'wave', 1.6);
+        this.onWave?.();
+      }
     }
     for (let i = this.tickers.length - 1; i >= 0; i--)
       if (this.tickers[i]!(dt) === true) this.tickers.splice(i, 1);
@@ -620,6 +644,8 @@ export class World {
       this.cam.follow(this.player.ch.yaw, dt, 0.8);
     }
     this.cam.update(dt, this.playerTarget(), this.cafe.blockers);
+    // Kamera klebt an der Figur (enge Ecke): Figur ausblenden statt den Kopf groß ins Bild zu schieben
+    this.player.ch.root.visible = this.cam.locked || this.cam.close > 0.6;
     this.updateFocus();
     inp.endFrame();
 

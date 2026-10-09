@@ -3,10 +3,10 @@ import type { FigureId } from '../content/types';
 
 export interface BusEvents {
   /** Eine Figur beginnt / endet zu sprechen */
-  'voice:start': { who: FigureId };
-  'voice:end': { who: FigureId };
+  'voice:start': { who: string };
+  'voice:end': { who: string };
   /** Ein Sprechgeräusch pro Buchstabe(ngruppe) */
-  'voice:blip': { who: FigureId; ch: string };
+  'voice:blip': { who: string; ch: string };
   /** Allgemeine UI-Geräusche */
   'ui:click': undefined;
   'ui:open': undefined;
@@ -25,6 +25,9 @@ export interface BusEvents {
   'scene:koi': undefined;
   'scene:lantern': undefined;
   'scene:cat': undefined;
+  'scene:purr': undefined;
+  'scene:meow': undefined;
+  'scene:tea': undefined;
   'scene:steam': undefined;
   'scene:enter': undefined;
   'scene:door': undefined;

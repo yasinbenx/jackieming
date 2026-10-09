@@ -1,18 +1,17 @@
 // Sprechgeräusche (Blips): pro Figur eigene Stimmlage, Töne aus der Pentatonik – wie bei Animal Crossing,
 // nur freundlicher. Jackie höher und heller, Yao tiefer und runder.
 import { isCjk } from '../ui/dom';
-import type { FigureId } from '../content/types';
 import type { AudioEngine } from './engine';
 import { midiToFreq } from './engine';
 
 const DEGREES = [0, 2, 4, 7, 9];
 
 export class Voice {
-  private last: Record<FigureId, number> = { jackie: 0, yao: 0 };
+  private last: Record<string, number> = {};
 
   constructor(private e: AudioEngine) {}
 
-  blip(who: FigureId, ch: string): void {
+  blip(who: string, ch: string): void {
     const e = this.e;
     const code = ch.codePointAt(0) ?? 0;
     const deg = DEGREES[code % 5]!;
@@ -22,7 +21,7 @@ export class Voice {
     const m = base + deg + oct + (isCjk(ch) ? 5 : 0);
     const f = midiToFreq(m) * (1 + (Math.random() - 0.5) * 0.02);
     // kleine Variation der Stimmlage, damit es nicht monoton klingt
-    const prev = this.last[who];
+    const prev = this.last[who] ?? 0;
     this.last[who] = f;
     const dur = jackie ? 0.06 : 0.075;
     e.tone({

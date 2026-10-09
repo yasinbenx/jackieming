@@ -2444,3 +2444,54 @@ body.touch .act-prompt {
   pointer-events: none;
   opacity: 0;
 }
+
+/* ───── Sprechblasen im Comic-Look (Papier mit Tuschekante, Holz-Namensschild) ───── */
+.bubble {
+  background:
+    repeating-linear-gradient(87deg, rgba(120, 90, 50, 0.04) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #fbf4e3, #f0e2c2);
+  border: 2.5px solid #2a1a10;
+  border-radius: 18px 18px 18px 6px / 16px 16px 16px 6px;
+  box-shadow:
+    3px 4px 0 rgba(42, 26, 16, 0.85),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+.bubble::after {
+  background: #f3e6c8;
+  border-right: 2.5px solid #2a1a10;
+  border-bottom: 2.5px solid #2a1a10;
+}
+.bubble-name {
+  background: linear-gradient(180deg, var(--wood-l), var(--wood-d));
+  color: #fbf0d8;
+}
+.bubble-jackie .bubble-name {
+  background: linear-gradient(180deg, #2e3448, #1a1e2a);
+}
+.bubble-yao .bubble-name {
+  background: linear-gradient(180deg, #c03024, #7a1a12);
+}
+.bubble.old {
+  opacity: 0.55;
+  filter: saturate(0.6);
+  font-size: 14px;
+}
+.bubble.old::after {
+  display: none;
+}
+.bubble.gone {
+  opacity: 0 !important;
+}
+.bubble.icon {
+  min-width: 44px;
+  padding: 6px 10px;
+  text-align: center;
+  font: 22px/1.1 var(--font-ui);
+  border-radius: 50%;
+}
+.bubble.offscreen {
+  opacity: 0 !important;
+}
