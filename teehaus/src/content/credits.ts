@@ -24,6 +24,13 @@ export const CREDITS: Credit[] = [
     url: 'https://github.com/pmndrs/postprocessing',
   },
   {
+    name: 'Universal Base Characters',
+    what: 'Haar- und Augenbrauen-Modelle (haare.glb, komprimiert)',
+    author: 'Quaternius',
+    license: 'CC0 1.0',
+    url: 'https://quaternius.itch.io/universal-base-characters',
+  },
+  {
     name: 'Noto Serif SC',
     what: 'Schrift für chinesische Zeichen (Subset)',
     author: 'Google, Adobe',
@@ -40,4 +47,4 @@ export const CREDITS: Credit[] = [
 ];
 
 export const CREDITS_EXTRA =
-  'Alle Figuren, das Teehaus, die Landschaft, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Es werden keine Fotos, Modelle oder Tonaufnahmen von außen geladen.';
+  'Alle Figuren, das Teehaus, die Landschaft, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Einzige Ausnahme sind die oben genannten CC0-Haarmodelle. Es werden keine Fotos oder Tonaufnahmen von außen geladen.';
