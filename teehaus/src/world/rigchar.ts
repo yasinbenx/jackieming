@@ -251,7 +251,33 @@ export class RigCharacter {
   private inst: Group;
   private bones = new Map<string, Bone>();
   private mixer: AnimationMixer;
-  private loco: { idle: AnimationAction; walk: AnimationAction; run: AnimationAction };
+  private loco: {
+    idle: AnimationAction;
+    idle2: AnimationAction;
+    walk: AnimationAction;
+    run: AnimationAction;
+  };
+  /** Mischung der beiden Idle-Varianten (0 = erste, 1 = zweite), wechselt zufällig */
+  private idleMix = 0;
+  private idleTarget = 0;
+  private idleSwap = 6 + Math.random() * 10;
+  // Sprechgesten
+  private gest = 0;
+  private gestTimer = 0;
+  private gestPose = { side: 1, lift: 0.5, open: 0.5 };
+  private talkHold = 0;
+  // Nachschwingen (Quasten, Haare)
+  private dangles: {
+    obj: Object3D;
+    rest: Quaternion;
+    prev: Vector3;
+    vel: Vector3;
+    ang: Vector3;
+    angVel: Vector3;
+    k: number;
+    gain: number;
+    hang: boolean;
+  }[] = [];
   private clipActs = new Map<Action, AnimationAction>();
   private A: RigAssets;
   private S: number;
@@ -384,17 +410,26 @@ export class RigCharacter {
     // Animationen: Bewegungs-Mischung (Idle/Gehen/Laufen) mit zufälligem Zeitversatz
     this.mixer = new AnimationMixer(this.inst);
     const clip = (n: string) => A.clips.get(n)!;
-    const idle = this.mixer.clipAction(clip(look.id === 'master' ? 'Idle_Neutral' : 'Idle'));
+    const first = look.id === 'master' || Math.random() < 0.5;
+    const idle = this.mixer.clipAction(clip(first ? 'Idle_Neutral' : 'Idle'));
+    const idle2 = this.mixer.clipAction(clip(first ? 'Idle' : 'Idle_Neutral'));
     const walk = this.mixer.clipAction(clip('Walk'));
     const run = this.mixer.clipAction(clip('Run'));
-    for (const a of [idle, walk, run]) {
+    for (const a of [idle, idle2, walk, run]) {
       a.setLoop(LoopRepeat, Infinity);
       a.play();
       a.time = Math.random() * a.getClip().duration;
       a.setEffectiveWeight(a === idle ? 1 : 0);
     }
     idle.timeScale = 0.85 + Math.random() * 0.3;
-    this.loco = { idle, walk, run };
+    idle2.timeScale = 0.85 + Math.random() * 0.3;
+    this.loco = { idle, idle2, walk, run };
+    // Quasten und lange Haare schwingen nach
+    this.root.updateMatrixWorld(true);
+    this.inst.traverse((o) => {
+      if (o.userData.tassel) this.addDangle(o, 28, 0.06, true);
+      if (o.userData.hairSway) this.addDangle(o, 60, 0.012, false);
+    });
   }
 
   // ───────────────────────────────────────── Aufbau
@@ -552,6 +587,7 @@ export class RigCharacter {
           g.add(knot, tas);
           tas.position.y = -0.075;
           g.userData.tassel = true;
+          tas.userData.tassel = false;
           attachRigid(
             hips,
             g,
@@ -631,6 +667,7 @@ export class RigCharacter {
       new Vector3(R.r.x * sx * 1.04, R.r.y * sy * 1.02, R.r.z * sz * 1.04),
     );
     attachRigid(headBone, m, world);
+    if (fit.piece === 'Hair_Long' || fit.piece === 'Hair_Buns') m.userData.hairSway = true;
   }
 
   /** Körpertypen über Knochen: Kopf, Schultern, Rumpf, Arme, Hände, Füße, Hosenweite */
@@ -811,6 +848,58 @@ export class RigCharacter {
     b.updateMatrixWorld(true);
   }
 
+  private addDangle(obj: Object3D, k: number, gain: number, hang: boolean): void {
+    this.dangles.push({
+      obj,
+      rest: obj.quaternion.clone(),
+      prev: obj.getWorldPosition(new Vector3()),
+      vel: new Vector3(),
+      ang: new Vector3(),
+      angVel: new Vector3(),
+      k,
+      gain,
+      hang,
+    });
+  }
+
+  /**
+   * Nachschwingen: Beschleunigung des Aufhängepunkts lenkt eine gedämpfte Feder aus (Quasten, lange Haare).
+   * Quasten hängen zusätzlich immer nach unten, auch wenn sich die Hüfte beim Sitzen dreht.
+   */
+  private swing(dt: number): void {
+    if (dt <= 0) return;
+    const inv = _q1.copy(this.root.quaternion).invert();
+    for (const d of this.dangles) {
+      const p = d.obj.getWorldPosition(_v1);
+      const vel = _v2.copy(p).sub(d.prev).divideScalar(dt);
+      const acc = _v3.copy(vel).sub(d.vel).divideScalar(dt).applyQuaternion(inv);
+      d.prev.copy(p);
+      d.vel.copy(vel);
+      // Zielauslenkung: gegen die Beschleunigung (vorne/hinten → Drehung um x, seitlich → um z)
+      const tx = Math.max(-0.9, Math.min(0.9, acc.z * d.gain));
+      const tz = Math.max(-0.9, Math.min(0.9, -acc.x * d.gain));
+      d.angVel.x += ((tx - d.ang.x) * d.k - d.angVel.x * Math.sqrt(d.k) * 1.2) * dt;
+      d.angVel.z += ((tz - d.ang.z) * d.k - d.angVel.z * Math.sqrt(d.k) * 1.2) * dt;
+      d.ang.x += d.angVel.x * dt;
+      d.ang.z += d.angVel.z * dt;
+      d.obj.quaternion.copy(d.rest);
+      if (d.hang && d.obj.parent) {
+        // nach unten ausrichten (Lot) …
+        d.obj.updateMatrixWorld(true);
+        const wq = d.obj.getWorldQuaternion(_q2);
+        const down = _v4.set(0, -1, 0).applyQuaternion(wq);
+        _q3.setFromUnitVectors(down, _v1.set(0, -1, 0));
+        const pq = d.obj.parent.getWorldQuaternion(_q4);
+        d.obj.quaternion.premultiply(pq).premultiply(_q3).premultiply(pq.clone().invert());
+      }
+      // … und auslenken (um Achsen im Figurenraum)
+      const pq = d.obj.parent!.getWorldQuaternion(_q4);
+      _q3.setFromAxisAngle(_v1.copy(X).applyQuaternion(this.root.quaternion), d.ang.x);
+      _q2.setFromAxisAngle(_v2.copy(Z).applyQuaternion(this.root.quaternion), d.ang.z);
+      d.obj.quaternion.premultiply(pq).premultiply(_q3).premultiply(_q2).premultiply(pq.clone().invert());
+    }
+  }
+
   /**
    * Fuß-IK auf unebenem Boden (Stufen, Brücke): Becken senkt sich zum tieferen Fuß, der höhere Fuß wird mit
    * zwei Gelenken (Hüfte, Knie) angehoben, das Knie zeigt dabei in die bisherige Richtung.
@@ -902,7 +991,15 @@ export class RigCharacter {
     for (const [a, act] of this.clipActs) clipW = Math.max(clipW, this.w(a) * (act.isRunning() ? 1 : 0));
     for (const [a, act] of this.clipActs) act.setEffectiveWeight(this.w(a));
     const free = 1 - clipW;
-    this.loco.idle.setEffectiveWeight((1 - wMove) * free);
+    // Idle-Varianten gelegentlich wechseln (weiche Überblendung, nie alle gleichzeitig)
+    this.idleSwap -= dt;
+    if (this.idleSwap < 0) {
+      this.idleSwap = 8 + Math.random() * 14;
+      this.idleTarget = this.idleTarget > 0.5 ? 0 : 1;
+    }
+    this.idleMix += (this.idleTarget - this.idleMix) * Math.min(1, dt * 1.2);
+    this.loco.idle.setEffectiveWeight((1 - wMove) * free * (1 - this.idleMix));
+    this.loco.idle2.setEffectiveWeight((1 - wMove) * free * this.idleMix);
     this.loco.walk.setEffectiveWeight(wMove * (1 - wRun) * free);
     this.loco.run.setEffectiveWeight(wMove * wRun * free);
     this.loco.walk.timeScale = Math.min(1.8, Math.max(0.55, sp / walkNat, this.wStep * 1.2));
@@ -935,6 +1032,8 @@ export class RigCharacter {
     const browUp = Math.max(laugh, this.talkSmooth * 0.5 * (0.5 + 0.5 * Math.sin(t * 3 + this.seed)));
     for (const b of this.brows) if (b.morphTargetInfluences) b.morphTargetInfluences[0] = browUp;
     this.talkSmooth += (this.talk - this.talkSmooth) * Math.min(1, dt * 18);
+    // Mund klappt pro Silbe auf und von selbst wieder zu
+    this.talk = Math.max(0, this.talk - dt * 7);
     const open = Math.max(this.talkSmooth, laugh * (0.6 + Math.abs(Math.sin(t * 16)) * 0.4));
     this.mouthOpen.scale.y = 0.08 + open * 0.3;
     this.mouthOpen.visible = this.detail && open > 0.05;
@@ -943,6 +1042,43 @@ export class RigCharacter {
 
   private procedural(dt: number, t: number, sitK: number, sp: number): void {
     const w = (a: Action): number => this.w(a);
+    // Gewichtsverlagerung im Stehen (langsam, je Figur anders)
+    const still = (1 - Math.min(1, sp)) * (1 - sitK);
+    if (still > 0.01) {
+      this.rot('Body', Z, Math.sin(t * 0.37 + this.seed) * 0.022 * still);
+      this.rot('Torso', Y, Math.sin(t * 0.23 + this.seed * 2) * 0.05 * still);
+    }
+    // Sprechgesten: beim Reden Hände öffnen, mal links, mal rechts, dazu leichtes Nicken
+    if (this.talkSmooth > 0.2) this.talkHold = 1.2;
+    this.talkHold -= dt;
+    let busy = 0;
+    for (const s of this.actions.values()) busy = Math.max(busy, s.w);
+    const gTarget = this.talkHold > 0 && sp < 0.3 ? 1 - busy : 0;
+    this.gest += (gTarget - this.gest) * Math.min(1, dt * 3);
+    this.gestTimer -= dt;
+    if (this.gestTimer < 0) {
+      this.gestTimer = 1.2 + Math.random() * 1.4;
+      this.gestPose = {
+        side: Math.random() < 0.35 ? 0 : Math.random() < 0.5 ? 1 : -1,
+        lift: Math.random(),
+        open: Math.random(),
+      };
+    }
+    if (this.gest > 0.01) {
+      const g = this.gest;
+      const gp = this.gestPose;
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        if (gp.side !== 0 && gp.side !== dir) continue;
+        const k = g * (0.6 + 0.4 * Math.sin(t * 2.3 + dir));
+        this.rot(`UpperArm${s}`, X, -(0.25 + 0.3 * gp.lift) * k);
+        this.rot(`UpperArm${s}`, Z, dir * 0.15 * gp.open * k);
+        this.rot(`LowerArm${s}`, X, -(0.7 + 0.4 * gp.lift) * k);
+      }
+      this.rot('Head', X, Math.sin(t * 5.5) * 0.04 * this.talkSmooth);
+    }
     // Kurvenneigung: Oberkörper neigt sich in die Kurve, stärker beim Laufen
     const lean = Math.max(-0.22, Math.min(0.22, -this.yawRate * sp * 0.045));
     if (Math.abs(lean) > 0.002) {
@@ -1089,6 +1225,7 @@ export class RigCharacter {
     this.rot('Head', Y, this.lookYaw * 0.6);
     this.rot('Head', X, -this.lookPitch * 0.8);
     if (sitK < 0.05 && this.detail) this.footIK();
+    if (this.detail) this.swing(dt);
     // Füße folgen den gebeugten Beinen (die Fußknochen hängen am Wurzelknochen)
     if (sitK > 0.001 || duck > 0.001 || w('pet') > 0.001) {
       for (const s of ['L', 'R']) {

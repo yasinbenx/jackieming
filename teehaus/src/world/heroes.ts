@@ -178,6 +178,15 @@ export class Heroes {
       hero.tag.style.opacity = show ? String(Math.min(1, (11 - d) / 3)) : '0';
       hero.tag.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px) translate(-50%, -100%) scale(${Math.max(0.75, Math.min(1.1, 4 / d))})`;
     }
+    // Zuhören: wer gerade nicht spricht, nickt ab und zu, wenn der andere redet
+    if (this.yaoInside)
+      for (const [h, other] of [
+        [jackie, yao],
+        [yao, jackie],
+      ] as const) {
+        if (other.ch.talk > 0.3 && h.ch.talk < 0.1 && !h.ch.isPlaying('nod') && Math.random() < dt * 0.35)
+          h.ch.play('nod', 0.9);
+      }
     // Verhaltensschleife (nur ohne Gespräch und wenn beide sitzen)
     if (talking || !this.yaoInside || !jackie.agent.seated || !yao.agent.seated) return;
     this.next -= dt;
