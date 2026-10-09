@@ -217,14 +217,14 @@ function naturalSpeed(scene: Group, clip: AnimationClip): number {
   const dt = clip.duration / steps;
   const speeds: number[] = [];
   for (let i = 1; i <= steps; i++) {
-    if (ys[i]! < minY + 0.025 && ys[i - 1]! < minY + 0.025) {
+    if (ys[i]! < minY + 0.02 && ys[i - 1]! < minY + 0.02) {
       const sp = (zs[i - 1]! - zs[i]!) / dt;
       if (sp > 0) speeds.push(sp);
     }
   }
   if (!speeds.length) return 0;
-  speeds.sort((a, b) => a - b);
-  return speeds[Math.floor(speeds.length / 2)]!;
+  // Mittelwert über die Standphase (der Median überschätzt bei kurzen Bodenkontakten im Laufen)
+  return speeds.reduce((a, b) => a + b, 0) / speeds.length;
 }
 
 /** Lädt alle Figuren-Teile und Animationen einmal. Ohne Erfolg bleiben die gezeichneten Figuren. */
