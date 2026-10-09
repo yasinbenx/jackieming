@@ -296,3 +296,6 @@ renderer.setAnimationLoop(() => {
   controls.update();
   renderer.render(scene, camera);
 });
+
+// Test-Hilfe: Kamera von außen setzen (z. B. Kopf-Nahaufnahme)
+(window as unknown as { __lab: unknown }).__lab = { camera, controls, spin: spinBox };

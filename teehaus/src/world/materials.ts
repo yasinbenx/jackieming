@@ -317,3 +317,61 @@ export function ballTexture(): Texture {
   texCache.set(key, t);
   return t;
 }
+
+let foldTex: Texture | null = null;
+
+/**
+ * Stofffalten als Normal Map: weiche senkrechte Falten (am Saum stärker) und feines Gewebe. Wird auf Jacken,
+ * Hosen und Gewänder gelegt (u läuft um den Körper, v von unten nach oben).
+ */
+export function fabricNormals(): Texture {
+  if (foldTex) return foldTex;
+  const W = 256;
+  const H = 256;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(W, H);
+  // Höhenfeld: Falten = Summe von Sinuswellen mit leicht schwankender Phase, unten tiefer
+  const hgt = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const v = y / H;
+    const depth = 0.35 + 0.65 * Math.pow(1 - v, 1.5);
+    for (let x = 0; x < W; x++) {
+      const u = x / W;
+      const wob = Math.sin(v * 9 + u * 31) * 0.04;
+      let h = 0;
+      h += Math.sin((u + wob) * Math.PI * 2 * 7) * 0.6;
+      h += Math.sin((u - wob * 2) * Math.PI * 2 * 13 + 1.3) * 0.3;
+      h *= depth;
+      h += Math.sin(x * 1.9) * Math.sin(y * 2.1) * 0.03;
+      hgt[y * W + x] = h;
+    }
+  }
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const l = hgt[y * W + ((x - 1 + W) % W)]!;
+      const r = hgt[y * W + ((x + 1) % W)]!;
+      const d = hgt[((y - 1 + H) % H) * W + x]!;
+      const u = hgt[((y + 1) % H) * W + x]!;
+      let nx = (l - r) * 2.5;
+      let ny = (d - u) * 2.5;
+      let nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      nx /= len;
+      ny /= len;
+      nz /= len;
+      const i = (y * W + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new CanvasTexture(c);
+  t.wrapS = RepeatWrapping;
+  foldTex = t;
+  return t;
+}

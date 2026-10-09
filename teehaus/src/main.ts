@@ -45,7 +45,11 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   if (params.has('galerie')) {
     const { gallery } = await import('./world/gallery');
-    gallery(world, params.get('anim'), (params.get('ansicht') as 'front' | 'side' | 'close') ?? 'front');
+    (window as unknown as { __gal: unknown }).__gal = gallery(
+      world,
+      params.get('anim'),
+      (params.get('ansicht') as 'front' | 'side' | 'close') ?? 'front',
+    );
     document.body.classList.add('is-loaded', 'is-picking');
     return;
   }

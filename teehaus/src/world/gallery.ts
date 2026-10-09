@@ -2,18 +2,19 @@
 // Gesichtern und Animationen. Im normalen Spiel wird diese Datei nicht geladen.
 import { Vector3 } from 'three';
 import type { World } from './world';
-import { Character } from './character';
+import { makeFigure } from './figure';
+import type { Figure } from './figure';
 import type { Action } from './character';
 import { GUEST_LOOKS, JACKIE_LOOK, MASTER_LOOK, PLAYER_LOOKS, YAO_LOOK } from './looks';
 import { FLOOR } from './layout';
 
-export function gallery(world: World, action: string | null, view: 'front' | 'side' | 'close'): Character[] {
+export function gallery(world: World, action: string | null, view: 'front' | 'side' | 'close'): Figure[] {
   const looks = [YAO_LOOK, JACKIE_LOOK, MASTER_LOOK, ...Object.values(GUEST_LOOKS), ...PLAYER_LOOKS];
-  const chars: Character[] = [];
+  const chars: Figure[] = [];
   const gap = 0.9;
   const x0 = -((looks.length - 1) * gap) / 2;
   looks.forEach((l, i) => {
-    const c = new Character(l);
+    const c = makeFigure(l);
     c.root.position.set(x0 + i * gap, FLOOR, 5.2);
     c.root.rotation.y = view === 'side' ? Math.PI / 2 : 0;
     world.scene.add(c.root);

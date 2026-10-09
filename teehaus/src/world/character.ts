@@ -20,6 +20,7 @@ import type { Material, Object3D } from 'three';
 import { ballTexture, embroidery, vinyl } from './materials';
 import { hairKit } from './hairkit';
 import type { HairPiece } from './hairkit';
+import type { RigSpec } from './rigchar';
 import type { Front } from './materials';
 
 export type HairStyle =
@@ -143,6 +144,8 @@ export interface Look {
   brows?: string;
   /** Gesichtsform (nur abweichende Werte) */
   face?: Partial<Face>;
+  /** Aufbau als Rig-Figur (Quaternius-Teile); ohne Angabe wird die Figur gezeichnet */
+  rig?: RigSpec;
   /** Haarmodelle; ersetzen die gezeichnete Frisur, sobald haare.glb geladen ist */
   hairModel?: HairFit[];
   /** gezeichnete Frisur trotz Haarmodell behalten (als Ergänzung, z. B. Pony) */

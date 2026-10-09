@@ -1,7 +1,8 @@
 // Bewegte Figur (Spieler und NPCs): Laufen mit Beschleunigung, Gleiten an Hindernissen, Wegpunkte (A*),
 // Hinsetzen auf Hocker und Aufstehen. Die Animation steuert das Character-Rig über speed/sitDown.
 import { Vector2 } from 'three';
-import { Character } from './character';
+import { makeFigure } from './figure';
+import type { Figure } from './figure';
 import type { Look } from './character';
 import { groundY } from './nav';
 import type { NavGrid } from './nav';
@@ -14,7 +15,7 @@ export const RUN = 3.5;
 type SeatPhase = 'none' | 'approach' | 'settle' | 'seated' | 'rising';
 
 export class Agent {
-  readonly ch: Character;
+  readonly ch: Figure;
   readonly vel = new Vector2();
   path: [number, number][] = [];
   private onArrive: (() => void) | null = null;
@@ -36,7 +37,7 @@ export class Agent {
     look: Look,
     private nav: NavGrid,
   ) {
-    this.ch = new Character(look);
+    this.ch = makeFigure(look);
   }
 
   get x(): number {
