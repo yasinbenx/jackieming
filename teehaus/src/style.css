@@ -2081,6 +2081,8 @@ body.is-finale .cam-seg {
   --ink-text: #2a1a10;
 }
 .dialog,
+.dlg3,
+.outfit,
 .modal-card,
 .wordcard,
 .quiz,
@@ -2230,19 +2232,19 @@ body.is-finale .cam-seg {
 }
 
 /* Tonfarben auf Papier: dunklere Varianten für ausreichenden Kontrast */
-:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-1 {
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble, .nametag, .dlg3) .tone-1 {
   color: #c0291c;
 }
-:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-2 {
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble, .nametag, .dlg3) .tone-2 {
   color: #b46a00;
 }
-:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-3 {
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble, .nametag, .dlg3) .tone-3 {
   color: #237a3a;
 }
-:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-4 {
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble, .nametag, .dlg3) .tone-4 {
   color: #1f5fae;
 }
-:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble) .tone-5 {
+:is(.dialog, .modal-card, .wordcard, .quiz, .result, .sound-panel, .bubble, .nametag, .dlg3) .tone-5 {
   color: #6b5d4b;
 }
 #toast {
@@ -2494,4 +2496,273 @@ body.touch .act-prompt {
 }
 .bubble.offscreen {
   opacity: 0 !important;
+}
+
+/* ───── Namensschilder über Jackie und Yao ───── */
+.nametag {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 12px 5px;
+  border-radius: 6px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(251, 243, 226, 0.95), rgba(234, 217, 182, 0.95));
+  border: 1.5px solid var(--wood-d);
+  box-shadow:
+    0 0 0 2px var(--wood),
+    0 6px 16px rgba(0, 0, 0, 0.35);
+  color: var(--ink-text);
+  opacity: 0;
+  transition: opacity 0.4s;
+  white-space: nowrap;
+}
+.nt-zh {
+  font: 22px/1.05 var(--font-brush);
+  color: #9b2a1a;
+}
+.nametag-jackie .nt-zh {
+  color: #1f2433;
+}
+.nt-py {
+  font: italic 13px var(--font-latin);
+}
+.nt-de {
+  font: 600 12px var(--font-ui);
+  letter-spacing: 0.04em;
+}
+body.dialog-open .nametag,
+body:not(.is-inside) .nametag {
+  display: none;
+}
+
+/* ═════════ Gespräch mit Jackie / Yao ═════════ */
+.dlg3 {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(16px + var(--safe-b));
+  transform: translateX(-50%);
+  width: min(1040px, calc(100vw - 32px));
+  max-height: min(44vh, 460px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  animation: dlg-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dlg3[hidden] {
+  display: none;
+}
+.dlg3-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(90, 58, 34, 0.25);
+}
+.dlg3-who {
+  flex: 1;
+  min-width: 0;
+}
+.dlg3-name {
+  font-size: 19px;
+  line-height: 1.2;
+}
+.dlg3-name > span[lang='zh'] {
+  font: 26px var(--font-brush);
+  color: #9b2a1a;
+}
+.dlg3-jackie .dlg3-name > span[lang='zh'] {
+  color: #1f2433;
+}
+.dlg3-de {
+  margin-left: 6px;
+  font-size: 15px;
+  color: #5c4631;
+}
+.dlg3-progress {
+  font: 600 12px var(--font-ui);
+  letter-spacing: 0.03em;
+  color: #7a5235;
+}
+.dlg3-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.dlg3-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(90, 58, 34, 0.45);
+  background: rgba(255, 255, 255, 0.4);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-text);
+  cursor: pointer;
+}
+.dlg3-main {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  min-height: 0;
+  flex: 1;
+}
+.dlg3-card {
+  padding: 12px 14px;
+  border-right: 1px dashed rgba(90, 58, 34, 0.3);
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(155, 42, 26, 0.06), transparent 40%);
+}
+.card-seal {
+  display: inline-block;
+  padding: 2px 10px;
+  font: 30px/1.1 var(--font-brush);
+  color: #fbf3e2;
+  background: linear-gradient(180deg, #c03024, #7a1a12);
+  border-radius: 4px;
+  transform: rotate(-3deg);
+}
+.dlg3-jackie .card-seal {
+  background: linear-gradient(180deg, #2e3448, #1a1e2a);
+}
+.card-py {
+  margin-top: 4px;
+  font: italic 15px var(--font-latin);
+}
+.card-name {
+  font: 600 15px var(--font-latin);
+  margin-bottom: 8px;
+}
+.card-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  font: 13px/1.35 var(--font-ui);
+}
+.card-fields dt {
+  font-weight: 700;
+  color: #7a5235;
+}
+.card-parts {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 12px var(--font-ui);
+  color: #5c4631;
+}
+.card-parts b {
+  font: 16px var(--font-zh);
+  color: #9b2a1a;
+}
+.dlg3-body {
+  padding: 10px 14px 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.dlg3-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+.dlg3-hint {
+  font: 14px var(--font-ui);
+  color: #5c4631;
+  margin: 6px 0;
+}
+.q-text small + small,
+.q.asked .q-text small {
+  opacity: 0.7;
+}
+.bubble.answer {
+  max-width: min(440px, 86vw);
+  font-size: 17px;
+}
+@media (max-width: 760px) {
+  .dlg3 {
+    width: calc(100vw - 16px);
+    bottom: calc(8px + var(--safe-b));
+    max-height: 56vh;
+  }
+  .dlg3-main {
+    grid-template-columns: 1fr;
+  }
+  .dlg3-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 6px 12px;
+    border-right: 0;
+    border-bottom: 1px dashed rgba(90, 58, 34, 0.3);
+  }
+  .dlg3-card .card-py,
+  .dlg3-card .card-name,
+  .card-parts {
+    display: none;
+  }
+  .card-seal {
+    font-size: 20px;
+  }
+  .card-fields {
+    grid-template-columns: auto 1fr auto 1fr;
+    font-size: 11.5px;
+  }
+  .dlg3-tools .btn.small {
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+  .dlg3-name > span[lang='zh'] {
+    font-size: 22px;
+  }
+  .dlg3-de {
+    display: none;
+  }
+  .bubble.answer {
+    font-size: 15px;
+  }
+}
+@media (max-width: 760px) {
+  .dlg3 {
+    max-height: 47vh;
+  }
+  .dlg3-head {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 8px 10px 6px;
+  }
+  .dlg3-name i {
+    display: none;
+  }
+  .dlg3-tools {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+  .card-fields dt:nth-of-type(1),
+  .card-fields dd:nth-of-type(1),
+  .card-fields dt:nth-of-type(4),
+  .card-fields dd:nth-of-type(4) {
+    display: none;
+  }
+  .card-fields {
+    grid-template-columns: auto auto auto auto;
+  }
+  body.dialog-open .wordcard {
+    top: auto;
+    bottom: calc(48vh + 8px);
+  }
+  .bubble.answer {
+    max-width: 92vw;
+    font-size: 14px;
+    line-height: 1.35;
+  }
 }

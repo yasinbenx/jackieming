@@ -74,6 +74,7 @@ async function boot(): Promise<void> {
     document.body.classList.remove('cap-1', 'cap-2', 'is-entering');
     document.body.classList.add('is-inside');
     game.audio.setInside(true);
+    game.onEntered();
   });
 }
 

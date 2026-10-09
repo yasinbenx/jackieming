@@ -9,8 +9,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (p) => import(join(root, 'src/content', p));
 const { FACTS } = await load('facts.ts');
-const { JACKIE } = await load('jackie.ts');
-const { YAO } = await load('yao.ts');
+const { JACKIE, YAO, CARDS } = await load('dialogs.ts');
 const { WORDS } = await load('words.ts');
 const { QUIZ } = await load('quiz.ts');
 const { EGGS } = await load('extras.ts');
@@ -51,6 +50,23 @@ for (const q of QUIZ) {
   for (const r of q.related ?? []) if (!qIds.has(r)) problems.push(`Quiz ${q.id}: related ${r} unbekannt`);
 }
 
+// Charakterkarten: Fakten-IDs müssen existieren
+for (const [who, fields] of Object.entries(CARDS)) {
+  for (const f of fields)
+    for (const id of f.facts)
+      if (!factIds.has(id)) problems.push(`Karte ${who}/${f.label}: unbekannter Fakt ${id}`);
+}
+// Antworten: 2 bis 4 Sätze (Abkürzungen wie „ca.“ oder „z. B.“ zählen nicht)
+const sentences = (t) =>
+  t
+    .replace(/\b(ca|z|B|Nr|bzw|etc|vs|u|a|d|h|St|Dr|Mio|Jh)\./g, '$1')
+    .split(/(?<=[.!?…])\s+(?=[A-ZÄÖÜ„"0-9(\u3400-\u9fff])/u)
+    .filter((x) => x.trim().length > 1).length;
+for (const p of profiles)
+  for (const q of p.questions) {
+    const n = sentences(q.a);
+    if (n < 2 || n > 4) problems.push(`${q.id}: ${n} Sätze (erlaubt 2–4)`);
+  }
 if (problems.length) {
   console.error('Inhalts-Probleme:\n- ' + problems.join('\n- '));
   process.exit(1);

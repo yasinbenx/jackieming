@@ -15,6 +15,8 @@ export interface Settings {
   outfit: number;
   /** Lautstärke der Stimmen (Simlish) */
   voices: number;
+  /** Hinweis „Fiktives Gespräch“ beim ersten Gespräch bestätigt */
+  disclaimerSeen: boolean;
 }
 
 interface Persisted {
@@ -32,7 +34,16 @@ const DEFAULTS: Persisted = {
   eggs: [],
   quizBest: 0,
   toasted: false,
-  settings: { muted: false, music: 0.6, sfx: 0.8, calm: false, quality: 'auto', outfit: 0, voices: 0.8 },
+  settings: {
+    muted: false,
+    music: 0.6,
+    sfx: 0.8,
+    calm: false,
+    quality: 'auto',
+    outfit: 0,
+    voices: 0.8,
+    disclaimerSeen: false,
+  },
 };
 
 type Listener = () => void;

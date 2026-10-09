@@ -1,7 +1,6 @@
 // Wörterbuch (词典 cídiǎn) und Info-Seite (关于 guānyú).
 import { WORDS } from '../content/words';
-import { JACKIE } from '../content/jackie';
-import { YAO } from '../content/yao';
+import { JACKIE, YAO } from '../content/dialogs';
 import { pinyinHtml, pinyinText } from '../content/pinyin';
 import { EGGS } from '../content/extras';
 import { CREDITS, CREDITS_EXTRA } from '../content/credits';

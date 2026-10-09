@@ -1050,7 +1050,7 @@ export function buildCafe(lightCount: number): Cafe {
     return l;
   };
   // Über Yao hängt eine große Laterne (Fundstück: er duckt sich)
-  const bigLantern = addL(makeLantern(1.5, lightCount > 0, 0.7), main.x + 0.65, CEIL - 1.05, main.z - 0.35);
+  const bigLantern = addL(makeLantern(1.5, lightCount > 0, 0.55), main.x + 1.25, CEIL - 0.9, main.z - 0.95);
   bigLantern.group.name = 'bigLantern';
   addL(makeLantern(1.15, lightCount > 1, 0.6), -4.4, CEIL - 0.95, -1.4);
   addL(makeLantern(1.15, lightCount > 2, 0.6), 0.6, CEIL - 0.95, 1.0);

@@ -181,7 +181,8 @@ export class Bubbles {
         const top = Math.max(hgt + 64, y);
         it.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(top)}px) translate(-50%, -100%)`;
         it.el.style.zIndex = String(20 - i);
-        it.el.classList.toggle('offscreen', !s.visible);
+        // ältere Blasen nur zeigen, wenn oben genug Platz ist (sonst würden sie sich überdecken)
+        it.el.classList.toggle('offscreen', !s.visible || (i > 0 && y < hgt + 64));
         y = top - hgt - 10;
       }
     }

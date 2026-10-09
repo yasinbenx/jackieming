@@ -553,6 +553,17 @@ export class World {
     l.swing = Math.min(1.2, l.swing + 0.6 * k);
   }
 
+  /** Wie toScreen, aber „sichtbar“ auch knapp über dem oberen Rand (für Sprechblasen, die dort andocken) */
+  toScreenLoose(v: Vector3): { x: number; y: number; visible: boolean } {
+    const p = v.clone().project(this.camera);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return {
+      x: r.left + ((p.x + 1) / 2) * r.width,
+      y: r.top + ((1 - p.y) / 2) * r.height,
+      visible: p.z < 1 && Math.abs(p.x) < 1.25 && p.y > -1,
+    };
+  }
+
   toScreen(v: Vector3): { x: number; y: number; visible: boolean } {
     const p = v.clone().project(this.camera);
     const r = this.renderer.domElement.getBoundingClientRect();

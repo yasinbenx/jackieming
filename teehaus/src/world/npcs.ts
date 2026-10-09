@@ -8,8 +8,8 @@ import { Cat } from './cat';
 import { GUEST_LOOKS, MASTER_LOOK } from './looks';
 import { vinyl } from './materials';
 import { COUNTER, FLOOR, HALL, SEATS, seat, TABLES } from './layout';
-import { NPCS, TEA_LINES } from '../content/dialogs-npc';
-import type { NpcProfile } from '../content/dialogs-npc';
+import { NPCS, TEA_LINES } from '../content/dialogs';
+import type { NpcProfile } from '../content/dialogs';
 import type { Speaker } from '../ui/bubbles';
 import { bus } from '../core/bus';
 

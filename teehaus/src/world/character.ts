@@ -189,6 +189,9 @@ export class Character {
   private lookPitch = 0;
   /** Mundöffnung beim Sprechen 0..1 (von der Stimme gesetzt) */
   talk = 0;
+  /** Dauerhaftes Bücken (z. B. Yao unter dem Türbalken), 0..1, wird weich angefahren */
+  stoop = 0;
+  private stoopSmooth = 0;
   private talkSmooth = 0;
   private time = Math.random() * 10;
   private idleSeed = Math.random() * 10;
@@ -964,6 +967,17 @@ export class Character {
       for (const [leg] of legs) {
         leg.th.rotation.x -= 0.4 * e * s;
         leg.sh.rotation.x += 0.75 * e * s;
+      }
+    }
+    this.stoopSmooth += (this.stoop - this.stoopSmooth) * Math.min(1, dt * 6);
+    if (this.stoopSmooth > 0.01) {
+      const st = this.stoopSmooth;
+      spineX += 0.5 * st;
+      headX += 0.25 * st;
+      hipY -= 0.1 * st * (this.H / 1.75);
+      for (const [leg] of legs) {
+        leg.th.rotation.x -= 0.3 * st;
+        leg.sh.rotation.x += 0.55 * st;
       }
     }
     if ((e = k('pet'))) {
