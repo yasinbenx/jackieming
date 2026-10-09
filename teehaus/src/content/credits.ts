@@ -31,6 +31,13 @@ export const CREDITS: Credit[] = [
     url: 'https://quaternius.itch.io/universal-base-characters',
   },
   {
+    name: 'Ultimate Modular Men',
+    what: 'Charaktermodelle mit Skelett und 24 Animationen (komprimiert, im Modell-Labor)',
+    author: 'Quaternius',
+    license: 'CC0 1.0',
+    url: 'https://quaternius.com',
+  },
+  {
     name: 'Noto Serif SC',
     what: 'Schrift für chinesische Zeichen (Subset)',
     author: 'Google, Adobe',

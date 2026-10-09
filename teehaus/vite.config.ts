@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 
@@ -29,6 +30,11 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 900,
     rollupOptions: {
+      // Spiel + Entwickler-Labor (/lab/modelle/)
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        modelle: fileURLToPath(new URL('./lab/modelle/index.html', import.meta.url)),
+      },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/three') || id.includes('node_modules/postprocessing')) return 'three';
