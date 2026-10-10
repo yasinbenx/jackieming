@@ -164,7 +164,12 @@ function drawDragon(g: CanvasRenderingContext2D, w: number, h: number, gold: str
  * Die Textur wiederholt sich horizontal (rund um Arme, Mantel und Hosenbeine).
  */
 export interface Front {
-  kind: 'open' | 'closed' | 'none';
+  /**
+   * open: offener Mantel mit Innenhemd · closed: Mittelleiste · tang: Tang-Anzug, Mittelleiste mit Knotenknöpfen
+   * (Pankou) · cross: Hanfu-Überlappkragen (rechts über links, 右衽) · side: Changshan, Verschluss vom Kragen
+   * schräg zur rechten Achsel und an der rechten Seite hinunter
+   */
+  kind: 'open' | 'closed' | 'none' | 'tang' | 'cross' | 'side';
   inner?: string;
   knots?: boolean;
   trim?: string;
@@ -224,6 +229,75 @@ export function embroidery(
           }
         }
       }
+    }
+    // u = 0/1 ist vorne Mitte, u = 0,25 die linke, u = 0,75 die rechte Seite der Figur; y = 0 ist oben (Kragen)
+    const knot = (x: number, y: number, w = 26): void => {
+      // Pankou: zwei Schlaufen und ein Knötchen
+      g.fillStyle = front.trim ?? gold;
+      g.beginPath();
+      g.ellipse(x - w * 0.55, y, w * 0.55, 6, 0, 0, Math.PI * 2);
+      g.ellipse(x + w * 0.55, y, w * 0.55, 6, 0, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.arc(x, y, 7, 0, Math.PI * 2);
+      g.fill();
+    };
+    if (front.kind === 'tang') {
+      g.fillStyle = front.trim ?? gold;
+      g.fillRect(0, 0, 7, H);
+      g.fillRect(W - 7, 0, 7, H);
+      // Stehkragen-Kante
+      g.fillRect(0, 0, W * 0.09, 14);
+      g.fillRect(W * 0.91, 0, W * 0.09, 14);
+      for (let i = 0; i < 5; i++) {
+        const y = H * (0.12 + i * 0.15);
+        knot(0, y);
+        knot(W, y);
+      }
+    }
+    if (front.kind === 'cross') {
+      // Kragenband: vom Hals (vorne, leicht links der Mitte) schräg hinüber zur rechten Achsel (u ≈ 0,78)
+      const band = front.trim ?? gold;
+      g.strokeStyle = band;
+      g.lineCap = 'round';
+      g.lineWidth = 24;
+      g.beginPath();
+      g.moveTo(W * 0.06, -12);
+      g.quadraticCurveTo(W * 0.02, H * 0.1, -W * 0.02, H * 0.16);
+      g.moveTo(W * 1.06, -12);
+      g.quadraticCurveTo(W * 1.02, H * 0.1, W * 0.98, H * 0.16);
+      g.quadraticCurveTo(W * 0.86, H * 0.32, W * 0.77, H * 0.46);
+      g.stroke();
+      // darunterliegender Kragen links, als helle Kante sichtbar
+      g.strokeStyle = front.inner ?? '#f4eee4';
+      g.lineWidth = 9;
+      g.beginPath();
+      g.moveTo(W * 0.1, -6);
+      g.quadraticCurveTo(W * 0.11, H * 0.12, W * 0.07, H * 0.2);
+      g.stroke();
+      g.strokeStyle = gold;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(W * 1.0, H * 0.18);
+      g.quadraticCurveTo(W * 0.88, H * 0.34, W * 0.79, H * 0.48);
+      g.stroke();
+    }
+    if (front.kind === 'side') {
+      // Changshan: Stehkragen, Bogen zur rechten Achsel, dann seitlich hinunter; Knoten entlang der Linie
+      const band = front.trim ?? gold;
+      g.strokeStyle = band;
+      g.lineWidth = 8;
+      g.beginPath();
+      g.moveTo(W * 1.0, H * 0.02);
+      g.quadraticCurveTo(W * 0.98, H * 0.16, W * 0.84, H * 0.22);
+      g.lineTo(W * 0.8, H);
+      g.stroke();
+      g.fillStyle = band;
+      g.fillRect(0, 0, W * 0.1, 12);
+      g.fillRect(W * 0.9, 0, W * 0.1, 12);
+      knot(W * 0.99, H * 0.08, 20);
+      knot(W * 0.9, H * 0.19, 20);
+      for (let i = 0; i < 3; i++) knot(W * 0.82, H * (0.34 + i * 0.13), 20);
     }
     if (front.kind === 'closed') {
       g.fillStyle = front.trim ?? gold;

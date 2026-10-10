@@ -146,6 +146,13 @@ export interface Look {
   face?: Partial<Face>;
   /** Aufbau als Rig-Figur (Quaternius-Teile); ohne Angabe wird die Figur gezeichnet */
   rig?: RigSpec;
+  /**
+   * Geschneiderte Figur: Skelett und Animationen von Quaternius, Körper und Kleidung aus der Schneiderei
+   * (tailor.ts), stilisierter Kopf. Hat Vorrang vor den Quaternius-Teilen.
+   */
+  dress?: boolean;
+  /** Kopfhöhe der geschneiderten Figuren (Meter, Standard 0,3: etwas größer als echt, damit Mimik lesbar ist) */
+  headSize?: number;
   /** Haarmodelle; ersetzen die gezeichnete Frisur, sobald haare.glb geladen ist */
   hairModel?: HairFit[];
   /** gezeichnete Frisur trotz Haarmodell behalten (als Ergänzung, z. B. Pony) */
@@ -164,6 +171,12 @@ export interface Look {
     skirt: number;
     /** offen getragen (Hemd sichtbar) */
     open?: boolean;
+    /** Schnitt (geschneiderte Figuren): Tang-Anzug, Hanfu-Jacke mit Überlappkragen, Changshan, offener Mantel */
+    cut?: 'tang' | 'hanfu' | 'changshan' | 'coat';
+    /** Weste darüber (Farbe) */
+    vest?: string;
+    /** weite Ärmel (Hanfu) */
+    wideSleeves?: boolean;
     trim?: string;
     sleeveMotif?: Motif;
   };
@@ -171,7 +184,7 @@ export interface Look {
   cuff?: string;
   pants: { color: string; wide?: boolean; motif?: Motif; gold?: string };
   belt?: { color: string; tassels?: boolean };
-  shoes: { color: string; sole?: string; stripe?: string };
+  shoes: { color: string; sole?: string; stripe?: string; kind?: 'cloth' | 'sneaker' };
   apron?: string;
   prop?: Prop;
 }
@@ -364,11 +377,15 @@ export class Character {
   private time = Math.random() * 10;
   private idleSeed = Math.random() * 10;
 
-  constructor(look: Look) {
+  /**
+   * @param opts.headOnly nur Kopf mit Gesicht und Frisur bauen (für die Rig-Figuren, die ihn an den Kopfknochen
+   *   hängen); opts.headSize ist dann die Kopfhöhe in Metern
+   */
+  constructor(look: Look, opts: { headOnly?: boolean; headSize?: number } = {}) {
     this.look = look;
     const h = look.height;
     this.H = h;
-    this.hd = h * look.headRatio;
+    this.hd = opts.headSize ?? h * look.headRatio;
     this.L = h * (look.legRatio ?? 0.42);
     const neckLen = h * 0.022;
     const T = h - this.L - this.hd - neckLen;
@@ -417,6 +434,10 @@ export class Character {
       : null;
     const pants = vinyl(pantsTex ? '#ffffff' : look.pants.color, { rough: 0.75, map: pantsTex });
     const hair = vinyl(look.hair, { rough: 0.5 });
+    if (opts.headOnly) {
+      this.buildHead(skin, hair);
+      return;
+    }
     const shoe = vinyl(look.shoes.color, { rough: 0.45 });
     const sole = vinyl(look.shoes.sole ?? '#f2efe6', { rough: 0.6 });
 
@@ -1412,7 +1433,11 @@ export class Character {
       }
     }
 
-    // ── Gesicht: Blinzeln, Mund
+    this.updateFace(dt, laughOpen, t);
+  }
+
+  /** Gesicht: Blinzeln, schmale Augen beim Lachen, Mund beim Sprechen (auch für den Kopf der Rig-Figuren) */
+  updateFace(dt: number, laughOpen: number, t: number): void {
     this.blink -= dt;
     let lid = 1;
     if (this.blink < 0.12) lid = Math.abs(this.blink - 0.06) / 0.06;

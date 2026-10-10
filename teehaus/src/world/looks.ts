@@ -4,7 +4,7 @@
 import type { Look } from './character';
 
 /** Spielfigur: vier neutrale Outfits zur Auswahl */
-export const PLAYER_LOOKS: (Look & { label: string; swatch: string })[] = [
+export const PLAYER_LOOKS_OLD: (Look & { label: string; swatch: string })[] = [
   {
     id: 'player',
     label: 'Jade',
@@ -92,7 +92,7 @@ export const PLAYER_LOOKS: (Look & { label: string; swatch: string })[] = [
 ];
 
 /** Jackie Chan: deutlich kleiner, dunkle Kampfkunst-Jacke mit Goldstickerei, helle Ärmelaufschläge, Drachen-Hose */
-export const JACKIE_LOOK: Look = {
+export const JACKIE_LOOK_OLD: Look = {
   id: 'jackie',
   height: 1.73,
   headRatio: 0.18,
@@ -124,7 +124,7 @@ export const JACKIE_LOOK: Look = {
 };
 
 /** Yao Ming: 2,29 m, breite Schultern, langer roter Mantel mit Golddrachen, helles Hemd mit Knotenknöpfen, Basketball */
-export const YAO_LOOK: Look = {
+export const YAO_LOOK_OLD: Look = {
   id: 'yao',
   height: 2.29,
   headRatio: 0.142,
@@ -155,7 +155,7 @@ export const YAO_LOOK: Look = {
 };
 
 /** Der alte Teemeister: weißer Bart, Schürze, ruhige Haltung */
-export const MASTER_LOOK: Look = {
+export const MASTER_LOOK_OLD: Look = {
   id: 'master',
   height: 1.6,
   headRatio: 0.19,
@@ -174,7 +174,7 @@ export const MASTER_LOOK: Look = {
 };
 
 /** Generische Gäste (keine realen Vorbilder) */
-export const GUEST_LOOKS: Record<string, Look> = {
+export const GUEST_LOOKS_OLD: Record<string, Look> = {
   boardA: {
     id: 'boardA',
     height: 1.7,
@@ -350,3 +350,132 @@ export const GUEST_LOOKS: Record<string, Look> = {
     shoes: { color: '#2e7d6b', sole: '#1a2a24' },
   },
 };
+
+// ───────────────────────────────────────── Geschneiderte Figuren (aktuell im Spiel)
+// Chinesische Kleidung aus der Schneiderei, stilisierte Köpfe. Die *_OLD-Varianten oben (Quaternius-Teile) bleiben
+// nur für den Vorher-Vergleich im Labor (/lab/figuren/).
+
+type Dress = Partial<Omit<Look, 'top' | 'pants' | 'shoes'>> & {
+  top?: Partial<Look['top']>;
+  pants?: Partial<Look['pants']>;
+  shoes?: Partial<Look['shoes']>;
+};
+
+const DRESS: Record<string, Dress> = {
+  Jade: {
+    hairStyle: 'side',
+    top: { cut: 'tang', color: '#2e7d6b', trim: '#e6c27a', motif: 'hem', skirt: 0 },
+    pants: { color: '#2f2a26', wide: true },
+    shoes: { color: '#1e1a18', sole: '#efe8da', kind: 'cloth' },
+    belt: undefined,
+  },
+  Indigo: {
+    hairStyle: 'ponytail',
+    top: { cut: 'hanfu', color: '#2f3f7a', trim: '#d9c38a', motif: 'cloud', skirt: 0.35, wideSleeves: true },
+    inner: { color: '#efe6d4' },
+    pants: { color: '#2a2a33', wide: true },
+    shoes: { color: '#1e1a18', sole: '#efe8da', kind: 'cloth' },
+  },
+  Ocker: {
+    hairStyle: 'straw',
+    top: { cut: 'tang', color: '#c08a3a', trim: '#6b3a1a', motif: 'hem', skirt: 0, vest: '#5a3a24' },
+    pants: { color: '#4a3a2c', wide: true },
+    shoes: { color: '#2a1d15', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  Pflaume: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#7a3150', trim: '#e8c37a', motif: 'cloud', skirt: 0.62, wideSleeves: true },
+    inner: { color: '#f3e8d8' },
+    shoes: { color: '#7a3150', sole: '#efe8da', kind: 'cloth' },
+  },
+  jackie: {
+    hairStyle: 'fringe',
+    top: { cut: 'tang', color: '#1f2433', trim: '#e0b04f', motif: 'cloud', skirt: 0 },
+    cuff: '#f4eee2',
+    pants: { color: '#262a36', wide: true, motif: 'dragon', gold: '#d9a94a' },
+    shoes: { color: '#151515', sole: '#efe8da', kind: 'cloth' },
+  },
+  yao: {
+    hairStyle: 'crop',
+    headSize: 0.29,
+    top: { cut: 'coat', color: '#a8231a', gold: '#e3b450', motif: 'dragon', skirt: 0.58, open: true },
+    inner: { color: '#f4eee4', knots: true },
+    pants: { color: '#1f222a', wide: true },
+    // einziger moderner Akzent: Basketball-Schuhe zum Basketball
+    shoes: { color: '#1d1d22', sole: '#f2f0ea', stripe: '#e3b450', kind: 'sneaker' },
+  },
+  master: {
+    hairStyle: 'elder',
+    beard: true,
+    top: { cut: 'changshan', color: '#2d5a52', trim: '#d6b56a', motif: 'hem', skirt: 0.82 },
+    face: { laughLines: 0.8, foreheadLines: 0.6, smileEyes: 0.35 },
+    shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  boardA: {
+    hairStyle: 'cap',
+    top: { cut: 'changshan', color: '#5a3a28', trim: '#c9a25a', motif: 'hem', skirt: 0.6 },
+    shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  boardB: {
+    hairStyle: 'crop',
+    top: { cut: 'tang', color: '#3c6a4a', trim: '#d9c38a', motif: 'plain', skirt: 0, vest: '#2a2a2e' },
+    pants: { color: '#2e2e34', wide: true },
+    face: { laughLines: 0.5 },
+    shoes: { color: '#2a2622', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  poet: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#d98c8c', trim: '#f5e3b8', motif: 'cloud', skirt: 0.85, wideSleeves: true },
+    shoes: { color: '#2e6b5e', sole: '#efe8da', kind: 'cloth' },
+  },
+  merchant: {
+    hairStyle: 'cap',
+    top: { cut: 'changshan', color: '#7a1f2a', trim: '#e3b450', motif: 'hem', skirt: 0.72, vest: '#c9962e' },
+    shoes: { color: '#1a1412', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  child: {
+    hairStyle: 'kidBuns',
+    headSize: 0.44,
+    top: { cut: 'tang', color: '#d8452e', trim: '#f2d27a', motif: 'hem', skirt: 0 },
+    pants: { color: '#f0e2c4', wide: true },
+    shoes: { color: '#d8452e', sole: '#f4efe4', kind: 'cloth' },
+  },
+  terrace: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#6f6aa0', trim: '#e6d3a0', motif: 'cloud', skirt: 0.7, wideSleeves: true },
+    face: { laughLines: 0.7, foreheadLines: 0.4 },
+    shoes: { color: '#2a2838', sole: '#efe8da', kind: 'cloth' },
+  },
+  wanderer: {
+    hairStyle: 'straw',
+    top: { cut: 'tang', color: '#2f3f7a', trim: '#d9c38a', motif: 'hem', skirt: 0.45 },
+    pants: { color: '#3a3530', wide: true },
+    shoes: { color: '#3a2a1e', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  visitor: {
+    hairStyle: 'ponytail',
+    top: { cut: 'hanfu', color: '#2e7d6b', trim: '#f1d9a0', motif: 'cloud', skirt: 0.8, wideSleeves: true },
+    shoes: { color: '#2e7d6b', sole: '#efe8da', kind: 'cloth' },
+  },
+};
+
+function dressUp<T extends Look>(l: T, key: string): T {
+  const d = DRESS[key];
+  if (!d) return { ...l, dress: true };
+  return {
+    ...l,
+    ...d,
+    dress: true,
+    top: { ...l.top, ...d.top },
+    pants: { ...l.pants, ...d.pants },
+    shoes: { ...l.shoes, ...d.shoes },
+  } as T;
+}
+
+export const PLAYER_LOOKS = PLAYER_LOOKS_OLD.map((l) => dressUp(l, l.label));
+export const JACKIE_LOOK = dressUp(JACKIE_LOOK_OLD, 'jackie');
+export const YAO_LOOK = dressUp(YAO_LOOK_OLD, 'yao');
+export const MASTER_LOOK = dressUp(MASTER_LOOK_OLD, 'master');
+export const GUEST_LOOKS: Record<string, Look> = Object.fromEntries(
+  Object.entries(GUEST_LOOKS_OLD).map(([k, l]) => [k, dressUp(l, k)]),
+);

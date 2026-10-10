@@ -30,10 +30,12 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 900,
     rollupOptions: {
-      // Spiel + Entwickler-Labor (/lab/modelle/)
+      // Spiel + Entwickler-Labore (/lab/modelle/, /lab/musik/)
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         modelle: fileURLToPath(new URL('./lab/modelle/index.html', import.meta.url)),
+        musik: fileURLToPath(new URL('./lab/musik/index.html', import.meta.url)),
+        figuren: fileURLToPath(new URL('./lab/figuren/index.html', import.meta.url)),
       },
       output: {
         manualChunks(id) {
