@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>茶馆 · Das Teehaus – Gespräche bei Tee</title>
+    <title>茶馆 · Das Teehaus</title>
     <meta
       name="description"
-      content="Betritt ein 3D-Teehaus in den Bergen: ein fiktives Gespräch mit Jackie Chan (成龙) und Yao Ming (姚明), dazu Chinesisch-Lernkarten mit Pinyin, ein Mini-Quiz und versteckte Überraschungen."
+      content="Ein begehbares 3D-Teehaus in den Bergen: Tee, Gäste und ein fiktives Gespräch mit Jackie Chan und Yao Ming auf Basis öffentlich bekannter Fakten. Dazu chinesische Wörter mit Pinyin zum Sammeln."
     />
     <meta name="theme-color" content="#140b08" />
     <meta name="color-scheme" content="dark" />
@@ -21,16 +21,16 @@
     <meta property="og:title" content="茶馆 · Das Teehaus" />
     <meta
       property="og:description"
-      content="Ein Teehaus in den Bergen, zwei berühmte Gäste, eine Kanne Tee: Stelle Fragen, sammle chinesische Wörter und entdecke versteckte Überraschungen. Fiktives Gespräch auf Basis öffentlich bekannter Fakten."
+      content="Ein begehbares 3D-Teehaus in den Bergen. Setz dich an den Tisch, stell Fragen und sammle chinesische Wörter. Fiktives Gespräch mit Jackie Chan und Yao Ming auf Basis öffentlich bekannter Fakten."
     />
     <meta property="og:url" content="__SITE_URL__/" />
     <meta property="og:image" content="__SITE_URL__/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="3D-Szene: ein beleuchtetes Teehaus mit geschwungenem Dach am Teich mit roter Brücke, Bambus und Bergen in der Abendsonne" />
+    <meta property="og:image:alt" content="Startbild: die Schriftzeichen 茶馆 (cháguǎn, Das Teehaus) vor einem gemalten Teehaus in nebligen Bergen in der Abendsonne" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="茶馆 · Das Teehaus" />
-    <meta name="twitter:description" content="Gespräche bei Tee: Chinesisch lernen mit Jackie Chan und Yao Ming (fiktiv, auf Basis öffentlicher Fakten)." />
+    <meta name="twitter:description" content="Ein begehbares 3D-Teehaus in den Bergen. Fiktives Gespräch mit Jackie Chan und Yao Ming auf Basis öffentlich bekannter Fakten." />
     <meta name="twitter:image" content="__SITE_URL__/og.png" />
     <script type="module" src="/src/main.ts"></script>
   </head>
@@ -39,8 +39,8 @@
 
     <!-- Beschreibung für Screenreader (die Szene selbst ist ein Canvas) -->
     <p class="sr-only">
-      Das Teehaus: Eine gezeichnete Szene in einem Teehaus in den Bergen. Zwei Gäste, Jackie Chan und Yao Ming, sitzen am Tisch.
-      Mit den Auswahl-Schaltflächen unten oder den Tasten J und Y beginnst du ein Gespräch, stellst Fragen und sammelst chinesische Wörter.
+      Das Teehaus: ein begehbares 3D-Teehaus in den Bergen. Am Haupttisch sitzen Jackie Chan und Yao Ming (fiktives Gespräch).
+      Geh mit WASD oder per Tippen, sprich Figuren mit E an, stelle Fragen und sammle chinesische Wörter.
     </p>
 
     <!-- Bildunterschriften der Kamerafahrt -->
@@ -52,20 +52,77 @@
 
     <div id="flash"></div>
 
-    <!-- Ladescreen -->
+    <!-- Startbild -->
     <div id="loader">
+      <div class="scene" aria-hidden="true">
+        <svg class="paint" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1e110d" />
+              <stop offset="0.45" stop-color="#5a2a1a" />
+              <stop offset="0.72" stop-color="#b8673a" />
+              <stop offset="1" stop-color="#e8b878" />
+            </linearGradient>
+            <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#fff1cf" stop-opacity="0.95" />
+              <stop offset="0.35" stop-color="#ffd18a" stop-opacity="0.55" />
+              <stop offset="1" stop-color="#ffb060" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#ffcf7a" stop-opacity="0.9" />
+              <stop offset="1" stop-color="#ff9a3c" stop-opacity="0" />
+            </radialGradient>
+            <linearGradient id="fog" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f6dcb4" stop-opacity="0" />
+              <stop offset="0.5" stop-color="#f6dcb4" stop-opacity="0.55" />
+              <stop offset="1" stop-color="#f6dcb4" stop-opacity="0" />
+            </linearGradient>
+            <filter id="soft"><feGaussianBlur stdDeviation="6" /></filter>
+          </defs>
+          <rect width="1600" height="1000" fill="url(#sky)" />
+          <circle cx="1000" cy="600" r="320" fill="url(#sun)" />
+          <!-- ferne Berge, nach vorn dunkler (Tuschelasur) -->
+          <path fill="#c98a5c" opacity="0.55" d="M0 640 C120 560 210 520 300 560 C380 470 470 430 560 520 C640 470 700 500 780 560 C880 480 980 430 1090 520 C1180 470 1260 500 1340 560 C1430 500 1520 520 1600 570 V1000 H0Z" />
+          <rect class="mist m1" x="-200" y="560" width="2000" height="120" fill="url(#fog)" />
+          <path fill="#8e5536" opacity="0.75" d="M0 720 C90 650 170 610 260 650 C330 580 420 560 500 640 C600 600 680 620 760 690 C860 640 930 600 1020 660 C1090 610 1180 600 1260 670 C1340 640 1450 640 1600 700 V1000 H0Z" />
+          <rect class="mist m2" x="-200" y="660" width="2000" height="110" fill="url(#fog)" />
+          <path fill="#4f2a1b" d="M0 800 C140 740 260 730 360 770 C470 720 560 720 640 780 C760 740 880 760 980 800 C1080 760 1150 700 1230 690 C1330 680 1420 700 1600 760 V1000 H0Z" />
+          <!-- Teehaus auf dem Felsen -->
+          <g class="house" fill="#1d100b">
+            <path d="M1150 700 C1180 690 1300 688 1360 702 L1400 760 L1120 760Z" />
+            <rect x="1190" y="626" width="140" height="70" />
+            <path d="M1150 632 C1190 622 1220 600 1260 588 C1300 600 1330 622 1370 632 C1380 628 1392 618 1398 606 C1388 636 1366 648 1330 646 L1190 646 C1154 648 1132 636 1122 606 C1128 618 1140 628 1150 632Z" />
+            <rect x="1214" y="566" width="92" height="30" />
+            <path d="M1196 572 C1220 566 1240 550 1260 540 C1280 550 1300 566 1324 572 C1334 568 1342 560 1346 552 C1338 576 1318 584 1296 582 L1224 582 C1202 584 1182 576 1174 552 C1178 560 1186 568 1196 572Z" />
+          </g>
+          <rect x="1214" y="650" width="22" height="30" fill="#ffc46b" opacity="0.9" />
+          <rect x="1250" y="650" width="22" height="30" fill="#ffb556" opacity="0.85" />
+          <rect x="1286" y="650" width="22" height="30" fill="#ffc46b" opacity="0.9" />
+          <circle cx="1260" cy="665" r="90" fill="url(#glow)" opacity="0.45" />
+          <!-- Kiefernzweig oben links -->
+          <g fill="#140a07">
+            <path d="M-20 120 C120 140 240 170 360 230 C380 240 390 236 384 226 C280 170 160 120 -20 90Z" />
+            <ellipse cx="170" cy="150" rx="70" ry="22" transform="rotate(14 170 150)" />
+            <ellipse cx="290" cy="196" rx="60" ry="18" transform="rotate(22 290 196)" />
+            <ellipse cx="70" cy="118" rx="80" ry="24" transform="rotate(6 70 118)" />
+          </g>
+          <!-- Vordergrund: dunkles Ufer -->
+          <path fill="#120906" d="M0 880 C200 840 420 850 620 890 C820 930 1100 900 1300 870 C1440 850 1540 860 1600 870 V1000 H0Z" />
+          <rect class="mist m3" x="-200" y="800" width="2000" height="140" fill="url(#fog)" opacity="0.6" />
+        </svg>
+        <div class="lantern"><span></span></div>
+        <div class="petals"><i style="--x:8%;--d:0s;--t:13s;--s:1"></i><i style="--x:22%;--d:4s;--t:15s;--s:0.8"></i><i style="--x:37%;--d:9s;--t:12s;--s:1.1"></i><i style="--x:55%;--d:2s;--t:16s;--s:0.7"></i><i style="--x:68%;--d:6s;--t:14s;--s:1"></i><i style="--x:81%;--d:11s;--t:13s;--s:0.9"></i><i style="--x:92%;--d:3s;--t:17s;--s:0.8"></i><i style="--x:14%;--d:8s;--t:15s;--s:0.7"></i><i style="--x:46%;--d:13s;--t:14s;--s:0.9"></i><i style="--x:74%;--d:15s;--t:16s;--s:1.1"></i></div>
+      </div>
       <div class="loader-inner">
-        <div class="ink" aria-hidden="true">
-          <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="86" /></svg>
-          <span lang="zh">茶</span>
-        </div>
-        <h1><span lang="zh">茶馆</span> <i>cháguǎn</i></h1>
-        <p class="tagline">Das Teehaus · zwei berühmte Gäste, eine Kanne Tee</p>
-        <div class="bar"><div id="loader-bar"></div></div>
+        <h1 class="title">
+          <span class="zh" lang="zh">茶馆</span>
+          <span class="py">cháguǎn</span>
+          <span class="de">Das Teehaus</span>
+        </h1>
+        <div class="bar" aria-hidden="true"><div id="loader-bar"></div></div>
         <p id="loader-msg" class="msg" role="status">Das Teehaus wird vorbereitet …</p>
-        <button id="enter" type="button" disabled><span lang="zh">进</span> Eintreten <i>jìn</i></button>
-        <p class="sound-hint">Mit Ton am schönsten</p>
-        <noscript><p class="msg">Das Teehaus braucht JavaScript. Bitte aktiviere es in deinem Browser.</p></noscript>
+        <button id="enter" type="button" disabled><span lang="zh">进</span> Eintreten</button>
+        <noscript><p class="msg error">Das Teehaus braucht JavaScript. Bitte aktiviere es in deinem Browser.</p></noscript>
       </div>
       <p class="notice">
         Fiktives Gespräch, basiert auf öffentlich bekannten Fakten. Keine echten Zitate. Nicht mit den dargestellten Personen verbunden.

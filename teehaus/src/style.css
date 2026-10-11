@@ -58,14 +58,15 @@ i {
   outline-offset: 3px;
 }
 
-/* ───────── Ladescreen ───────── */
+/* ───────── Startbild ───────── */
 #loader {
   position: fixed;
   inset: 0;
   z-index: 50;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 38%, #3a1a12 0%, var(--ink) 70%), var(--ink);
+  overflow: hidden;
+  background: var(--ink);
   transition:
     opacity 1.4s ease,
     visibility 1.4s;
@@ -76,55 +77,178 @@ body.is-inside #loader {
   visibility: hidden;
   pointer-events: none;
 }
-.loader-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 24px;
-  text-align: center;
+.scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-.ink {
-  position: relative;
-  width: min(34vw, 190px);
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-}
-.ink svg {
+.paint {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg);
+  animation: paint-in 2.4s ease both;
 }
-.ink circle {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  stroke-dasharray: 540;
-  stroke-dashoffset: 540;
-  animation: draw-ring 3.2s cubic-bezier(0.6, 0, 0.2, 1) 0.2s forwards;
-  opacity: 0.85;
+/* Abdunkeln zur Mitte hin, damit die Schrift ruhig steht */
+.scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 48% at 50% 44%, rgba(20, 11, 8, 0.55), transparent 75%),
+    linear-gradient(180deg, rgba(20, 11, 8, 0.35), transparent 30%, transparent 70%, rgba(20, 11, 8, 0.7));
 }
-.ink span {
-  font-family: var(--font-brush);
-  font-size: min(18vw, 100px);
-  color: var(--paper);
-  text-shadow: 0 0 40px rgba(179, 38, 26, 0.7);
-  animation: ink-in 2.4s ease 0.3s both;
-}
-@keyframes draw-ring {
-  to {
-    stroke-dashoffset: 40;
+@keyframes paint-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
   }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mist {
+  animation: drift 38s ease-in-out infinite alternate;
+}
+.mist.m2 {
+  animation-duration: 52s;
+  animation-direction: alternate-reverse;
+}
+.mist.m3 {
+  animation-duration: 46s;
+}
+@keyframes drift {
+  from {
+    transform: translateX(-90px);
+  }
+  to {
+    transform: translateX(90px);
+  }
+}
+/* Laterne am oberen Rand, schwingt leicht */
+.lantern {
+  position: absolute;
+  top: 0;
+  right: 12%;
+  width: 2px;
+  height: 18vh;
+  background: rgba(20, 10, 7, 0.9);
+  transform-origin: top center;
+  animation: sway 6s ease-in-out infinite alternate;
+}
+.lantern span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: clamp(38px, 5vw, 64px);
+  aspect-ratio: 0.8;
+  transform: translateX(-50%);
+  border-radius: 46% / 40%;
+  background: radial-gradient(ellipse at 50% 45%, #ffcf7a 0%, #e0482c 45%, #8e1d12 100%);
+  box-shadow:
+    0 0 40px 10px rgba(255, 150, 60, 0.35),
+    inset 0 0 0 1px rgba(60, 20, 10, 0.4);
+}
+.lantern span::before,
+.lantern span::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  height: 9%;
+  background: #2a140c;
+  border-radius: 2px;
+}
+.lantern span::before {
+  top: -4%;
+}
+.lantern span::after {
+  bottom: -4%;
+}
+@keyframes sway {
+  from {
+    transform: rotate(-2.2deg);
+  }
+  to {
+    transform: rotate(2.2deg);
+  }
+}
+/* fallende Blüten */
+.petals i {
+  position: absolute;
+  top: -4vh;
+  left: var(--x);
+  width: 9px;
+  height: 7px;
+  border-radius: 70% 0 70% 0;
+  background: #f4b9b0;
+  opacity: 0;
+  scale: var(--s);
+  animation: fall var(--t) linear var(--d) infinite;
+}
+@keyframes fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0);
+  }
+  10% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(6vw, 52vh) rotate(260deg);
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-2vw, 108vh) rotate(560deg);
+  }
+}
+.loader-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+.title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-weight: 400;
+}
+.title .zh {
+  font: clamp(96px, 22vw, 210px) / 1 var(--font-brush);
+  color: var(--paper);
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.55),
+    0 0 60px rgba(179, 38, 26, 0.35);
+  animation: ink-in 2.6s ease 0.4s both;
+}
+.title .py {
+  font: italic clamp(18px, 2.8vw, 26px) var(--font-latin);
+  color: var(--gold-l);
+  letter-spacing: 0.12em;
+  animation: rise 1.4s ease 1.6s both;
+}
+.title .de {
+  font: 400 clamp(17px, 2.4vw, 22px) var(--font-latin);
+  color: var(--paper-d);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  animation: rise 1.4s ease 2s both;
 }
 @keyframes ink-in {
   from {
     opacity: 0;
     filter: blur(14px);
-    transform: scale(1.18);
+    transform: scale(1.12);
   }
   to {
     opacity: 1;
@@ -132,23 +256,27 @@ body.is-inside #loader {
     transform: none;
   }
 }
-.loader-inner h1 {
-  font-size: clamp(30px, 6vw, 52px);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-.tagline {
-  color: var(--paper-d);
-  font-size: clamp(14px, 2.2vw, 18px);
-  max-width: 28em;
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .bar {
-  width: min(70vw, 340px);
-  height: 3px;
-  margin-top: 8px;
-  background: rgba(217, 169, 74, 0.2);
+  width: min(42vw, 180px);
+  height: 2px;
+  margin-top: 10px;
+  background: rgba(217, 169, 74, 0.18);
   overflow: hidden;
   border-radius: 2px;
+  transition: opacity 0.8s ease;
+}
+body.is-loaded .bar {
+  opacity: 0;
 }
 #loader-bar {
   height: 100%;
@@ -157,20 +285,34 @@ body.is-inside #loader {
   transform-origin: left;
   transition: transform 0.5s ease;
 }
+/* Ladefortschritt nur für Screenreader; Fehler sichtbar */
 .msg {
-  min-height: 1.6em;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.msg.error {
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: 30em;
+  clip: auto;
+  white-space: normal;
   font-size: 15px;
-  color: var(--paper-d);
+  color: var(--paper);
 }
 #enter {
-  margin-top: 10px;
-  padding: 14px 34px;
+  margin-top: -6px;
+  padding: 12px 34px 12px 26px;
   font: 600 18px/1 var(--font-latin);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--paper);
-  background: linear-gradient(180deg, var(--red) 0%, var(--red-d) 100%);
-  border: 2px solid var(--gold);
-  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(179, 38, 26, 0.92) 0%, rgba(122, 26, 18, 0.92) 100%);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
   cursor: pointer;
   opacity: 0;
   transform: translateY(8px);
@@ -183,13 +325,8 @@ body.is-inside #loader {
 #enter span {
   font-family: var(--font-brush);
   font-size: 1.5em;
-  margin-right: 0.3em;
-  vertical-align: -0.1em;
-}
-#enter i {
-  color: var(--gold-l);
-  margin-left: 0.4em;
-  font-size: 0.85em;
+  margin-right: 0.35em;
+  vertical-align: -0.12em;
 }
 body.is-loaded #enter {
   opacity: 1;
@@ -204,8 +341,8 @@ body.is-loaded #enter {
   left: 16px;
   right: 16px;
   text-align: center;
-  font-size: 12px;
-  color: rgba(243, 231, 204, 0.55);
+  font-size: 11.5px;
+  color: rgba(243, 231, 204, 0.6);
   font-family: var(--font-ui);
   letter-spacing: 0.02em;
 }
@@ -282,9 +419,15 @@ body.is-inside:not(.is-flash) #flash {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ink circle,
-  .ink span {
+  .title > span,
+  .paint {
     animation-duration: 0.01s;
+  }
+  .mist,
+  .lantern,
+  .petals {
+    animation: none;
+    display: none;
   }
   .cap,
   #flash,
@@ -1847,16 +1990,6 @@ body.glow-flash::after {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
-}
-.sound-hint {
-  font: 12px var(--font-ui);
-  letter-spacing: 0.08em;
-  color: rgba(243, 231, 204, 0.5);
-  opacity: 0;
-  transition: opacity 0.8s ease 0.4s;
-}
-body.is-loaded .sound-hint {
-  opacity: 1;
 }
 .calm-row {
   display: flex;
