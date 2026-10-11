@@ -2690,7 +2690,20 @@ body:not(.is-inside) .nametag {
   display: flex;
   flex-direction: column;
   border-radius: 4px;
-  animation: dlg-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: dlg3-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes dlg3-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dlg3[hidden] {
+  display: none;
 }
 .dlg3-head {
   display: flex;
