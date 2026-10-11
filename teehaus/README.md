@@ -65,6 +65,14 @@ Test-Adressen:
 
 Nur der Pinselschriftzug 茶馆, Pinyin _cháguǎn_, „Das Teehaus“ und der Knopf „进 Eintreten“ vor einem gemalten Teehaus in nebligen Bergen (SVG mit ziehendem Nebel, schwingender Laterne und fallenden Blüten; bei „Bewegung reduzieren“ ruhig). Der Hinweis steht klein unten und auf der Info-Seite. Das Vorschaubild `public/og.png` wird mit `node scripts/make-og.mjs <url>` aus dem Startbild erzeugt.
 
+## Musik
+
+Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/music.ts`, Instrumente in `instruments.ts`, Notation in `sequencer.ts`), ohne Audiodateien. Vordersätze, Nachsätze, Guzheng-Zwischenspiele und stille Abschnitte werden laufend neu kombiniert und abgewandelt, gelegentlich mit Ausweichen nach D- oder A-Gong.
+
+- **Tag:** Erhu über Guzheng, etwa 62 Schläge pro Minute. **Abend:** langsamer, wärmer, mehr Stille. **Nacht:** meist Guzheng, Klangschale, Bordun, Laternenglöckchen.
+- **Draußen** luftiger mit mehr Hall, **drinnen** näher und wärmer mit leisem Teegießen; **im Gespräch** verstummt die Erhu und die Musik wird deutlich leiser.
+- Windspiele spielen in der Tonart der Musik. Regler für Musik, Stimmen und Effekte im Ton-Panel; Standard dezent.
+
 ## Qualitätsstufen
 
 Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe und Teich-Spiegelung. Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, Animation nur jedes zweite Bild). Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.

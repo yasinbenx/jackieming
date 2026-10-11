@@ -1,6 +1,7 @@
 // Verdrahtet Welt, Oberfläche, Ton und Spielstand. NPCs, Dialog und Fundstücke hängen sich hier an.
 import type { World } from './world/world';
 import { store } from './state/store';
+import { bus } from './core/bus';
 import { JACKIE, YAO } from './content/dialogs';
 import { WORDS } from './content/words';
 import { createHud } from './ui/hud';
@@ -264,6 +265,7 @@ export class Game {
     const first = !this.talking;
     this.talking = true;
     w.mode = 'dialog';
+    bus.emit('talk:start', { who: id });
     this.bubbles.dismissAll();
     this.bubbles.history = 3;
     const P = w.player.ch.root.position;
@@ -350,6 +352,7 @@ export class Game {
     const w = this.world;
     this.talking = false;
     w.mode = 'free';
+    bus.emit('talk:end');
     this.bubbles.dismissAll();
     this.bubbles.history = 1;
     w.cam.setShot(null);
