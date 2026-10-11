@@ -30,29 +30,40 @@ Test-Adressen:
 - `?q=0|1|2` erzwingt die Grafikqualität (niedrig bis hoch)
 - `?galerie` zeigt alle Figuren nebeneinander (`&anim=walk|run|sit|wave…`, `&fig=jackie&nah=1&winkel=0.6`)
 - `/lab/modelle/` ist das **Modell-Labor**: jedes Charaktermodell drehbar, mit Datei-, Skelett- und Animationsinfos und Knöpfen zum Abspielen der Animationen
+- `/lab/figuren/` ist das **Figuren-Labor**: jede Rolle im Vorher-Nachher-Vergleich und alle Figuren nebeneinander, mit Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Sprechen und Verbeugen
+- `/lab/musik/` stellt die Musikvarianten zum Probehören nebeneinander
 
 ## Bedienung
 
-| Aktion                 | Maus / Touch                                 | Tastatur         |
-| ---------------------- | -------------------------------------------- | ---------------- |
-| Gehen / Laufen         | Boden anklicken bzw. Joystick                | WASD / Pfeile, ⇧ |
-| Kamera drehen / zoomen | ziehen, Mausrad / zwei Finger                | –                |
-| Ansprechen, benutzen   | Figur/Gegenstand antippen                    | E                |
-| Winken                 | –                                            | G                |
-| Antwort sofort zeigen  | Blase antippen                               | Leertaste        |
-| Gespräch schließen     | ×                                            | Esc              |
-| Ton                    | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | M                |
+| Aktion                  | Maus / Touch                                 | Tastatur         |
+| ----------------------- | -------------------------------------------- | ---------------- |
+| Gehen / Laufen          | Boden anklicken bzw. Joystick                | WASD / Pfeile, ⇧ |
+| Kamera drehen / zoomen  | ziehen, Mausrad / zwei Finger                | –                |
+| Ansprechen, benutzen    | Figur/Gegenstand antippen                    | E                |
+| Weg zum Platz abbrechen | „Abbrechen“                                  | Esc              |
+| Winken                  | –                                            | G                |
+| Antwort sofort zeigen   | Blase antippen                               | Leertaste        |
+| Gespräch schließen      | ×                                            | Esc              |
+| Ton                     | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | M                |
 
 ## Figuren und Animation
 
-- **Modelle:** Quaternius „Ultimate Modular Men“ (CC0). Jede Rolle wird aus Kopf, Körper, Beinen und Füßen verschiedener Grundfiguren zusammengesetzt (`src/world/looks.ts`, Feld `rig`), umgefärbt und mit am Skelett hängenden Gewändern, Gürteln, Quasten, Schürze und Haarteilen ergänzt (`src/world/rigchar.ts`). Die Low-Poly-Flächen werden beim Laden geglättet; Stickerei und Stofffalten liegen auf selbst berechneten UV-Koordinaten.
-- **Körpertypen** über Knochen-Skalierung: Kopf, Schulterbreite, Rumpf, Arme, Hände, Füße, Hosenweite (Kind, Frauen, kräftige Figuren, Yao mit 2,29 m).
-- **Gesichter** sind generisch. Jackie Chan und Yao Ming werden nur über Kontext erkennbar (Größe, Statur, Kleidung, Basketball, Namensschild, Charakterkarte).
-- **Bewegung:** Idle/Gehen/Laufen werden nach Geschwindigkeit gemischt; das Abspieltempo kommt aus der gemessenen Bodengeschwindigkeit der Animation (kaum Fußrutschen). Dazu Kurvenneigung, Blick führt in die Kurve, Trippeln beim Drehen im Stand, Fuß-IK auf Stufen und Brücke.
-- **Lebendigkeit:** zwei Idle-Varianten mit Zufallsversatz, Atmen, Gewichtsverlagerung, Blinzeln (Morph Target), Mund zu Sprechblasen und Simlish, Sprechgesten, Zuhören mit Nicken, nachschwingende Quasten und Haare.
-- **Alltag:** Sitzen, Trinken, Einschenken, Polieren, Schreiben, Fächeln, Brettspielzüge, Verbeugen, Winken, Streicheln; Gäste stehen auf und gehen zu Theke, Brüstung oder Fenster, zwei Gäste drehen Runden.
-- **Kamera:** über die Schulter; Figuren, die den Blick verdecken, werden durchscheinend; Tiefenschärfe auf dem Blickpunkt; Kontaktschatten unter den Figuren.
+- **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
+- **Kleidung wie im Teehaus:** Tang-Anzug mit Knotenknöpfen (盘扣), Changshan, Hanfu-Jacke mit Überlappkragen, Westen, Schürze, weite Hosen, Stoffschuhe, Gürtel mit Quasten; Stickerei (Drachen, Wolken) und Stofffalten als Textur und Normal-Map. Keine moderne Kleidung, Turnschuhe nur bei Yaos Basketball-Look.
+- **Teile-Baukasten:** Körper, Kopf, Frisur, Hut und Kleidung sind austauschbare Teile auf demselben Skelett (`src/world/looks.ts`, Feld `dress`). Frisuren: kurz, Dutt, Zopf, grau, Glatze mit Bart, Kinderzöpfchen, Reishut, Gelehrtenkappe.
+- **Gesichter** sind generisch und stilisiert (Mandelaugen, weiche Nase, klare Brauen und Mund), verschieden in Hautton und Alter. Keine Gesichtsähnlichkeit zu realen Personen: Jackie Chan und Yao Ming werden nur über Kontext erkennbar (Größe, Statur, Kleidung, Basketball, Namensschild, Charakterkarte).
+- **Rollen:** Spielfigur in vier Outfits, Teemeister (alt, grauer Bart, Schürze), Brettspieler, Dichterin, Händler mit Fächer, Kind, Reisender mit Hut, Besucherin, Gast auf der Terrasse, Katze; Yao groß im roten Drachenmantel mit Basketball, Jackie kleiner in dunkler Jacke mit Goldstickerei.
+- **Bewegung:** Idle/Gehen/Laufen nach Geschwindigkeit gemischt, Tempo aus der gemessenen Bodengeschwindigkeit (kaum Fußrutschen), Kurvenneigung, Fuß-IK auf Stufen und Brücke.
+- **Sitzen:** feste Plätze je Tisch (Position und Blickrichtung). Becken auf der Sitzfläche, Füße auf dem Boden, Hände auf den Knien oder am Tisch.
+- **Gespräch:** „Ansprechen“ lässt die Spielfigur zum freien Hocker direkt neben Jackie und Yao gehen, sich setzen und zur Person drehen; erst dann fährt die Kamera in die Zweier-Einstellung. Esc bricht den Weg ab; ist kein Platz frei oder kein Weg da, beginnt das Gespräch im Stehen. Am Ende steht die Figur wieder auf. An Gäste-Tischen kann man sich ebenfalls dazusetzen.
+- **Gesprächsansicht:** Fragen und Charakterkarte in einer schmalen Leiste rechts (höchstens ein Drittel des Bildes; auf dem Telefon ein niedriges Blatt unten), Steckbrief aufklappbar. Sprechblasen verschiedener Sprecher weichen einander aus.
+- **Lebendigkeit:** zwei Idle-Varianten, Atmen, Blinzeln, Mund zu Sprechblasen und Simlish, Sprechgesten, Zuhören mit Nicken, nachschwingende Quasten und Haare; Alltag mit Trinken, Einschenken, Polieren, Schreiben, Fächeln, Brettspielzügen, Verbeugen, Winken, Streicheln.
+- **Kamera:** über die Schulter; verdeckende Figuren werden durchscheinend; Tiefenschärfe auf dem Blickpunkt; Kontaktschatten.
 - Rückfall: Fehlen die Modelle, erscheinen die gezeichneten Figuren (`?gezeichnet` erzwingt das zum Vergleich).
+
+## Startbild
+
+Nur der Pinselschriftzug 茶馆, Pinyin _cháguǎn_, „Das Teehaus“ und der Knopf „进 Eintreten“ vor einem gemalten Teehaus in nebligen Bergen (SVG mit ziehendem Nebel, schwingender Laterne und fallenden Blüten; bei „Bewegung reduzieren“ ruhig). Der Hinweis steht klein unten und auf der Info-Seite. Das Vorschaubild `public/og.png` wird mit `node scripts/make-og.mjs <url>` aus dem Startbild erzeugt.
 
 ## Qualitätsstufen
 
@@ -70,14 +81,14 @@ Oder per CLI: `npx vercel` (Vorschau) bzw. `npx vercel --prod`.
 
 Alles außer den unten genannten Dateien entsteht im Code (Teehaus, Landschaft, Licht, Stickereimuster, Musik, Simlish-Stimmen).
 
-| Was                                                               | Datei(en)                           | Quelle                                                                                         | Lizenz                                                        |
-| ----------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Charaktermodelle (11 Figuren, gemeinsames Skelett mit 62 Knochen) | `public/charaktere/*.glb`           | [Quaternius – Ultimate Modular Men](https://quaternius.com)                                    | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
-| 24 Animationen (Idle, Walk, Run, Wave, Interact …)                | `public/charaktere/animationen.glb` | Quaternius – Ultimate Modular Men                                                              | CC0 1.0                                                       |
-| Haare und Augenbrauen                                             | `public/charaktere/haare.glb`       | [Quaternius – Universal Base Characters](https://quaternius.itch.io/universal-base-characters) | CC0 1.0                                                       |
-| three.js                                                          | npm                                 | three.js authors                                                                               | MIT                                                           |
-| postprocessing                                                    | npm                                 | Raoul van Rüschen (pmndrs)                                                                     | Zlib                                                          |
-| Noto Serif SC, Ma Shan Zheng (Subsets)                            | `public/fonts/`                     | Google Fonts                                                                                   | SIL OFL 1.1                                                   |
+| Was                                                                  | Datei(en)                           | Quelle                                                                                         | Lizenz                                                        |
+| -------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Skelett, Hände, Charaktermodelle (für Vorher-Vergleich und Rückfall) | `public/charaktere/*.glb`           | [Quaternius – Ultimate Modular Men](https://quaternius.com)                                    | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| 24 Animationen (Idle, Walk, Run, Wave, Interact …)                   | `public/charaktere/animationen.glb` | Quaternius – Ultimate Modular Men                                                              | CC0 1.0                                                       |
+| Haare und Augenbrauen                                                | `public/charaktere/haare.glb`       | [Quaternius – Universal Base Characters](https://quaternius.itch.io/universal-base-characters) | CC0 1.0                                                       |
+| three.js                                                             | npm                                 | three.js authors                                                                               | MIT                                                           |
+| postprocessing                                                       | npm                                 | Raoul van Rüschen (pmndrs)                                                                     | Zlib                                                          |
+| Noto Serif SC, Ma Shan Zheng (Subsets)                               | `public/fonts/`                     | Google Fonts                                                                                   | SIL OFL 1.1                                                   |
 
 Details zur Bearbeitung (Komprimierung mit Meshopt, Texturen als WebP) stehen in [`public/charaktere/LICENSE.md`](./public/charaktere/LICENSE.md); die Originale liegen in `assets-src/charaktere/` und werden nicht ausgeliefert. Im Spiel stehen alle Angaben unter ⓘ → Credits.
 
@@ -102,7 +113,7 @@ src/three/        Landschaft, Effekte (Lichtstrahlen, Dampf, Blüten), Materiali
 src/audio/        Web-Audio: Musik (Pentatonik), Ambiente, Effekte, Simlish-Stimmen mit Raumklang
 src/ui/           Sprechblasen, Gesprächsfenster, Lernkarte, Wörterbuch, Info, Ton-Panel, HUD
 src/content/      Dialoge, Wörter, Credits
-src/lab/          Modell-Labor (/lab/modelle/)
+src/lab/          Labore: Modelle, Figuren, Musik (/lab/…)
 public/charaktere Komprimierte Modelle + LICENSE.md
 assets-src/       Original-Modellpakete (nicht ausgeliefert)
 scripts/          Fakten-Generator, Schrift-Subset, Icons, Modell-Werkzeuge
