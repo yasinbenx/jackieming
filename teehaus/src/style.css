@@ -2545,21 +2545,19 @@ body:not(.is-inside) .nametag {
 }
 
 /* ═════════ Gespräch mit Jackie / Yao ═════════ */
+/* Desktop: schmale Leiste rechts (höchstens ein Drittel der Breite), die Figuren bleiben links frei.
+   Schmale Bildschirme: niedriges Blatt unten (höchstens gut ein Drittel der Höhe). */
 .dlg3 {
   position: fixed;
   z-index: 20;
-  left: 50%;
+  top: calc(72px + var(--safe-t, 0px));
+  right: 16px;
   bottom: calc(16px + var(--safe-b));
-  transform: translateX(-50%);
-  width: min(1040px, calc(100vw - 32px));
-  max-height: min(44vh, 460px);
+  width: min(380px, 31vw);
   display: flex;
   flex-direction: column;
   border-radius: 4px;
   animation: dlg-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.dlg3[hidden] {
-  display: none;
 }
 .dlg3-head {
   display: flex;
@@ -2614,21 +2612,54 @@ body:not(.is-inside) .nametag {
   cursor: pointer;
 }
 .dlg3-main {
-  display: grid;
-  grid-template-columns: 210px 1fr;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   flex: 1;
 }
 .dlg3-card {
-  padding: 12px 14px;
-  border-right: 1px dashed rgba(90, 58, 34, 0.3);
-  overflow-y: auto;
-  background: linear-gradient(180deg, rgba(155, 42, 26, 0.06), transparent 40%);
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px dashed rgba(90, 58, 34, 0.3);
+  background: linear-gradient(180deg, rgba(155, 42, 26, 0.06), transparent 70%);
+}
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.card-id {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-chev {
+  font-size: 14px;
+  color: #7a5235;
+  transition: transform 0.2s;
+}
+.dlg3-card.open .card-chev {
+  transform: rotate(180deg);
+}
+.card-more {
+  display: none;
+  margin-top: 8px;
+}
+.dlg3-card.open .card-more {
+  display: block;
 }
 .card-seal {
   display: inline-block;
-  padding: 2px 10px;
-  font: 30px/1.1 var(--font-brush);
+  padding: 2px 9px;
+  font: 24px/1.1 var(--font-brush);
   color: #fbf3e2;
   background: linear-gradient(180deg, #c03024, #7a1a12);
   border-radius: 4px;
@@ -2638,12 +2669,10 @@ body:not(.is-inside) .nametag {
   background: linear-gradient(180deg, #2e3448, #1a1e2a);
 }
 .card-py {
-  margin-top: 4px;
-  font: italic 15px var(--font-latin);
+  font: italic 14px var(--font-latin);
 }
 .card-name {
-  font: 600 15px var(--font-latin);
-  margin-bottom: 8px;
+  font: 600 14px var(--font-latin);
 }
 .card-fields {
   display: grid;
@@ -2692,82 +2721,110 @@ body:not(.is-inside) .nametag {
   max-width: min(440px, 86vw);
   font-size: 17px;
 }
+.dlg3-head {
+  flex-wrap: wrap;
+}
+.dlg3-tools {
+  flex: 1 1 100%;
+  justify-content: flex-end;
+}
 @media (max-width: 760px) {
   .dlg3 {
-    width: calc(100vw - 16px);
+    top: auto;
+    left: 8px;
+    right: 8px;
     bottom: calc(8px + var(--safe-b));
-    max-height: 56vh;
+    width: auto;
+    max-height: 36vh;
   }
-  .dlg3-main {
-    grid-template-columns: 1fr;
+  .dlg3-head {
+    gap: 4px 8px;
+    padding: 6px 10px 4px;
   }
-  .dlg3-card {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 10px;
-    padding: 6px 12px;
-    border-right: 0;
-    border-bottom: 1px dashed rgba(90, 58, 34, 0.3);
-  }
-  .dlg3-card .card-py,
-  .dlg3-card .card-name,
-  .card-parts {
+  .dlg3-name i,
+  .dlg3-de {
     display: none;
   }
-  .card-seal {
-    font-size: 20px;
-  }
-  .card-fields {
-    grid-template-columns: auto 1fr auto 1fr;
-    font-size: 11.5px;
+  .dlg3-name > span[lang='zh'] {
+    font-size: 22px;
   }
   .dlg3-tools .btn.small {
     padding: 5px 7px;
     font-size: 12px;
   }
-  .dlg3-name > span[lang='zh'] {
-    font-size: 22px;
+  .dlg3-card {
+    padding: 4px 10px;
   }
-  .dlg3-de {
-    display: none;
-  }
-  .bubble.answer {
-    font-size: 15px;
-  }
-}
-@media (max-width: 760px) {
-  .dlg3 {
-    max-height: 47vh;
-  }
-  .dlg3-head {
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    padding: 8px 10px 6px;
-  }
-  .dlg3-name i {
-    display: none;
-  }
-  .dlg3-tools {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-  }
-  .card-fields dt:nth-of-type(1),
-  .card-fields dd:nth-of-type(1),
-  .card-fields dt:nth-of-type(4),
-  .card-fields dd:nth-of-type(4) {
-    display: none;
+  .card-seal {
+    font-size: 18px;
   }
   .card-fields {
-    grid-template-columns: auto auto auto auto;
+    font-size: 11.5px;
+  }
+  .card-parts {
+    display: none;
   }
   body.dialog-open .wordcard {
     top: auto;
-    bottom: calc(48vh + 8px);
+    left: 8px;
+    right: auto;
+    bottom: calc(36vh + 16px);
+    width: min(250px, 66vw);
+    padding: 8px 10px 6px;
+  }
+  body.dialog-open .wordcard :is(.wc-note, .wc-foot, .wc-kicker) {
+    display: none;
   }
   .bubble.answer {
     max-width: 92vw;
     font-size: 14px;
     line-height: 1.35;
   }
+}
+/* Querformat auf dem Telefon: Leiste rechts, ganz niedrig */
+@media (min-width: 761px) and (max-height: 520px) {
+  .dlg3 {
+    top: 8px;
+    bottom: 8px;
+    right: 8px;
+  }
+  .dlg3-head {
+    padding: 6px 10px 4px;
+  }
+}
+
+/* Lernkarte während des Gesprächs (Desktop): unten links, damit sie weder Fragen noch Gesichter verdeckt */
+@media (min-width: 761px) {
+  body.dialog-open .wordcard {
+    top: auto;
+    right: auto;
+    left: 16px;
+    bottom: calc(16px + var(--safe-b));
+    width: min(260px, 30vw);
+  }
+}
+/* Weg zum Platz am Tisch */
+.approach-hint {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  bottom: calc(24px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 16px;
+  border-radius: 999px;
+  font: 14px var(--font-ui);
+  color: #fbf3e2;
+  background: rgba(30, 20, 14, 0.82);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.approach-hint .btn {
+  color: #fbf3e2;
+  border-color: rgba(251, 243, 226, 0.4);
+}
+.approach-hint kbd {
+  font: 11px var(--font-ui);
+  opacity: 0.7;
 }

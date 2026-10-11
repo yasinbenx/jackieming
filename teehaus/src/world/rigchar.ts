@@ -176,8 +176,6 @@ const _e = new Vector3();
 const _t = new Vector3();
 const _q3 = new Quaternion();
 const _q4 = new Quaternion();
-const THIGH_L = new Vector3(0.14, -0.04, 1);
-const THIGH_R = new Vector3(-0.14, -0.04, 1);
 const SHIN = new Vector3(0, -1, 0.06);
 const _m = new Matrix4();
 
@@ -243,10 +241,21 @@ function addMorph(geo: BufferGeometry, world: Matrix4, kind: 'blink' | 'brow'): 
 /** Mantelschoß als Röhre ab der Taille, an Hüfte und Beinen „angenäht“ (Skinning), optional vorne offen */
 function skirtGeometry(
   bones: { hips: number; ulL: number; ulR: number; llL: number; llR: number },
-  o: { y0: number; len: number; rx: number; rz: number; flare: number; z: number; gap: number; arc?: number },
+  o: {
+    y0: number;
+    len: number;
+    rx: number;
+    rz: number;
+    flare: number;
+    z: number;
+    gap: number;
+    arc?: number;
+    /** Bezugsschoß: Weite und Gewichte nach dessen Höhe (Schürze liegt so überall knapp darüber) */
+    ref?: { y0: number; len: number; flare: number };
+  },
 ): BufferGeometry {
   const S = 28;
-  const R = 8;
+  const R = 14;
   const pos: number[] = [];
   const uv: number[] = [];
   const si: number[] = [];
@@ -258,7 +267,8 @@ function skirtGeometry(
   for (let j = 0; j <= R; j++) {
     const t = j / R;
     const y = o.y0 - t * o.len;
-    const grow = 1 + o.flare * Math.pow(t, 1.2);
+    const tr = o.ref ? Math.min(1, Math.max(0, (o.ref.y0 - y) / o.ref.len)) : t;
+    const grow = 1 + (o.ref ? o.ref.flare : o.flare) * Math.pow(tr, 1.2);
     for (let i = 0; i <= S; i++) {
       const a = a0 + (i / S) * span;
       const sx = Math.sin(a);
@@ -267,11 +277,11 @@ function skirtGeometry(
       // Gewichte: oben Hüfte, darunter Oberschenkel, am Saum Unterschenkel (so fällt der Stoff im Sitzen von
       // den Knien nach unten). Seiten nur leicht dem jeweiligen Bein zuordnen: vorne/hinten folgt der Stoff dem
       // Mittel beider Beine (beim Gehen ruhig, beim Sitzen über dem Schoß statt seitlich ausgebeult).
-      const tt = smoothstep(0, 0.6, t);
+      const tt = smoothstep(0, 0.6, tr);
       const wh = 1 - 0.88 * tt;
       const rest = 1 - wh;
       const side = Math.max(-1, Math.min(1, sx * 0.55));
-      const shin = smoothstep(0.4, 1, t) * 0.75;
+      const shin = smoothstep(0.4, 1, tr) * 0.75;
       const ws: [number, number][] = [
         [bones.hips, wh],
         [bones.ulL, rest * (1 - shin) * (0.5 + 0.5 * side)],
@@ -556,7 +566,9 @@ export class RigCharacter {
       };
 
     // ── Hose: Sitzteil um das Becken und zwei Hosenbeine
-    const wide = L.pants.wide ? 1.16 : 1;
+    // unter langen Gewändern schmalere Hosenbeine, damit beim Ausschreiten nichts durch den Stoff sticht
+    const robe = len > 0.18 && cut !== 'coat';
+    const wide = robe ? 0.8 : L.pants.wide ? 1.16 : 1;
     const seat = tube({
       chain: [
         { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, 0.1, 0)) },
@@ -589,7 +601,7 @@ export class RigCharacter {
         ],
         sections: [
           { t: 0, rx: 0.095, rz: 0.095 },
-          { t: 0.12, rx: 0.09, rz: 0.092 },
+          { t: 0.12, rx: 0.09 * (robe ? 0.88 : 1), rz: 0.092 * (robe ? 0.88 : 1) },
           { t: 0.55, rx: 0.068 * wide, rz: 0.07 * wide },
           { t: 0.9, rx: 0.064 * wide, rz: 0.066 * wide },
           { t: 1, rx: 0.052, rz: 0.054 },
@@ -731,6 +743,7 @@ export class RigCharacter {
       llR: bi('LowerLegR'),
     };
     const legLen = hips.y;
+    let skirtRef: { y0: number; len: number; flare: number } | undefined;
     if (len > 0.18) {
       const gold = top.gold ?? '#d9a94a';
       const tex = top.motif
@@ -745,12 +758,15 @@ export class RigCharacter {
       mat.side = DoubleSide;
       mat.normalMap = fabricNormals();
       mat.normalScale.set(0.7, 0.7);
-      const geo = skirtGeometry(ids, {
+      skirtRef = {
         y0: hips.y - hemDrop + 0.06,
         len: legLen * Math.min(0.92, len) - hemDrop + 0.1,
+        flare: 0.25 + len * 0.45,
+      };
+      const geo = skirtGeometry(ids, {
+        ...skirtRef,
         rx: 0.215,
         rz: 0.17,
-        flare: 0.25 + len * 0.45,
         z: hips.z + 0.01,
         gap: cut === 'coat' ? 0.6 : 0,
       });
@@ -765,12 +781,13 @@ export class RigCharacter {
       const geo = skirtGeometry(ids, {
         y0: hips.y + 0.12,
         len: legLen * 0.78,
-        rx: 0.235,
-        rz: 0.195,
+        rx: skirtRef ? 0.24 : 0.235,
+        rz: skirtRef ? 0.198 : 0.195,
         flare: 0.3 + len * 0.45,
         z: hips.z + 0.012,
         gap: 0,
         arc: 1.9,
+        ref: skirtRef,
       });
       add(geo, mat);
     }
@@ -1467,6 +1484,18 @@ export class RigCharacter {
     }
   }
 
+  private lens: { thigh: number; shin: number } | null = null;
+  /** Ober- und Unterschenkellänge (Welt, einmal gemessen) */
+  private legLens(): { thigh: number; shin: number } {
+    if (this.lens) return this.lens;
+    const p = (n: string): Vector3 => this.bones.get(n)!.getWorldPosition(new Vector3());
+    this.lens = {
+      thigh: p('UpperLegL').distanceTo(p('LowerLegL')),
+      shin: p('LowerLegL').distanceTo(p('LowerLegL_end')),
+    };
+    return this.lens;
+  }
+
   /**
    * Fuß-IK auf unebenem Boden (Stufen, Brücke): Becken senkt sich zum tieferen Fuß, der höhere Fuß wird mit
    * zwei Gelenken (Hüfte, Knie) angehoben, das Knie zeigt dabei in die bisherige Richtung.
@@ -1660,6 +1689,17 @@ export class RigCharacter {
       }
       this.rot('Head', X, Math.sin(t * 5.5) * 0.04 * this.talkSmooth);
     }
+    // Sitzen ohne Tätigkeit: Hände ruhen auf den Knien
+    const rest = sitK * (1 - busy) * (1 - this.gest);
+    if (rest > 0.01) {
+      for (const s of ['L', 'R']) {
+        const sx = s === 'L' ? 1 : -1;
+        _t.set(0.12 * sx, -0.9, 0.42);
+        this.aim(`UpperArm${s}`, `LowerArm${s}`, _t, rest);
+        _t.set(-0.15 * sx, -0.75, 1);
+        this.aim(`LowerArm${s}`, `Wrist${s}`, _t, rest);
+      }
+    }
     // Kurvenneigung: Oberkörper neigt sich in die Kurve, stärker beim Laufen
     const lean = Math.max(-0.22, Math.min(0.22, -this.yawRate * sp * 0.045));
     if (Math.abs(lean) > 0.002) {
@@ -1670,15 +1710,29 @@ export class RigCharacter {
     const breath = Math.sin(t * 1.7 + this.seed) * 0.018 * (1 - Math.min(1, sp));
     this.rot('Chest', X, -breath);
     // Sitzen: Oberschenkel nach vorn, Unterschenkel nach unten, Körper auf Sitzhöhe
+    // Gesäß auf der Sitzfläche: Becken auf Sitzhöhe absenken (gemessen an der aktuellen Hüfthöhe)
+    this.model.position.y = 0;
+    let hipH = this.A.rest.hipY * this.S;
     if (sitK > 0.001) {
+      this.model.updateMatrixWorld(true);
+      hipH = this.bones.get('Hips')!.getWorldPosition(_t).y - this.root.position.y;
+    }
+    const seatHip = this.seatH + 0.09;
+    this.model.position.y = -Math.max(0, hipH - seatHip) * sitK;
+    if (sitK > 0.001) {
+      this.root.updateMatrixWorld(true);
+      // Oberschenkel so neigen, dass die Füße auf dem Boden stehen (Knie etwas tiefer als die Hüfte)
+      const lens = this.legLens();
+      const kneeY = lens.shin + 0.035;
+      const dy = Math.max(0, Math.min(lens.thigh * 0.7, seatHip - kneeY));
+      const fwd = Math.sqrt(Math.max(0.01, lens.thigh * lens.thigh - dy * dy));
       for (const s of ['L', 'R']) {
-        this.aim(`UpperLeg${s}`, `LowerLeg${s}`, s === 'L' ? THIGH_L : THIGH_R, sitK);
+        _t.set((s === 'L' ? 0.12 : -0.12) * lens.thigh, -dy, fwd);
+        this.aim(`UpperLeg${s}`, `LowerLeg${s}`, _t, sitK);
         this.aim(`LowerLeg${s}`, `LowerLeg${s}_end`, SHIN, sitK);
       }
       this.rot('Torso', X, -0.05 * sitK);
     }
-    const hipH = this.A.rest.hipY * this.S;
-    this.model.position.y = -Math.max(0, hipH - (this.seatH + 0.1)) * sitK;
     // Bücken (Türbalken) und Ducken
     const duck = Math.max(this.stoopSmooth, w('duck'));
     if (duck > 0.001) {

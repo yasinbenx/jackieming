@@ -946,22 +946,28 @@ export class Character {
   }
 
   private buildBeard(r: number): void {
-    {
-      const beard = mk(new ConeGeometry(r * 0.42, r * 1.5, 12), vinyl(this.look.hair, { rough: 0.6 }));
-      beard.rotation.x = Math.PI + 0.25;
-      beard.position.set(0, -r * 1.05, r * 0.6);
-      this.head.add(beard);
-      for (const sx of [-1, 1]) {
-        const mus = mk(
-          limbGeo(r * 0.07, r * 0.03, r * 0.55, 6),
-          vinyl(this.look.hair, { rough: 0.6 }),
-          false,
-        );
-        mus.position.set(sx * r * 0.08, -r * 0.24, r * 0.95);
-        mus.rotation.z = sx * 1.0;
-        this.head.add(mus);
-        this.detail.push(mus);
-      }
+    // weicher Vollbart: Kinnbart (Tropfenform) aus Kugeln, seitlich an den Wangen, dazu ein Schnurrbart
+    const mat = vinyl(this.look.hair, { rough: 0.75 });
+    const pts: [number, number, number, number, number][] = [
+      // x, y, z, Radius, Streckung nach unten
+      [0, -0.78, 0.62, 0.36, 1.25],
+      [0, -1.12, 0.55, 0.26, 1.5],
+      [0, -1.42, 0.45, 0.15, 1.6],
+      [0.34, -0.62, 0.58, 0.2, 1.3],
+      [-0.34, -0.62, 0.58, 0.2, 1.3],
+    ];
+    for (const [x, y, z, rad, st] of pts) {
+      const b = mk(new SphereGeometry(r * rad, 12, 10), mat, false);
+      b.scale.set(1, st, 0.8);
+      b.position.set(x * r, y * r, z * r);
+      this.head.add(b);
+    }
+    for (const sx of [-1, 1]) {
+      const mus = mk(limbGeo(r * 0.07, r * 0.03, r * 0.36, 6), mat, false);
+      mus.position.set(sx * r * 0.06, -r * 0.27, r * 0.93);
+      mus.rotation.z = sx * 1.15;
+      this.head.add(mus);
+      this.detail.push(mus);
     }
   }
 

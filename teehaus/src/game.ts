@@ -16,7 +16,8 @@ import { Npcs } from './world/npcs';
 import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
-import { seat } from './world/layout';
+import { HALL, SEATS, TABLES } from './world/layout';
+import type { Seat } from './world/layout';
 import { Vector3 } from 'three';
 import { wordById } from './content/words';
 import type { FigureId } from './content/types';
@@ -134,6 +135,13 @@ export class Game {
         if (quality !== 'auto') world.setQuality(quality);
       }
     });
+    // Esc bricht den Weg zum Platz ab
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.approach) {
+        e.preventDefault();
+        this.approach.cancel = true;
+      }
+    });
     this.refresh();
   }
 
@@ -142,8 +150,114 @@ export class Game {
     this.hud.setToastReady(false);
   }
 
-  /** Gespräch mit Jackie oder Yao: Figur dreht sich zum Gast, Kamera fährt heran, Fragenliste öffnet sich */
+  /**
+   * „Ansprechen“: Die Spielfigur geht zum freien Hocker am Haupttisch, setzt sich, dreht sich zur Person, erst dann
+   * fährt die Kamera in den Gesprächsmodus. Esc bricht den Weg ab. Ist kein Platz frei oder kein Weg da (oder dauert
+   * es zu lange), beginnt das Gespräch im Stehen.
+   */
   startTalk(id: FigureId): void {
+    const w = this.world;
+    const pl = w.player;
+    if (this.talking) {
+      this.openTalk(id);
+      return;
+    }
+    if (this.approach) return;
+    const spot = this.freeSeat();
+    if (pl.seated && pl.seat?.table === 'main') {
+      this.openTalk(id);
+      return;
+    }
+    if (!spot) {
+      this.toast.show('Am Tisch ist gerade kein Platz frei – ihr redet im Stehen.');
+      this.openTalk(id);
+      return;
+    }
+    pl.stopPath();
+    if (pl.seated) pl.standUp();
+    // Erst aufstehen lassen, dann losgehen
+    const go = (): boolean =>
+      pl.sitAt(spot, () => {
+        this.sittingForTalk = true;
+      });
+    w.mode = 'cutscene';
+    this.bubbles.dismissAll();
+    const hint = document.createElement('div');
+    hint.className = 'approach-hint';
+    hint.setAttribute('role', 'status');
+    hint.innerHTML = '<span>Du gehst zum freien Platz am Tisch …</span>';
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn ghost small';
+    stop.innerHTML = 'Abbrechen <kbd>Esc</kbd>';
+    hint.appendChild(stop);
+    document.body.appendChild(hint);
+    let t = 0;
+    let started = false;
+    const a = { cancel: false, hint };
+    stop.addEventListener('click', () => (a.cancel = true));
+    this.approach = a;
+    const finish = (sitting: boolean): void => {
+      hint.remove();
+      this.approach = null;
+      if (a.cancel) {
+        pl.stopPath();
+        if (w.mode === 'cutscene') w.mode = 'free';
+        return;
+      }
+      if (!sitting) pl.stopPath();
+      this.openTalk(id);
+    };
+    w.tickers.push((dt) => {
+      if (a.cancel) {
+        finish(false);
+        return true;
+      }
+      t += dt;
+      if (!started) {
+        if (pl.busy) return false;
+        started = true;
+        if (!go()) {
+          // kein Weg: im Stehen reden
+          finish(false);
+          return true;
+        }
+        return false;
+      }
+      // sitzt und hat sich zur Person gedreht
+      if (pl.seated && pl.seat === spot) {
+        const hero = this.heroes.get(id);
+        const F = hero.face();
+        pl.faceTo(F.x, F.z);
+        pl.ch.lookAt(F);
+        finish(true);
+        return true;
+      }
+      if (t > 12) {
+        finish(false);
+        return true;
+      }
+      return false;
+    });
+  }
+
+  private approach: { cancel: boolean; hint: HTMLElement } | null = null;
+
+  /** Freier Hocker am Haupttisch (niemand sitzt oder steht darauf) */
+  private freeSeat(): Seat | null {
+    const w = this.world;
+    for (const s of SEATS) {
+      if (s.table !== 'main' || !s.free) continue;
+      const taken = w.agents.some(
+        (a) => a !== w.player && (a.seat === s || Math.hypot(a.x - s.x, a.z - s.z) < 0.35),
+      );
+      if (!taken) return s;
+    }
+    return null;
+  }
+
+  /** Gesprächsmodus: Figur dreht sich zum Gast, Kamera fährt heran, Fragenliste öffnet sich */
+  private openTalk(id: FigureId): void {
     const w = this.world;
     const hero = this.heroes.get(id);
     const other = this.heroes.get(id === 'jackie' ? 'yao' : 'jackie');
@@ -152,19 +266,16 @@ export class Game {
     w.mode = 'dialog';
     this.bubbles.dismissAll();
     this.bubbles.history = 3;
-    // Der Gast setzt sich auf den freien Hocker am Haupttisch (falls frei), sonst bleibt er stehen
-    const guest = seat('main-2');
-    const pl = w.player;
-    const atSeat = pl.seated && pl.seat?.id === guest.id;
-    if (first && !atSeat) {
-      if (pl.seated) pl.standUp();
-      this.sittingForTalk = pl.sitAt(guest);
-    }
-    const P = new Vector3(guest.x, 0, guest.z);
+    const P = w.player.ch.root.position;
     hero.agent.faceTo(P.x, P.z);
+    if (w.player.seated) {
+      const F = hero.face();
+      w.player.faceTo(F.x, F.z);
+    }
     window.setTimeout(() => {
       hero.ch.lookAt(w.playerTarget());
       other.ch.lookAt(hero.face());
+      w.player.ch.lookAt(hero.face());
     }, 600);
     this.talk.show(id);
     this.frameTalk(id);
@@ -175,23 +286,63 @@ export class Game {
     }
   }
 
-  /** Kamera über die Schulter des Gastes auf das Gesicht der Figur */
+  /**
+   * Zweier-Einstellung: Gast und Figur seitlich im Bild, der Tisch dazwischen im Vordergrund. Die Kamera steht auf
+   * der Seite, die vom Tischmittelpunkt wegzeigt, und rückt die beiden in den Bildteil, den das Gesprächsfenster
+   * frei lässt (Desktop links, Telefon oben).
+   */
   private frameTalk(id: FigureId): void {
     const w = this.world;
     const hero = this.heroes.get(id);
-    const guest = seat('main-2');
     const F = hero.face();
-    const P = new Vector3(guest.x, F.y, guest.z);
-    const dir = P.clone().sub(F).setY(0).normalize();
-    const side = new Vector3(-dir.z, 0, dir.x).multiplyScalar(id === 'jackie' ? -1 : 1);
-    const panel = this.talk.el.getBoundingClientRect().height / window.innerHeight;
-    // Zweier-Einstellung: seitlich hinter dem Gast, Blick auf das Gesicht der Figur
-    const pos = P.clone()
-      .addScaledVector(dir, 1.35)
-      .addScaledVector(side, 1.25)
-      .setY(Math.max(1.95, F.y + 0.3));
-    const look = new Vector3(F.x * 0.8 + P.x * 0.2, F.y - 0.12, F.z * 0.8 + P.z * 0.2);
-    look.y -= Math.max(0, panel - 0.3) * 1.4;
+    const pp = w.player.ch.root.position;
+    const G = w.playerTarget();
+    const M = new Vector3((F.x + G.x) / 2, (F.y + G.y) / 2, (F.z + G.z) / 2);
+    const line = new Vector3(F.x - G.x, 0, F.z - G.z);
+    const span = Math.max(0.8, line.length());
+    line.normalize();
+    let n = new Vector3(-line.z, 0, line.x);
+    const table = TABLES.find((t) => t.id === 'main')!;
+    // vom Tisch weg (dann liegt der Tisch hinter den beiden) – bei großer Figur etwas mehr Abstand
+    if (n.x * (M.x - table.x) + n.z * (M.z - table.z) < 0) n = n.negate();
+    // Leicht schräg von der Seite des Gastes, damit sein Rücken nicht das Gesicht verdeckt
+    const toHero = new Vector3(F.x - pp.x, 0, F.z - pp.z).normalize();
+    const cam = w.camera;
+    const vfov = (cam.fov * Math.PI) / 180;
+    const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+    // Hochformat: eher über die Schulter des Gastes, dann stehen beide hintereinander statt nebeneinander
+    const over = aspect < 1 ? 0.95 : 0.45;
+    const dirCam = n
+      .clone()
+      .multiplyScalar(aspect < 1 ? 0.55 : 0.85)
+      .addScaledVector(toHero, -over)
+      .normalize();
+    const r = this.talk.el.getBoundingClientRect();
+    const sidePanel = r.left > window.innerWidth * 0.45;
+    const freeW = sidePanel ? r.left / window.innerWidth : 1;
+    const freeH = sidePanel ? 1 : Math.max(0.45, r.top / window.innerHeight);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect * freeW);
+    const tall = Math.max(F.y, G.y) - Math.min(pp.y, F.y - 1.2);
+    const across = span * Math.sqrt(Math.max(0, 1 - dirCam.dot(line) ** 2));
+    const dW = (across * 0.5 + 0.5) / Math.tan(hfov / 2);
+    const dH = (tall * 0.5 + 0.35) / Math.tan((vfov * freeH) / 2);
+    const dist = Math.min(6.5, Math.max(2.4, dW, dH));
+    const look = M.clone();
+    look.y = Math.max(pp.y + 0.9, M.y - 0.15);
+    const pos = look.clone().addScaledVector(dirCam, dist);
+    // im Raum bleiben (nicht durch Wand oder Fenster filmen)
+    const m = 0.35;
+    pos.x = Math.min(HALL.x1 - m, Math.max(HALL.x0 + m, pos.x));
+    pos.z = Math.min(HALL.z1 - m, Math.max(HALL.z0 + m, pos.z));
+    pos.y = look.y + 0.45 + dist * 0.12;
+    // Bildmitte so verschieben, dass die beiden in der Mitte der freien Fläche stehen
+    const right = new Vector3().subVectors(look, pos).setY(0).normalize();
+    right.set(-right.z, 0, right.x);
+    const viewW = 2 * dist * Math.tan(vfov / 2) * aspect;
+    const viewH = 2 * dist * Math.tan(vfov / 2);
+    if (sidePanel) look.addScaledVector(right, ((1 - freeW) / 2) * viewW);
+    // Hochformat: oben stehen die Sprechblasen, unten das Fenster – die beiden etwas unterhalb der Mitte der freien Fläche
+    else look.y -= (0.5 - freeH * 0.62) * viewH;
     w.cam.setShot({ pos, look }, w.calm ? 0.01 : 1.3);
   }
 

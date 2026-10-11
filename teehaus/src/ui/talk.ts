@@ -151,22 +151,50 @@ export class TalkPanel {
     this.switchBtn.hidden = !this.host.canSwitch(other);
   }
 
+  /** Charakterkarte: Kopfzeile immer sichtbar, Steckbrief auf- und zuklappbar (auf kleinen Bildschirmen zu) */
+  private cardOpen = window.innerHeight > 720 && window.innerWidth > 760;
+
   private renderCard(): void {
     const p = this.profile;
     clear(this.card);
-    this.card.append(
-      h('div', { class: 'card-seal', lang: 'zh' }, p.zh),
-      h('div', { class: 'card-py', html: pinyinHtml(p.py) }),
-      h('div', { class: 'card-name' }, p.nameDe),
+    this.card.classList.toggle('open', this.cardOpen);
+    const toggle = h(
+      'button',
+      {
+        class: 'card-top',
+        type: 'button',
+        'aria-expanded': String(this.cardOpen),
+        title: 'Steckbrief auf- oder zuklappen',
+        onclick: () => {
+          this.cardOpen = !this.cardOpen;
+          this.card.classList.toggle('open', this.cardOpen);
+          toggle.setAttribute('aria-expanded', String(this.cardOpen));
+        },
+      },
+      h('span', { class: 'card-seal', lang: 'zh' }, p.zh),
       h(
-        'dl',
-        { class: 'card-fields' },
-        ...CARDS[this.id].flatMap((f) => [h('dt', {}, f.label), h('dd', {}, f.value)]),
+        'span',
+        { class: 'card-id' },
+        h('span', { class: 'card-py', html: pinyinHtml(p.py) }),
+        h('span', { class: 'card-name' }, p.nameDe),
       ),
+      h('span', { class: 'card-chev', 'aria-hidden': 'true' }, '▾'),
+    );
+    this.card.append(
+      toggle,
       h(
-        'p',
-        { class: 'card-parts' },
-        ...p.parts.map(([zh, de]) => h('span', {}, h('b', { lang: 'zh' }, zh), ` ${de}`)),
+        'div',
+        { class: 'card-more' },
+        h(
+          'dl',
+          { class: 'card-fields' },
+          ...CARDS[this.id].flatMap((f) => [h('dt', {}, f.label), h('dd', {}, f.value)]),
+        ),
+        h(
+          'p',
+          { class: 'card-parts' },
+          ...p.parts.map(([zh, de]) => h('span', {}, h('b', { lang: 'zh' }, zh), ` ${de}`)),
+        ),
       ),
     );
   }

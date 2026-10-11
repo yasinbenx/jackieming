@@ -79,7 +79,7 @@ export const SEATS: Seat[] = [
   ...around(T('merchant'), [Math.PI, 0], [false, true]),
   ...around(T('free'), [0, (2 * Math.PI) / 3, (-2 * Math.PI) / 3], [true, true, false]),
   // Haupttisch: Jackie links, Yao rechts (beide mit Blick in den Raum), vorne ein freier Platz für den Gast
-  ...around(T('main'), [-2.3, 2.3, 0], [false, false, true], 0.98),
+  ...around(T('main'), [-2.05, 2.05, 0], [false, false, true], 0.98),
   ...around(T('terrace'), [Math.PI, Math.PI / 2], [false, true]),
   ...around(T('terrace2'), [Math.PI, 0], [true, true]),
 ];

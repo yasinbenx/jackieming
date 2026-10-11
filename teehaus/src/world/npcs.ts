@@ -665,7 +665,13 @@ export class Npcs {
         radius: 1.0,
         label: () => 'Hinsetzen',
         enabled: () => !w.player.seated && !w.player.busy && !this.occupied(s.x, s.z),
-        use: () => w.player.sitAt(s),
+        use: () =>
+          w.player.sitAt(s, () => {
+            // Wer am selben Tisch sitzt, nickt dem neuen Gast zu
+            for (const n of this.list)
+              if (n.agent.seated && n.agent.seat?.table === s.table && !n.engaged)
+                window.setTimeout(() => n.agent.ch.play('nod', 1.2), 700 + Math.random() * 500);
+          }),
       });
     }
     w.addInteractable({

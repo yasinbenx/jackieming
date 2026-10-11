@@ -26,6 +26,8 @@ interface Item {
   done: boolean;
   resolve: () => void;
   icon: boolean;
+  /** Zeitpunkt des Erscheinens (die neueste Blase hat Vorrang beim Platz) */
+  born: number;
 }
 
 export type Projector = (v: Vector3) => { x: number; y: number; visible: boolean };
@@ -99,6 +101,7 @@ export class Bubbles {
         done: false,
         resolve,
         icon: false,
+        born: performance.now(),
       };
       stack.unshift(item);
       requestAnimationFrame(() => el.classList.add('show'));
@@ -121,6 +124,7 @@ export class Bubbles {
       done: true,
       resolve: () => undefined,
       icon: true,
+      born: performance.now(),
     };
     // Symbole verdrängen keine Textblasen, sie hängen hinten an
     stack.push(item);
@@ -164,25 +168,46 @@ export class Bubbles {
     for (const id of [...this.stacks.keys()]) this.dismiss(id);
   }
 
-  /** Blasen folgen den Köpfen */
+  /** Blasen folgen den Köpfen; Blasen verschiedener Sprecher weichen einander nach oben aus */
   private loop = (): void => {
     cancelAnimationFrame(this.raf);
     let any = false;
-    for (const stack of this.stacks.values()) {
-      if (!stack.length) continue;
+    // Bereich rechts, den das Gesprächsfenster belegt (Desktop: Seitenleiste)
+    const panel = document.querySelector<HTMLElement>('.dlg3:not([hidden])');
+    const pr = panel?.getBoundingClientRect();
+    const side = pr && pr.left > window.innerWidth * 0.45 ? pr.left : window.innerWidth;
+    const bottomLimit = pr && pr.left <= window.innerWidth * 0.45 ? pr.top - 8 : window.innerHeight;
+    const placed: { l: number; r: number; t: number; b: number }[] = [];
+    // Wer zuletzt zu sprechen begann, bekommt seinen Platz am Kopf; die anderen weichen aus oder treten zurück
+    const order = [...this.stacks.values()]
+      .filter((st) => st.length)
+      .map((st) => ({ st, s: this.project(st[0]!.speaker.anchor()) }))
+      .sort((a, b) => b.st[0]!.born - a.st[0]!.born);
+    for (const { st: stack, s } of order) {
       any = true;
-      const sp = stack[0]!.speaker;
-      const s = this.project(sp.anchor());
-      let y = s.y - 8;
+      let y = Math.min(s.y - 8, bottomLimit);
       for (const [i, it] of stack.entries()) {
         const w = it.el.offsetWidth || 220;
         const hgt = it.el.offsetHeight || 60;
-        const x = Math.min(window.innerWidth - w / 2 - 10, Math.max(w / 2 + 10, s.x));
-        const top = Math.max(hgt + 64, y);
+        const x = Math.min(side - w / 2 - 10, Math.max(w / 2 + 10, s.x));
+        let top = Math.max(hgt + 64, y);
+        // nicht über andere Blasen legen: nach oben ausweichen
+        for (let k = 0; k < 6; k++) {
+          const hit = placed.find(
+            (r) => x - w / 2 < r.r + 6 && x + w / 2 > r.l - 6 && top - hgt < r.b + 6 && top > r.t - 6,
+          );
+          if (!hit) break;
+          top = hit.t - 8;
+        }
+        const clipped = top < hgt + 8;
+        top = Math.max(hgt + 8, top);
         it.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(top)}px) translate(-50%, -100%)`;
         it.el.style.zIndex = String(20 - i);
         // ältere Blasen nur zeigen, wenn oben genug Platz ist (sonst würden sie sich überdecken)
-        it.el.classList.toggle('offscreen', !s.visible || (i > 0 && y < hgt + 64));
+        const still = placed.some((r) => x - w / 2 < r.r && x + w / 2 > r.l && top - hgt < r.b && top > r.t);
+        const hide = !s.visible || still || (i > 0 && (y < hgt + 64 || clipped));
+        it.el.classList.toggle('offscreen', hide);
+        if (!hide) placed.push({ l: x - w / 2, r: x + w / 2, t: top - hgt, b: top });
         y = top - hgt - 10;
       }
     }
