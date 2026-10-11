@@ -7,6 +7,9 @@ export interface BusEvents {
   'voice:end': { who: string };
   /** Ein Sprechgeräusch pro Buchstabe(ngruppe) */
   'voice:blip': { who: string; ch: string };
+  /** Gespräch mit einer Figur beginnt / endet (Musik tritt zurück) */
+  'talk:start': { who: FigureId };
+  'talk:end': undefined;
   /** Allgemeine UI-Geräusche */
   'ui:click': undefined;
   'ui:open': undefined;

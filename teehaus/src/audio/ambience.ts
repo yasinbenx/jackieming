@@ -14,6 +14,8 @@ export class Ambience {
   private cricketGain!: GainNode;
   private outLp!: BiquadFilterNode;
   private nodes: AudioScheduledSourceNode[] = [];
+  /** Töne des Windspiels (MIDI); folgen der Tonart der Musik */
+  private chimePool = [86, 88, 91, 93, 95];
 
   constructor(private e: AudioEngine) {}
 
@@ -114,6 +116,13 @@ export class Ambience {
   setTime(t: number): void {
     this.tod = t;
     this.apply();
+  }
+
+  /** Windspiel auf die Pentatonik der Musik abstimmen (Tonklassen 0..11) */
+  setChimeScale(pcs: number[]): void {
+    const pool: number[] = [];
+    for (let m = 84; m <= 98 && pool.length < 5; m++) if (pcs.includes(m % 12)) pool.push(m);
+    if (pool.length) this.chimePool = pool;
   }
 
   setInside(inside: boolean): void {
@@ -219,7 +228,7 @@ export class Ambience {
     const night = smoothstep(0.5, 1, this.tod);
     if (Math.random() < 0.45 + night * 0.3) {
       const n = 1 + Math.floor(Math.random() * 3);
-      const pool = [86, 88, 90, 93, 95];
+      const pool = this.chimePool;
       for (let i = 0; i < n; i++) {
         const m = pool[Math.floor(Math.random() * pool.length)]!;
         this.bell(midiToFreq(m), e.now + i * (0.16 + Math.random() * 0.2), this.inside ? 0.014 : 0.026);

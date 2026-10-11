@@ -36,7 +36,7 @@ const DEFAULTS: Persisted = {
   toasted: false,
   settings: {
     muted: false,
-    music: 0.6,
+    music: 0.45,
     sfx: 0.8,
     calm: false,
     quality: 'auto',

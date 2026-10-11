@@ -2,7 +2,8 @@
 import { bus } from '../core/bus';
 import { store } from '../state/store';
 import { AudioEngine } from './engine';
-import { Music } from './music';
+import { Music, renderMusicOffline } from './music';
+import type { MusicRenderResult, MusicState } from './music';
 import { Ambience } from './ambience';
 import { Sfx } from './sfx';
 import { Simlish } from './simlish';
@@ -15,11 +16,15 @@ export class GameAudio {
   readonly voice = new Simlish(this.engine);
   private wired = false;
   private inside = false;
+  /** sobald 'talk:start'/'talk:end' kommen, werden 'ui:open'/'ui:close' für die Musik ignoriert */
+  private talkEvents = false;
 
   /** Nach dem ersten Klick: Kontext anlegen, Musik und Ambiente starten. */
   async start(): Promise<void> {
     this.engine.init();
     if (!this.engine.started) return;
+    // Das Windspiel des Ambientes klingt in der Tonart, in der die Musik gerade spielt
+    this.music.onKey = (pcs) => this.amb.setChimeScale(pcs);
     await this.engine.resume();
     this.applySettings();
     if (!this.wired) this.wire();
@@ -43,6 +48,7 @@ export class GameAudio {
   setInside(inside: boolean): void {
     this.inside = inside;
     this.amb.setInside(inside);
+    this.music.setInside(inside);
     if (inside) this.sfx.enter();
   }
 
@@ -80,9 +86,27 @@ export class GameAudio {
       this.amb.setTime(p.t);
       this.music.setTime(p.t);
     });
-    // Beim Gespräch tritt die Musik etwas zurück
-    on('ui:open', () => (this.music.intensity = 0.6));
-    on('ui:close', () => (this.music.intensity = 1));
+    // Im Gespräch tritt die Musik zurück: die Erhu schweigt, nur leise Guzheng bleibt
+    on('talk:start', () => {
+      this.talkEvents = true;
+      this.music.setDialog(true);
+    });
+    on('talk:end', () => {
+      this.talkEvents = true;
+      this.music.setDialog(false);
+    });
+    // Rückfall, solange das Spiel keine talk:-Ereignisse sendet: das Gesprächsfenster meldet sich per ui:open/close
+    on('ui:open', () => {
+      if (!this.talkEvents) this.music.setDialog(true);
+    });
+    on('ui:close', () => {
+      if (!this.talkEvents) this.music.setDialog(false);
+    });
+  }
+
+  /** Test-Hilfe: rendert die generative Musik offline für einen Zustand (Pegel, gewählte Phrasen) */
+  renderMusic(seconds: number, state: Partial<MusicState> = {}, seed = 1): Promise<MusicRenderResult> {
+    return renderMusicOffline(seconds, state, seed);
   }
 
   /** Test-Hilfe: aktueller Pegel 0..1 */
