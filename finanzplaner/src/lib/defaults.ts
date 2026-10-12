@@ -104,7 +104,7 @@ export function sampleData(): AppData {
   })
   d.contracts = [
     c('Vater', 200, 'fix'),
-    c('Handy', 65, 'fix', { endDate: '2026-12-31', noticeValue: 3 }),
+    c('Handy', 65, 'abo', { endDate: '2026-12-31', noticeValue: 1 }),
     c('Handy Bruder', 10, 'fix'),
     c('DB-Ticket', 60, 'abo', { noticeValue: 1 }),
     c('Kronenrechnung', 60, 'fix', { endDate: '2027-01-31' }),

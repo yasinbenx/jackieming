@@ -25,8 +25,10 @@ describe('Kündigungsfristen', () => {
   })
   it('Erinnerungen sortiert nach Frist', () => {
     const r = cancelReminders(sampleData().contracts, '2026-10-12')
-    expect(r.map((x) => x.contract.name)).toEqual(['Handy', 'Kronenrechnung'])
-    expect(r[0].daysLeft).toBeLessThan(0)
+    // Kronenrechnung: Fixkosten ohne Frist → endet von selbst, keine Erinnerung
+    expect(r.map((x) => x.contract.name)).toEqual(['Handy'])
+    expect(r[0].deadline).toBe('2026-11-30')
+    expect(r[0].daysLeft).toBe(49)
   })
 })
 

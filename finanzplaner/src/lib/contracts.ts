@@ -51,10 +51,13 @@ export interface Reminder {
   daysLeft: number
 }
 
-/** Kündigungs-Erinnerungen: alle laufenden Verträge mit Enddatum, sortiert nach Frist. */
+/**
+ * Kündigungs-Erinnerungen: alle laufenden Verträge mit Enddatum, sortiert nach Frist.
+ * Fixkosten ohne Kündigungsfrist (z. B. Ratenzahlungen) enden von selbst und brauchen keine Erinnerung.
+ */
 export function cancelReminders(contracts: Contract[], today: ISODate): Reminder[] {
   return contracts
-    .filter((c) => !c.cancelled && c.endDate && c.endDate >= today)
+    .filter((c) => !c.cancelled && c.endDate && c.endDate >= today && !(c.kind === 'fix' && !c.noticeValue))
     .map((c) => {
       const deadline = cancelDeadline(c)!
       return { contract: c, deadline, daysLeft: diffDays(today, deadline) }
