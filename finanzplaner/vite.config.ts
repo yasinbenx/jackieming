@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// ARTIFACT=1: Variante ohne Service Worker mit relativen Pfaden (z. B. für eine Vorschau-Seite)
+declare const process: { env: Record<string, string | undefined> }
+const artifact = process.env.ARTIFACT === '1'
+
 export default defineConfig({
+  base: artifact ? './' : '/',
+  define: { __ARTIFACT__: JSON.stringify(artifact) },
   plugins: [
     react(),
     tailwindcss(),

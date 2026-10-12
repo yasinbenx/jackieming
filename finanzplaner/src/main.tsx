@@ -5,7 +5,7 @@ import App from './App'
 import './index.css'
 import { StoreProvider } from './store/store'
 
-registerSW({ immediate: true })
+if (!__ARTIFACT__) registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

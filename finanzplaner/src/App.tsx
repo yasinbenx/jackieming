@@ -42,7 +42,7 @@ export default function App() {
       {/* Seitenleiste Desktop */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-5 lg:flex dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-6 flex items-center gap-2 px-3">
-          <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-8 w-8 rounded-lg" />
           <span className="text-lg font-bold">Finanzplaner</span>
         </div>
         <button
