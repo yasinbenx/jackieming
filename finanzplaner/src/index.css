@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+}
+
+:root {
+  --chart-grid: #e2e8f0;
+  --chart-text: #64748b;
+  --chart-fix: #0ea5e9;
+  --chart-save: #14b8a6;
+  --chart-life: #f59e0b;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e2e8f0;
+  color-scheme: light;
+}
+
+.dark {
+  --chart-grid: #1e293b;
+  --chart-text: #94a3b8;
+  --chart-fix: #38bdf8;
+  --chart-save: #2dd4bf;
+  --chart-life: #fbbf24;
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-border: #334155;
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+input[type='month'],
+input[type='date'] {
+  min-height: 2.75rem;
+}
+
+/* Recharts: keine Fokusrahmen beim Antippen */
+.recharts-wrapper *:focus {
+  outline: none;
+}
