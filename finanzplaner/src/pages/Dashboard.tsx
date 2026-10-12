@@ -46,6 +46,29 @@ export default function Dashboard() {
     <div className="space-y-4">
       <PageHeader title="Übersicht" subtitle={`${monthLabel(period, true)} · alles auf einen Blick`} />
 
+      {data.incomes.length === 0 && (
+        <Card title="Willkommen! So startest du in 3 Schritten">
+          <ol className="space-y-2">
+            {[
+              { href: '#/konten', text: 'Konten anlegen und Kontostände eintragen', done: data.accounts.length > 0 },
+              { href: '#/budget', text: 'Netto-Gehalt und Alltagsbudget eintragen (Budget → Planung)', done: data.incomes.length > 0 },
+              { href: '#/ziele', text: 'Sparziele anlegen – Notgroschen zuerst', done: data.goals.length > 0 },
+            ].map((s, i) => (
+              <li key={s.href}>
+                <a href={s.href} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${s.done ? 'bg-emerald-500 text-white' : 'bg-brand-100 text-brand-800 dark:bg-brand-500/15 dark:text-brand-300'}`}>
+                    {s.done ? '✓' : i + 1}
+                  </span>
+                  <span className="flex-1">{s.text}</span>
+                  <ArrowRight size={16} className="text-slate-400" />
+                </a>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-xs text-slate-500">Oder lade unter Einstellungen die Beispieldaten.</p>
+        </Card>
+      )}
+
       {thisMonth && thisMonth.free < 0 && (
         <Callout tone="danger" icon={<AlertTriangle size={18} />}>
           Dein Plan geht diesen Monat nicht auf: Es fehlen <b>{formatMoney(-thisMonth.free)}</b>. Prüfe Fixkosten oder das Alltagsbudget.
@@ -189,6 +212,9 @@ export default function Dashboard() {
         title="Vermögensentwicklung"
         action={<Badge tone="brand"><Sparkles size={12} /> Plan {CHART_MONTHS} Monate</Badge>}
       >
+        {chartData.every((r) => !r.plan && !r.ist) ? (
+          <EmptyState title="Noch keine Entwicklung" text="Sobald du Kontostände, Einnahmen und Sparziele eingetragen hast, siehst du hier, wie dein Vermögen wächst." />
+        ) : (
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -200,13 +226,14 @@ export default function Dashboard() {
               </defs>
               <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={24} />
-              <YAxis {...axisProps} tickFormatter={compactMoney} width={56} />
+              <YAxis {...axisProps} tickFormatter={compactMoney} width={72} />
               <Tooltip contentStyle={tooltipStyle} formatter={moneyTooltip} />
               <Area type="monotone" dataKey="plan" name="Plan" stroke="var(--chart-save)" strokeWidth={2} strokeDasharray="5 4" fill="url(#planFill)" isAnimationActive={false} />
               <Area type="monotone" dataKey="ist" name="Ist (Check-ins)" stroke="var(--chart-fix)" strokeWidth={2.5} fill="transparent" dot={{ r: 3 }} isAnimationActive={false} connectNulls />
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        )}
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
           Blau: deine Kontostände aus den Check-ins. Grün gestrichelt: so wächst dein Vermögen, wenn du den Plan einhältst
           ({formatMoney(chartData.at(-1)?.plan ?? 0)} bis {monthLabel(addMonths(period, CHART_MONTHS - 1))}).

@@ -27,3 +27,7 @@ Mit `index.html#6` startest du direkt bei Folie 6.
 - **Chinesische Schrift**: Die Seite nutzt Schriften, die auf deinem Rechner installiert sind (z. B. Songti auf dem Mac, SimSun/Microsoft YaHei unter Windows).
 
 Die Quellen zum Gegenchecken stehen in `FAKTEN.md`.
+
+## Finanzplaner
+
+Im Ordner `finanzplaner/` liegt eine separate Web-App (persönlicher Finanzplaner). Anleitung: [finanzplaner/README.md](finanzplaner/README.md).

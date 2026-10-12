@@ -1,52 +1,17 @@
 import { AlertTriangle, RotateCcw } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { axisProps, compactMoney, moneyTooltip, tooltipStyle } from '../components/charts'
-import { AmountInput, Badge, Button, Callout, Card, Money, PageHeader, TextInput } from '../components/ui'
+import LiveAmount from '../components/LiveAmount'
+import { Badge, Button, Callout, Card, Money, PageHeader, TextInput } from '../components/ui'
 import { addMonths, diffMonths, isMonth, monthLabel } from '../lib/dates'
 import { emptyData } from '../lib/defaults'
-import { formatMoney, round2, toInputString, validateAmount } from '../lib/money'
+import { formatMoney, round2 } from '../lib/money'
 import { balanceAt, incomeFor, isGoalDone, simulatePlan, sortByPriority } from '../lib/plan'
 import { scenarioPlanInput, PROJECTION_MONTHS } from '../lib/selectors'
 import type { Month, Scenario } from '../lib/types'
 import { usePlan } from '../store/hooks'
 import { useStore } from '../store/store'
-
-/** Betragsfeld, das bei gültiger Eingabe sofort übernimmt. Leer = null (wenn erlaubt). */
-function LiveAmount({
-  label, value, onChange, nullable, placeholder, hint,
-}: { label: string; value: number | null; onChange: (v: number | null) => void; nullable?: boolean; placeholder?: string; hint?: string }) {
-  const [text, setText] = useState(toInputString(value))
-  const [error, setError] = useState<string>()
-  useEffect(() => {
-    setText((t) => {
-      const r = validateAmount(t, { allowZero: true })
-      const same = (r.ok && r.value === value) || (!t.trim() && value === null)
-      return same ? t : toInputString(value)
-    })
-  }, [value])
-  return (
-    <AmountInput
-      label={label}
-      value={text}
-      placeholder={placeholder}
-      hint={hint}
-      error={error}
-      onChange={(t) => {
-        setText(t)
-        if (!t.trim()) {
-          setError(undefined)
-          onChange(nullable ? null : 0)
-          return
-        }
-        const r = validateAmount(t, { allowZero: true })
-        if (!r.ok) return setError(r.error)
-        setError(undefined)
-        onChange(r.value)
-      }}
-    />
-  )
-}
 
 function MonthField({ label, value, onChange }: { label: string; value: Month; onChange: (m: Month) => void }) {
   return <TextInput label={label} type="month" value={value} onChange={(e) => isMonth(e.target.value) && onChange(e.target.value)} />
@@ -207,7 +172,7 @@ export default function Szenario() {
             <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
-              <YAxis {...axisProps} tickFormatter={compactMoney} width={56} />
+              <YAxis {...axisProps} tickFormatter={compactMoney} width={72} />
               <Tooltip contentStyle={tooltipStyle} formatter={moneyTooltip} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line type="monotone" dataKey="plan" name="Aktueller Plan" stroke="var(--chart-text)" strokeDasharray="5 4" strokeWidth={2} dot={false} isAnimationActive={false} />

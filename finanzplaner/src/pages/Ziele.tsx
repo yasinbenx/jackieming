@@ -293,7 +293,7 @@ export default function Ziele() {
               <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
                 <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
-                <YAxis {...axisProps} tickFormatter={compactMoney} width={56} />
+                <YAxis {...axisProps} tickFormatter={compactMoney} width={72} />
                 <Tooltip contentStyle={tooltipStyle} formatter={moneyTooltip} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {goals.map((g) => (

@@ -299,7 +299,7 @@ export default function CheckInPage() {
                   <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
                     <XAxis dataKey="label" {...axisProps} />
-                    <YAxis {...axisProps} tickFormatter={compactMoney} width={56} />
+                    <YAxis {...axisProps} tickFormatter={compactMoney} width={72} />
                     <Tooltip contentStyle={tooltipStyle} formatter={moneyTooltip} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Line dataKey="konten" name="Konten" stroke="var(--chart-fix)" strokeWidth={2.5} isAnimationActive={false} />
