@@ -24,6 +24,8 @@ npm run dev        # http://localhost:5173
 | `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie Vercel) |
 | `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                 |
 | `npm run facts`                               | `FAKTEN.md` aus den Inhalten erzeugen; `check:content` prüft nur   |
+| `npm test`                                    | Unit-Tests (Wegfindung, Platzwahl, Sprechblasen)                   |
+| `node scripts/test/rundgang.mjs`              | Rundgang im Browser mit Prüfwerten (siehe Kopf der Datei)          |
 
 Test-Adressen:
 
@@ -32,6 +34,8 @@ Test-Adressen:
 - `/lab/modelle/` ist das **Modell-Labor**: jedes Charaktermodell drehbar, mit Datei-, Skelett- und Animationsinfos und Knöpfen zum Abspielen der Animationen
 - `/lab/figuren/` ist das **Figuren-Labor**: jede Rolle im Vorher-Nachher-Vergleich und alle Figuren nebeneinander, mit Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Sprechen und Verbeugen
 - `/lab/musik/` stellt die Musikvarianten zum Probehören nebeneinander
+
+Fehler und ihr Stand stehen in [`BUGS.md`](./BUGS.md).
 
 ## Bedienung
 
