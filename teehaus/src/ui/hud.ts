@@ -31,6 +31,7 @@ export interface Hud {
   setProgress(asked: number, total: number, words: number, totalWords: number): void;
   setToastReady(ready: boolean): void;
   setSoundIcon(muted: boolean): void;
+  setCoins(n: number): void;
 }
 
 const ICON_SOUND_ON = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" fill="currentColor"/></svg>`;
@@ -39,6 +40,14 @@ const ICON_SOUND_OFF = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hid
 export function createHud(stage: World, handlers: HudHandlers): Hud {
   const progress = h('span', { class: 'hud-progress-text' }, '0 / 28');
   const wordsCount = h('span', { class: 'hud-badge' }, '0');
+  const coins = h('span', { class: 'hud-coins-n' }, '0');
+  const coinsEl = h(
+    'div',
+    { class: 'hud-coins', title: 'Münzen (铜钱 tóngqián), verdient beim Teezubereiten', hidden: true },
+    h('span', { class: 'hud-coin', 'aria-hidden': 'true' }),
+    coins,
+    h('span', { class: 'sr-only' }, ' Münzen'),
+  );
   const toastBtn = h(
     'button',
     {
@@ -95,6 +104,7 @@ export function createHud(stage: World, handlers: HudHandlers): Hud {
         h('span', { class: 'hud-progress-label' }, 'Fragen '),
         progress,
       ),
+      coinsEl,
     ),
     h(
       'div',
@@ -131,6 +141,10 @@ export function createHud(stage: World, handlers: HudHandlers): Hud {
     setProgress(asked, total, words, totalWords) {
       progress.textContent = `${asked} / ${total}`;
       wordsCount.textContent = `${words}/${totalWords}`;
+    },
+    setCoins(n) {
+      coins.textContent = String(n);
+      coinsEl.hidden = n <= 0;
     },
     setToastReady(ready) {
       toastBtn.hidden = !ready;

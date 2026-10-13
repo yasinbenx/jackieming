@@ -60,6 +60,17 @@ Fehler und ihr Stand stehen in [`BUGS.md`](./BUGS.md).
 - **Einstellungen:** Musik, Stimmen, Effekte getrennt; Grafikqualität (Automatisch, Hoch, Mittel, Niedrig); Kamerageschwindigkeit; Tastenbelegung (belegte Tasten werden getauscht, Esc und Pfeile bleiben fest); Pinyin an/aus; Schriftgröße; hoher Kontrast; weniger Bewegung; Untertitel fürs Gemurmel. „Einstellungen zurücksetzen“ und „Fortschritt zurücksetzen“ jeweils mit Sicherheitsabfrage.
 - **Tutorial** beim ersten Spiel: Gehen, Umsehen, Ansprechen, Hinsetzen. Jede Einblendung erledigt sich, sobald man es getan hat; überspringbar, in der Hilfe wiederholbar.
 
+## Tee-Mini-Spiel (泡茶 pào chá)
+
+An der Theke (links, beim Ofen) „Tee zubereiten“ wählen. Der Teemeister kommt herüber und bestellt auf Chinesisch, dann vier Schritte in der Leiste rechts:
+
+1. **Teesorte wählen** (选茶): Die Bestellung steht nur auf Chinesisch mit Pinyin da, z. B. 请来一杯绿茶 (qǐng lái yì bēi lǜchá). Fünf Dosen: 绿茶 Grüntee, 红茶 Schwarztee, 茉莉花茶 Jasmintee, 乌龙茶 Oolong, 白茶 Weißtee. Eine falsche Dose zeigt ihren deutschen Namen.
+2. **Wasser erhitzen** (烧水): Knopf oder Leertaste halten; das Wasser kühlt langsam wieder ab. Der grüne Bereich am Thermometer ist die passende Temperatur (Grüntee 75–85 °C, Schwarztee 90–100 °C …). Dazu die Wasserstufen 凉水, 温水, 热水, 开水.
+3. **Ziehen lassen** (泡茶): Die Tasse färbt sich, im grünen Zeitfenster abgießen (Leertaste). Eine Minute dauert im Spiel drei Sekunden.
+4. **Servieren** (上茶): die passende Wendung wählen, 请喝茶 qǐng hē chá.
+
+Der Teemeister bewertet mit 1 bis 3 Teeblättern und sagt bei jedem Schritt, was gut war oder warum nicht (zum Beispiel „Zu heißes Wasser macht Grüntee bitter“). Es gibt 5 Münzen je Blatt (oben links neben den Fragen). Neue Lernwörter: die fünf Teesorten, 水, 开水, 请喝茶. Tastatur: 1–5 wählen, Leertaste erhitzen bzw. abgießen, Eingabe weiter, Esc bricht ab. Daten: `src/content/teas.ts`, Regeln: `src/minigames/tea.ts` (getestet). Temperaturen und Ziehzeiten sind übliche Richtwerte für Blatttee in der Kanne.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.

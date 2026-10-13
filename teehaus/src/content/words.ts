@@ -88,6 +88,26 @@ export const WORDS: Word[] = [
   { id: 'shanzi', zh: '扇子', py: 'shan4zi5', de: 'Fächer' },
   { id: 'shan', zh: '山', py: 'shan1', de: 'Berg', note: 'Das Zeichen sieht aus wie drei Gipfel.' },
   { id: 'zaijian', zh: '再见', py: 'zai4jian4', de: 'Auf Wiedersehen' },
+  // Tee-Mini-Spiel
+  { id: 'lvcha', zh: '绿茶', py: 'lv4cha2', de: 'Grüntee', note: '绿 = grün' },
+  { id: 'hongcha', zh: '红茶', py: 'hong2cha2', de: 'Schwarztee', note: 'wörtlich: „roter Tee“' },
+  { id: 'molihuacha', zh: '茉莉花茶', py: 'mo4li4hua1 cha2', de: 'Jasmintee', note: '茉莉花 = Jasminblüte' },
+  {
+    id: 'wulongcha',
+    zh: '乌龙茶',
+    py: 'wu1long2 cha2',
+    de: 'Oolong-Tee',
+    note: 'wörtlich: „schwarzer Drache“',
+  },
+  { id: 'baicha', zh: '白茶', py: 'bai2cha2', de: 'Weißtee', note: '白 = weiß' },
+  { id: 'shui', zh: '水', py: 'shui3', de: 'Wasser' },
+  {
+    id: 'kaishui',
+    zh: '开水',
+    py: 'kai1shui3',
+    de: 'kochendes Wasser',
+    note: '开 = öffnen, hier: aufkochen',
+  },
 ];
 
 export const wordById = (id: string): Word | undefined => WORDS.find((w) => w.id === id);

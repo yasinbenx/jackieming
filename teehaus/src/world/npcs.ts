@@ -22,6 +22,8 @@ export interface NpcContext {
   award: (wordId: string) => void;
   /** Wird gerade ein Gespräch mit Jackie/Yao geführt? */
   busy: () => boolean;
+  /** Tee-Mini-Spiel an der Theke starten */
+  brew?: () => void;
 }
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
@@ -124,6 +126,8 @@ const STOVE = new Vector2(-5.85, -5.3);
 const EXIT_IN = new Vector2(-2.15, -5.25);
 const EXIT_OUT = new Vector2(-2.15, -3.7);
 export const ORDER_SPOT = new Vector3(-4.4, FLOOR, -3.55);
+/** Platz des Spielers beim Tee-Mini-Spiel (vor der Theke, nahe am Ofen) */
+export const BREW_SPOT = new Vector3(-5.5, FLOOR, -3.55);
 
 class Master extends Npc {
   away = false;
@@ -156,7 +160,54 @@ class Master extends Npc {
   }
 
   get available(): boolean {
-    return !this.away && !this.agent.busy && this.state !== 'order';
+    return !this.away && !this.agent.busy && this.state !== 'order' && this.state !== 'game';
+  }
+
+  /** Mini-Spiel möglich (der Meister darf dafür auch gerade unterwegs sein, er kommt dann herüber) */
+  get canBrew(): boolean {
+    return !this.away && this.state !== 'order' && this.state !== 'game';
+  }
+
+  /** Tee-Mini-Spiel: Meister wendet sich dem Gast zu, Spieler tritt an die Theke */
+  beginBrew(): void {
+    this.state = 'game';
+    this.agent.stopPath();
+    this.ch.showProp('teapot', false);
+    const w = this.ctx.world;
+    const pl = w.player;
+    this.ch.stop('polish');
+    this.ch.showProp('bowl', false);
+    this.agent.walkDirect([[BREW_SPOT.x, HOME.y]], () => {
+      this.agent.faceYaw(0);
+      this.ch.lookAt(w.playerTarget());
+    });
+    pl.walkDirect([[BREW_SPOT.x, BREW_SPOT.z]], () => pl.faceYaw(Math.PI));
+  }
+
+  /** Geste während des Mini-Spiels */
+  brewAct(what: 'nod' | 'bow' | 'laugh' | 'pour' | 'taste' | 'shake'): void {
+    const ch = this.ch;
+    if (what === 'pour') {
+      ch.showProp('teapot', true);
+      ch.play('pour', 2.2);
+      window.setTimeout(() => ch.showProp('teapot', false), 2200);
+    } else if (what === 'taste') {
+      ch.showProp('cup', true);
+      ch.play('drink', 2.2);
+      window.setTimeout(() => ch.showProp('cup', false), 2300);
+    } else if (what === 'shake') ch.play('shrug', 1.2);
+    else ch.play(what, what === 'bow' ? 1.8 : 1.3);
+  }
+
+  endBrew(): void {
+    this.state = 'idle';
+    this.ch.lookAt(null);
+    this.agent.walkDirect([[HOME.x, HOME.y]], () => {
+      this.agent.faceYaw(0);
+      this.ch.hold('polish');
+      this.ch.showProp('bowl', true);
+    });
+    this.next = rand(8, 14);
   }
 
   /** Tee bestellen: einschenken, Schale auf die Theke, der Spieler trinkt */
@@ -220,7 +271,7 @@ class Master extends Npc {
   }
 
   protected override step(): void {
-    if (this.state === 'order' || this.ctx.busy()) {
+    if (this.state === 'order' || this.state === 'game' || this.ctx.busy()) {
       this.next = 3;
       return;
     }
@@ -638,6 +689,16 @@ export class Npcs {
       label: () => 'Tee bestellen <span lang="zh">请喝茶</span>',
       enabled: () => this.master.available && !w.player.seated,
       use: () => this.master.order(),
+    });
+    // Tee selbst zubereiten (Mini-Spiel)
+    w.addInteractable({
+      id: 'brew-tea',
+      pos: () => BREW_SPOT,
+      radius: 1.3,
+      priority: 3,
+      label: () => 'Tee zubereiten <span lang="zh">泡茶</span>',
+      enabled: () => !!this.ctx.brew && this.master.canBrew && !w.player.seated,
+      use: () => this.ctx.brew?.(),
     });
     // Katze streicheln
     w.addInteractable({

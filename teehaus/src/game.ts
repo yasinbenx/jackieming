@@ -17,6 +17,7 @@ import { Npcs } from './world/npcs';
 import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
+import { TeaGame } from './ui/teagame';
 import { SettingsPage } from './ui/settings';
 import { PauseMenu } from './ui/menu';
 import { Tutorial } from './ui/tutorial';
@@ -91,7 +92,8 @@ export class Game {
       say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
       icon: (sp, sym) => this.bubbles.icon(sp, sym),
       award: (id) => this.award(id),
-      busy: () => this.talking,
+      busy: () => this.talking || this.tea.open,
+      brew: () => this.startBrew(),
     });
     world.onWave = () => this.npcs.waveFrom(world.player.ch.root.position);
     this.heroes = new Heroes({
@@ -206,6 +208,7 @@ export class Game {
 
   refresh(): void {
     this.hud.setProgress(store.asked.size, TOTAL_QUESTIONS, store.words.size, WORDS.length);
+    this.hud.setCoins(store.coins);
     this.hud.setToastReady(false);
   }
 
@@ -467,7 +470,7 @@ export class Game {
   private canPause(): boolean {
     const w = this.world;
     if (w.mode !== 'free') return false;
-    if (this.approach || this.talk.open) return false;
+    if (this.approach || this.talk.open || this.tea.open) return false;
     return !document.querySelector(
       '.modal:not([hidden]), .sound-panel:not([hidden]), .outfit, #mainmenu:not([hidden])',
     );
@@ -514,6 +517,41 @@ export class Game {
   resumeMode(): void {
     if (this.pausedMode) this.world.mode = this.pausedMode;
     this.pausedMode = null;
+  }
+
+  // ───────────────────────────────────────── Tee-Mini-Spiel
+
+  readonly tea = new TeaGame({
+    say: (text) => void this.bubbles.say(this.npcs.master.speaker, text, { hold: 0 }),
+    act: (what) => this.npcs.master.brewAct(what),
+    award: (id) => this.award(id),
+    onClose: () => this.endBrew(),
+  });
+
+  /** An der Theke: Meister kommt herüber, Kamera auf Theke und Meister, dann die Leiste */
+  private startBrew(): void {
+    const w = this.world;
+    if (this.tea.open || w.mode !== 'free') return;
+    w.mode = 'cutscene';
+    this.bubbles.dismissAll();
+    this.npcs.master.beginBrew();
+    w.cam.setShot(
+      { pos: new Vector3(-3.0, 2.0, -2.4), look: new Vector3(-4.9, 1.25, -4.7) },
+      w.calm ? 0.01 : 1.2,
+    );
+    window.setTimeout(() => {
+      this.tea.start();
+      this.tutorial.used('brew-tea');
+    }, 1200);
+  }
+
+  private endBrew(): void {
+    const w = this.world;
+    this.bubbles.dismissAll();
+    this.npcs.master.endBrew();
+    w.cam.setShot(null);
+    w.mode = 'free';
+    this.refresh();
   }
 
   openInfo(): void {
