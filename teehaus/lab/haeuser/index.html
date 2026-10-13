@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Häuser-Labor · Das Teehaus</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+    <link rel="stylesheet" href="../../src/lab/lab.css" />
+  </head>
+  <body>
+    <header class="lab-head">
+      <h1><span lang="zh">民居</span> Häuser-Labor · Dorfhäuser zur Auswahl</h1>
+      <p>
+        Sechs Varianten aus dem Baukasten, links zum Vergleich das Teehaus. Klick auf einen Namen fährt hin. Drehen mit
+        der Maus, zoomen mit dem Rad.
+      </p>
+    </header>
+    <main class="lab">
+      <nav id="list" aria-label="Häuser"></nav>
+      <section class="stage">
+        <div id="view"></div>
+        <div class="tools">
+          <label><input type="radio" name="time" value="day" checked /> Tag</label>
+          <label><input type="radio" name="time" value="dusk" /> Abend</label>
+          <label><input type="radio" name="time" value="night" /> Nacht</label>
+          <label><input type="checkbox" id="lod" /> Fern-Stufe zeigen</label>
+        </div>
+      </section>
+      <aside id="info" aria-live="polite"></aside>
+    </main>
+    <script type="module" src="../../src/lab/haeuser.ts"></script>
+  </body>
+</html>

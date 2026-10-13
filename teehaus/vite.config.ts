@@ -36,6 +36,7 @@ export default defineConfig({
         modelle: fileURLToPath(new URL('./lab/modelle/index.html', import.meta.url)),
         musik: fileURLToPath(new URL('./lab/musik/index.html', import.meta.url)),
         figuren: fileURLToPath(new URL('./lab/figuren/index.html', import.meta.url)),
+        haeuser: fileURLToPath(new URL('./lab/haeuser/index.html', import.meta.url)),
       },
       output: {
         manualChunks(id) {

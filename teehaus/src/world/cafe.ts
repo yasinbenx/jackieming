@@ -53,7 +53,7 @@ import {
 
 // ───────────────────────────────────────── Zusammenfassen statischer Geometrie
 
-class Batcher {
+export class Batcher {
   private parts = new Map<Material, BufferGeometry[]>();
   private noShadow = new Set<Material>();
 
@@ -69,7 +69,11 @@ class Batcher {
       new Quaternion().setFromEuler(new Euler(...rot)),
       new Vector3(...scale),
     );
-    const g = geo.index ? geo.clone() : geo.clone();
+    // einheitlich ohne Index und mit uv, damit sich beliebige Teile verschmelzen lassen
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    if (!g.attributes.uv)
+      g.setAttribute('uv', new BufferAttribute(new Float32Array(g.attributes.position!.count * 2), 2));
+    if (!g.attributes.normal) g.computeVertexNormals();
     g.applyMatrix4(m);
     if (!this.parts.has(mat)) this.parts.set(mat, []);
     this.parts.get(mat)!.push(g);
@@ -77,6 +81,11 @@ class Batcher {
 
   box(w: number, h: number, d: number, mat: Material, x: number, y: number, z: number, ry = 0): void {
     this.add(new BoxGeometry(w, h, d), mat, [x, y, z], [0, ry, 0]);
+  }
+
+  /** Alle Teile eines anderen Batchers verschoben/gedreht übernehmen */
+  addAll(other: Batcher, pos: [number, number, number], rot: [number, number, number] = [0, 0, 0]): void {
+    for (const [mat, geos] of other.parts) for (const g of geos) this.add(g, mat, pos, rot);
   }
 
   shadowless(mat: Material): void {
@@ -101,7 +110,7 @@ class Batcher {
 
 // ───────────────────────────────────────── Materialien
 
-const M = {
+export const M = {
   lacquer: () => vinyl('#7a2016', { rough: 0.42 }),
   darkWood: () => vinyl('#4a2f1e', { rough: 0.7, rim: 0.4 }),
   midWood: () => vinyl('#7a5235', { rough: 0.72, rim: 0.4 }),

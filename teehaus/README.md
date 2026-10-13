@@ -32,6 +32,7 @@ Test-Adressen:
 - `?q=0|1|2` erzwingt die Grafikqualität (niedrig bis hoch)
 - `?galerie` zeigt alle Figuren nebeneinander (`&anim=walk|run|sit|wave…`, `&fig=jackie&nah=1&winkel=0.6`)
 - `/lab/modelle/` ist das **Modell-Labor**: jedes Charaktermodell drehbar, mit Datei-, Skelett- und Animationsinfos und Knöpfen zum Abspielen der Animationen
+- `/lab/haeuser/` ist das **Häuser-Labor**: sechs Dorfhaus-Varianten aus dem Baukasten (`src/three/houses.ts`) neben dem Teehaus, mit Tag/Abend/Nacht und der Fern-Stufe
 - `/lab/figuren/` ist das **Figuren-Labor**: jede Rolle im Vorher-Nachher-Vergleich und alle Figuren nebeneinander, mit Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Sprechen und Verbeugen
 - `/lab/musik/` stellt die Musikvarianten zum Probehören nebeneinander
 
