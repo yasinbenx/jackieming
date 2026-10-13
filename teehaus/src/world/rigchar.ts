@@ -568,7 +568,7 @@ export class RigCharacter {
     // ── Hose: Sitzteil um das Becken und zwei Hosenbeine
     // unter langen Gewändern schmalere Hosenbeine, damit beim Ausschreiten nichts durch den Stoff sticht
     const robe = len > 0.18 && cut !== 'coat';
-    const wide = robe ? 0.8 : L.pants.wide ? 1.16 : 1;
+    const wide = robe ? 0.62 : L.pants.wide ? 1.16 : 1;
     const seat = tube({
       chain: [
         { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, 0.1, 0)) },
@@ -587,11 +587,41 @@ export class RigCharacter {
             }
           : null,
     });
-    add(seat, mats.pants!);
+    // Saumhöhe des langen Gewands (wie unten beim Schoß berechnet)
+    const robeHem =
+      hips.y -
+      (cut === 'tang' ? 0.17 : 0.2) +
+      0.06 -
+      (hips.y * Math.min(0.92, len) - (cut === 'tang' ? 0.17 : 0.2) + 0.1);
+    if (!robe) add(seat, mats.pants!);
     for (const sd of ['L', 'R'] as const) {
       const hip = P(`UpperLeg${sd}`);
       const knee = P(`LowerLeg${sd}`);
       const ankle = P(`LowerLeg${sd}_end`).add(new Vector3(0, 0.075, 0));
+      if (robe) {
+        // Unter langen Gewändern nur das sichtbare Stück unter dem Saum: Oberschenkel und Knie stechen sonst
+        // beim Ausschreiten durch den Stoff, der in der Mitte zwischen beiden Beinen hängt.
+        const top = Math.min(knee.y - 0.04, robeHem + 0.14);
+        const f = (knee.y - top) / Math.max(0.01, knee.y - ankle.y);
+        const start = knee.clone().lerp(ankle, Math.max(0, Math.min(0.8, f)));
+        add(
+          tube({
+            chain: [
+              { bone: bi(`LowerLeg${sd}`), p: start },
+              { bone: bi(`LowerLeg${sd}`), p: ankle },
+            ],
+            sections: [
+              { t: 0, rx: 0.05, rz: 0.052 },
+              { t: 1, rx: 0.05, rz: 0.052 },
+            ],
+            rings: 4,
+            seg: 14,
+            vUp: false,
+          }),
+          mats.pants!,
+        );
+        continue;
+      }
       const leg = tube({
         chain: [
           { bone: bi(`UpperLeg${sd}`), p: hip.clone().add(new Vector3(0, 0.06, 0)) },
@@ -601,7 +631,7 @@ export class RigCharacter {
         ],
         sections: [
           { t: 0, rx: 0.095, rz: 0.095 },
-          { t: 0.12, rx: 0.09 * (robe ? 0.88 : 1), rz: 0.092 * (robe ? 0.88 : 1) },
+          { t: 0.12, rx: 0.09 * (robe ? 0.78 : 1), rz: 0.092 * (robe ? 0.78 : 1) },
           { t: 0.55, rx: 0.068 * wide, rz: 0.07 * wide },
           { t: 0.9, rx: 0.064 * wide, rz: 0.066 * wide },
           { t: 1, rx: 0.052, rz: 0.054 },

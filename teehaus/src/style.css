@@ -2929,17 +2929,6 @@ body:not(.is-inside) .nametag {
     line-height: 1.35;
   }
 }
-/* Querformat auf dem Telefon: Leiste rechts, ganz niedrig */
-@media (min-width: 761px) and (max-height: 520px) {
-  .dlg3 {
-    top: 8px;
-    bottom: 8px;
-    right: 8px;
-  }
-  .dlg3-head {
-    padding: 6px 10px 4px;
-  }
-}
 
 /* Lernkarte während des Gesprächs (Desktop): unten links, damit sie weder Fragen noch Gesichter verdeckt */
 @media (min-width: 761px) {
@@ -2949,6 +2938,30 @@ body:not(.is-inside) .nametag {
     left: 16px;
     bottom: calc(16px + var(--safe-b));
     width: min(260px, 30vw);
+  }
+}
+/* Querformat auf dem Telefon: Leiste rechts, ganz niedrig */
+@media (min-width: 761px) and (max-height: 520px) {
+  .dlg3 {
+    top: calc(56px + var(--safe-t, 0px));
+    bottom: 8px;
+    right: 8px;
+  }
+  /* Lernkarte im Gespräch: klein über der Leiste statt über den Figuren */
+  body.dialog-open .wordcard {
+    top: calc(60px + var(--safe-t, 0px));
+    right: 16px;
+    left: auto;
+    bottom: auto;
+    width: min(240px, 29vw);
+    padding: 8px 10px 6px;
+    z-index: 23;
+  }
+  body.dialog-open .wordcard :is(.wc-note, .wc-foot, .wc-kicker) {
+    display: none;
+  }
+  .dlg3-head {
+    padding: 6px 10px 4px;
   }
 }
 /* Weg zum Platz am Tisch */
