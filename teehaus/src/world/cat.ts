@@ -96,6 +96,23 @@ export class Cat {
     return this.root.position;
   }
 
+  /** Hat sich versteckt (Aufgabe „Katze finden“): schläft dort, bis sie gefunden wird */
+  hidden = false;
+
+  hide(x: number, z: number): void {
+    this.hidden = true;
+    this.path = [];
+    this.state = 'sleep';
+    this.timer = 1e9;
+    this.root.position.set(x, groundY(x, z) + 0.09, z);
+  }
+
+  /** Gefunden: wacht auf, schnurrt und geht danach wieder ihre Wege */
+  found(): void {
+    this.hidden = false;
+    this.pet();
+  }
+
   /** Streicheln: Katze schnurrt (wacht dafür kurz auf) */
   pet(): void {
     this.state = 'petted';

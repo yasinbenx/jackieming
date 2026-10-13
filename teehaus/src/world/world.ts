@@ -47,7 +47,7 @@ import { NavGrid } from './nav';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
 import { Input } from './input';
-import { PLAYER_LOOKS } from './looks';
+import { ALL_OUTFITS, withHead } from './looks';
 import { RIM } from './materials';
 import type { Speaker } from '../ui/bubbles';
 import type { Egg } from '../content/extras';
@@ -245,8 +245,8 @@ export class World {
     // Haarmodelle (klein, ~0,4 MB) vor den Figuren laden
     await Promise.all([loadHairKit(), loadRig()]);
     // Spielfigur
-    this.outfit = Math.min(PLAYER_LOOKS.length - 1, Math.max(0, store.outfit));
-    this.player = new Agent(PLAYER_LOOKS[this.outfit]!, this.nav);
+    this.outfit = Math.min(ALL_OUTFITS.length - 1, Math.max(0, store.outfit));
+    this.player = new Agent(this.playerLook(), this.nav);
     this.player.place(START.x, START.z, Math.PI);
     this.scene.add(this.player.ch.root);
     this.agents.push(this.player);
@@ -280,13 +280,24 @@ export class World {
   }
 
   /** Outfit wechseln (Auswahl am Anfang) */
+  /** Look der Spielfigur aus Outfit und Kopf (Garderobe) */
+  private playerLook() {
+    return withHead(ALL_OUTFITS[this.outfit]!.look, store.progress.wardrobe.head);
+  }
+
   setOutfit(i: number): void {
-    const idx = ((i % PLAYER_LOOKS.length) + PLAYER_LOOKS.length) % PLAYER_LOOKS.length;
+    const n = ALL_OUTFITS.length;
+    const idx = ((i % n) + n) % n;
     if (idx === this.outfit && this.player) return;
     this.outfit = idx;
     store.setOutfit(idx);
+    this.rebuildPlayer();
+  }
+
+  /** Spielfigur neu einkleiden (nach Outfit- oder Kopfwechsel) */
+  rebuildPlayer(): void {
     const old = this.player;
-    const p = new Agent(PLAYER_LOOKS[idx]!, this.nav);
+    const p = new Agent(this.playerLook(), this.nav);
     p.place(old.x, old.z, old.ch.yaw);
     this.scene.remove(old.ch.root);
     this.scene.add(p.ch.root);

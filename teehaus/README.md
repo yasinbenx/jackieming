@@ -71,6 +71,19 @@ An der Theke (links, beim Ofen) „Tee zubereiten“ wählen. Der Teemeister kom
 
 Der Teemeister bewertet mit 1 bis 3 Teeblättern und sagt bei jedem Schritt, was gut war oder warum nicht (zum Beispiel „Zu heißes Wasser macht Grüntee bitter“). Es gibt 5 Münzen je Blatt (oben links neben den Fragen). Neue Lernwörter: die fünf Teesorten, 水, 开水, 请喝茶. Tastatur: 1–5 wählen, Leertaste erhitzen bzw. abgießen, Eingabe weiter, Esc bricht ab. Daten: `src/content/teas.ts`, Regeln: `src/minigames/tea.ts` (getestet). Temperaturen und Ziehzeiten sind übliche Richtwerte für Blatttee in der Kanne.
 
+## Aufgaben vom Teemeister (任务 rènwu)
+
+Hat der Teemeister eine Aufgabe, erscheint ein **!** über ihm; ansprechen, Aufgabe ansehen, „Annehmen“. Oben links steht dann der nächste Schritt; ein **?** über dem Meister heißt: abgeben.
+
+| Aufgabe                     | Was zu tun ist                                                              | Belohnung                                                         |
+| --------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 送茶 Tee bringen            | Tasse an der Theke nehmen, der Dichterin am Fenster bringen                 | 10 Münzen, Reishut 斗笠, Wort 送                                  |
+| 找猫 Katze finden           | Die Katze versteckt sich (Terrasse, Ecken der Halle); finden und streicheln | 10 Münzen, Zopf und Haarknoten, Wort 找                           |
+| 认识客人 Gäste kennenlernen | Mit drei verschiedenen Gästen sprechen                                      | 15 Münzen, Outfit „Seidenjacke“, Wort 朋友                        |
+| 好茶 Ein meisterlicher Tee  | Im Tee-Mini-Spiel 3 Teeblätter schaffen                                     | 20 Münzen, „Gelehrtengewand“ und Gelehrtenkappe 瓜皮帽, Wort 好茶 |
+
+Im Pausemenü: **Aufgaben** (Aufgabenbuch mit Stand) und **Garderobe** (Kleidung und Hut oder Frisur wechseln; noch nicht freigeschaltete Teile sind ausgegraut). Botengänge ins Dorf kommen mit der Welt-Erweiterung. Daten: `src/content/quests.ts`, Ablauf: `src/minigames/quests.ts` (getestet), im Spiel: `src/world/questrun.ts`.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.

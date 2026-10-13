@@ -18,6 +18,7 @@ import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
 import { TeaGame } from './ui/teagame';
+import { QuestRunner } from './world/questrun';
 import { SettingsPage } from './ui/settings';
 import { PauseMenu } from './ui/menu';
 import { Tutorial } from './ui/tutorial';
@@ -94,6 +95,8 @@ export class Game {
       award: (id) => this.award(id),
       busy: () => this.talking || this.tea.open,
       brew: () => this.startBrew(),
+      onTalk: (id) => this.quests?.onTalk(id) ?? false,
+      onCat: () => this.quests?.onCat(),
     });
     world.onWave = () => this.npcs.waveFrom(world.player.ch.root.position);
     this.heroes = new Heroes({
@@ -104,6 +107,14 @@ export class Game {
       onTalk: (id) => this.startTalk(id),
     });
     this.heroSay = (by, text) => this.heroes.say(by, text);
+    this.quests = new QuestRunner({
+      world,
+      npcs: this.npcs,
+      say: (sp, text, hold) => void this.bubbles.say(sp, text, { hold }),
+      icon: (sp, sym) => this.bubbles.icon(sp, sym),
+      award: (id) => this.award(id),
+      toast: (html) => this.toast.show(html, 5200),
+    });
     const scape = new Soundscape(world, this.audio.voice, () => this.talking);
     scape.add(world.playerSpeaker);
     for (const n of this.npcs.list)
@@ -471,6 +482,7 @@ export class Game {
     const w = this.world;
     if (w.mode !== 'free') return false;
     if (this.approach || this.talk.open || this.tea.open) return false;
+    if (document.querySelector('.quest-offer:not([hidden])')) return false;
     return !document.querySelector(
       '.modal:not([hidden]), .sound-panel:not([hidden]), .outfit, #mainmenu:not([hidden])',
     );
@@ -498,6 +510,8 @@ export class Game {
         onClick: () => this.togglePause(),
       },
       { id: 'settings', label: 'Einstellungen', zh: '设置', onClick: () => this.settings.open() },
+      { id: 'quests', label: 'Aufgaben', zh: '任务', onClick: () => this.quests.openJournal() },
+      { id: 'wardrobe', label: 'Garderobe', zh: '衣柜', onClick: () => this.quests.openWardrobe() },
       { id: 'help', label: 'Hilfe', zh: '帮助', onClick: () => this.info.open() },
       {
         id: 'menu',
@@ -526,7 +540,9 @@ export class Game {
     act: (what) => this.npcs.master.brewAct(what),
     award: (id) => this.award(id),
     onClose: () => this.endBrew(),
+    onResult: (leaves) => this.quests.onBrew(leaves),
   });
+  quests!: QuestRunner;
 
   /** An der Theke: Meister kommt herüber, Kamera auf Theke und Meister, dann die Leiste */
   private startBrew(): void {

@@ -101,6 +101,10 @@ export const WORDS: Word[] = [
   },
   { id: 'baicha', zh: '白茶', py: 'bai2cha2', de: 'Weißtee', note: '白 = weiß' },
   { id: 'shui', zh: '水', py: 'shui3', de: 'Wasser' },
+  { id: 'song', zh: '送', py: 'song4', de: 'bringen, schenken', note: '送茶 = Tee bringen' },
+  { id: 'zhao', zh: '找', py: 'zhao3', de: 'suchen', note: '找猫 = die Katze suchen' },
+  { id: 'pengyou', zh: '朋友', py: 'peng2you5', de: 'Freund, Freundin' },
+  { id: 'haocha', zh: '好茶', py: 'hao3 cha2', de: 'guter Tee', note: '好 = gut' },
   {
     id: 'kaishui',
     zh: '开水',

@@ -24,6 +24,10 @@ export interface NpcContext {
   busy: () => boolean;
   /** Tee-Mini-Spiel an der Theke starten */
   brew?: () => void;
+  /** Ansprechen abfangen (Aufgaben); true = erledigt, normales Gespräch entfällt */
+  onTalk?: (id: string) => boolean;
+  /** Katze gestreichelt */
+  onCat?: () => void;
 }
 
 const rand = (a: number, b: number): number => a + Math.random() * (b - a);
@@ -70,6 +74,7 @@ export class Npc {
 
   /** Spieler spricht die Figur an: nächster Spruch, ggf. Lernwort */
   talk(): void {
+    if (this.ctx.onTalk?.(this.profile.id)) return;
     const line = this.profile.lines[this.lineIdx % this.profile.lines.length]!;
     this.lineIdx++;
     const pl = this.ctx.world.player;
@@ -717,6 +722,7 @@ export class Npcs {
         bus.emit('scene:purr');
         this.ctx.icon(w.playerSpeaker, '❤');
         w.onEgg?.('cat');
+        this.ctx.onCat?.();
       },
     });
     // Hinsetzen auf freie Hocker

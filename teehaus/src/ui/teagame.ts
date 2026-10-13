@@ -28,6 +28,8 @@ export interface TeaHost {
   award: (wordId: string) => void;
   /** Spiel beendet (Leiste zu) */
   onClose: () => void;
+  /** Ergebnis einer Runde (Teeblätter) */
+  onResult?: (leaves: number) => void;
 }
 
 type Step = 'pick' | 'heat' | 'steep' | 'serve' | 'result';
@@ -400,6 +402,7 @@ export class TeaGame {
     store.setGame('tea-rounds', rounds);
     store.setGame('tea-best', Math.max(store.progress.games['tea-best'] ?? 0, r.leaves));
     store.addCoins(r.coins);
+    this.host.onResult?.(r.leaves);
     this.host.act('taste');
     window.setTimeout(() => {
       const lines = MASTER_VERDICT[r.leaves];

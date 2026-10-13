@@ -473,6 +473,67 @@ function dressUp<T extends Look>(l: T, key: string): T {
 }
 
 export const PLAYER_LOOKS = PLAYER_LOOKS_OLD.map((l) => dressUp(l, l.label));
+
+/** Outfits, die man in Aufgaben verdient (hinter den vier Start-Outfits; Index = Spielstand.outfit) */
+const EXTRA_OUTFITS: { id: string; label: string; zh: string; swatch: string; dress: Dress }[] = [
+  {
+    id: 'seide',
+    label: 'Seidenjacke',
+    zh: '丝绸',
+    swatch: '#a8322a',
+    dress: {
+      hairStyle: 'side',
+      top: { cut: 'tang', color: '#a8322a', trim: '#e9c46a', gold: '#e9c46a', motif: 'cloud', skirt: 0 },
+      pants: { color: '#24201e', wide: true },
+      shoes: { color: '#1a1614', sole: '#efe8da', kind: 'cloth' },
+    },
+  },
+  {
+    id: 'gelehrter',
+    label: 'Gelehrtengewand',
+    zh: '长衫',
+    swatch: '#4f6a7a',
+    dress: {
+      hairStyle: 'crop',
+      top: { cut: 'changshan', color: '#4f6a7a', trim: '#d9c38a', motif: 'hem', skirt: 0.8, vest: '#2c2a30' },
+      shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+    },
+  },
+];
+
+/** Alle Outfits der Spielfigur (Start-Outfits zuerst; Index = Spielstand.outfit) */
+export const ALL_OUTFITS: { id: string; label: string; zh: string; swatch: string; look: Look }[] = [
+  ...PLAYER_LOOKS.map((l) => ({
+    id: l.label.toLowerCase(),
+    label: l.label,
+    zh: '',
+    swatch: l.swatch,
+    look: l as Look,
+  })),
+  ...EXTRA_OUTFITS.map((o) => {
+    const base = PLAYER_LOOKS_OLD[0]!;
+    const look: Look = {
+      ...base,
+      ...o.dress,
+      dress: true,
+      hairModel: undefined,
+      top: { ...base.top, ...o.dress.top },
+      pants: { ...base.pants, ...o.dress.pants },
+      shoes: { ...base.shoes, ...o.dress.shoes },
+    };
+    return { id: o.id, label: o.label, zh: o.zh, swatch: o.swatch, look };
+  }),
+];
+
+/** Kopf (Frisur oder Hut) auf ein Outfit setzen; 'eigen' lässt das Outfit unverändert */
+export function withHead(look: Look, head: string): Look {
+  if (head === 'eigen' || !head) return look;
+  const model: Record<string, Look['hairModel']> = {
+    side: [{ piece: 'Hair_SimpleParted', scale: [1.06, 1.02, 1.04] }],
+    bun: [{ piece: 'Hair_Buns', scale: [1.04, 1.02, 1.04] }],
+  };
+  return { ...look, hairStyle: head as Look['hairStyle'], hairModel: model[head] };
+}
 export const JACKIE_LOOK = dressUp(JACKIE_LOOK_OLD, 'jackie');
 export const YAO_LOOK = dressUp(YAO_LOOK_OLD, 'yao');
 export const MASTER_LOOK = dressUp(MASTER_LOOK_OLD, 'master');

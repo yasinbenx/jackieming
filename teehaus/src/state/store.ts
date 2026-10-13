@@ -182,6 +182,20 @@ class Store {
     this.p.games[id] = value;
     this.save();
   }
+  /** Belohnung freischalten; true, wenn neu */
+  grant(item: string): boolean {
+    if (this.p.wardrobe.owned.includes(item)) return false;
+    this.p.wardrobe.owned.push(item);
+    this.save();
+    return true;
+  }
+  owns(item: string): boolean {
+    return this.p.wardrobe.owned.includes(item);
+  }
+  setHead(head: string): void {
+    this.p.wardrobe.head = head;
+    this.save();
+  }
   tutorialStep(id: string): void {
     if (this.p.tutorial.steps.includes(id)) return;
     this.p.tutorial.steps.push(id);
