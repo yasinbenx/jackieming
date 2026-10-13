@@ -85,10 +85,11 @@ const covered = () => {
 await p.goto(`http://localhost:${port}/?q=1`);
 await p.waitForSelector('#mainmenu.show', { timeout: 240000 });
 await shot('00-start');
-await p.evaluate(() => document.querySelector('#mainmenu [data-id=new]').click());
+// echter Klick: findet unsichtbare Ebenen, die Klicks abfangen
+await p.click('#mainmenu [data-id=new]', { timeout: 30000 });
 await p.waitForSelector('.outfit', { timeout: 60000 });
 await shot('01-outfit');
-await p.evaluate(() => document.querySelector('.outfit .btn.primary').click());
+await p.click('.outfit .btn.primary', { timeout: 30000 });
 await p.waitForTimeout(500);
 await p.evaluate(() => document.querySelector('#skip')?.click());
 await p.waitForFunction(() => document.body.classList.contains('is-inside'), null, { timeout: 240000 });

@@ -3331,8 +3331,10 @@ body:not(.is-inside) .tutorial {
   display: none;
 }
 @media (max-width: 640px) {
+  /* oben liegt am Telefon die Wortkarte: Tutorial unten über dem Joystick */
   .tutorial {
-    top: calc(110px + var(--safe-t));
+    top: auto;
+    bottom: calc(150px + var(--safe-b));
   }
 }
 /* Untertitel fürs Gemurmel */
@@ -3426,4 +3428,10 @@ body.high-contrast :focus-visible {
   color: #2a170f;
   background: #fffaf0;
   border-color: rgba(90, 58, 34, 0.55);
+}
+/* versteckte Menüs dürfen nichts verdecken (display: grid würde [hidden] aufheben) */
+.menu[hidden],
+.tutorial[hidden],
+.captions[hidden] {
+  display: none !important;
 }
