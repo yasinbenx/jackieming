@@ -30,6 +30,7 @@ import { fbm, rand, rng } from './noise';
 import { addWind, SHARED } from './shared';
 import { boundaryK } from '../world/map';
 import { scatter } from '../world/scatter';
+import { onHouse } from '../world/village';
 import type { Item, TreeKind } from '../world/scatter';
 import { field, FIELD, pondEdge, surfaceAt, terraceK } from '../world/terrain';
 import { inGrove, inTeaField } from '../world/scatter';
@@ -266,6 +267,7 @@ function grassDensity(x: number, z: number): number {
   if (x > -7.8 && x < 7.8 && z > -6.8 && z < 7.3) return 0;
   if (Math.abs(x) < 1.4 && z < 15.5 && z > 6) return 0;
   if (pondEdge(x, z) < 1.12) return 0;
+  if (onHouse(x, z, 0.3)) return 0;
   const sf = surfaceAt(x, z);
   if (sf.waterD < 0.5) return 0;
   const p = { d: sf.pathD };

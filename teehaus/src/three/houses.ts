@@ -112,7 +112,8 @@ export function signMat(text: string, kind: 'board' | 'couplet' | 'cloth' = 'boa
 
 // ───────────────────────────────────────── Dächer
 
-export type RoofKind = 'hip' | 'gable' | 'xieshan';
+import type { RoofKind } from '../world/village';
+export type { RoofKind };
 
 /**
  * Geschwungenes Ziegeldach als Höhenfeld (wie am Teehaus): Halbbreite W (x), Halbtiefe D (z), Höhe H.
@@ -489,87 +490,9 @@ function curtain(B: Batcher, text: string, x: number, y: number, z: number, w: n
 
 // ───────────────────────────────────────── Varianten
 
-export interface HouseSpec {
-  id: string;
-  name: string;
-  zh: string;
-  /** Grundfläche (m), Front nach +z */
-  w: number;
-  d: number;
-  floors: 1 | 2;
-  roof: RoofKind;
-  sign?: string;
-  /** Größe für die Kollision (Rechteck um das Haus mit Vorplatz) */
-  note: string;
-}
-
-export const HOUSE_SPECS: HouseSpec[] = [
-  {
-    id: 'wohnhaus',
-    name: 'Wohnhaus',
-    zh: '民居',
-    w: 6,
-    d: 4.6,
-    floors: 1,
-    roof: 'gable',
-    note: 'Satteldach, Papierfenster, Reimpaare an der Tür, Wäscheleine und Holzstapel',
-  },
-  {
-    id: 'teeladen',
-    name: 'Teeladen',
-    zh: '茶庄',
-    w: 7,
-    d: 5,
-    floors: 1,
-    roof: 'xieshan',
-    sign: '茶庄',
-    note: 'offene Ladenfront mit Theke, Teedosen, Körben und Laternen, Vordach',
-  },
-  {
-    id: 'werkstatt',
-    name: 'Werkstatt',
-    zh: '木工坊',
-    w: 6.4,
-    d: 5,
-    floors: 1,
-    roof: 'gable',
-    sign: '木工',
-    note: 'Schreinerei: offene Halle, Hobelbank, Bretter, Fässer, Karren',
-  },
-  {
-    id: 'gasthaus',
-    name: 'Gasthaus',
-    zh: '客栈',
-    w: 8,
-    d: 6,
-    floors: 2,
-    roof: 'xieshan',
-    sign: '客栈',
-    note: 'zweistöckig, Balkon mit Geländer, Laternen, Türvorhang, Bänke',
-  },
-  {
-    id: 'schreinchen',
-    name: 'Kleiner Schrein',
-    zh: '土地庙',
-    w: 2.6,
-    d: 2.2,
-    floors: 1,
-    roof: 'hip',
-    sign: '土地',
-    note: 'Erdgott-Schrein: rote Säulen, Weihrauchbecken, Opfergaben',
-  },
-  {
-    id: 'hofhaus',
-    name: 'Hofhaus',
-    zh: '四合院',
-    w: 11,
-    d: 10,
-    floors: 1,
-    roof: 'hip',
-    sign: '福',
-    note: 'größeres Haus mit Hofmauer, Tor mit Dach, Hof mit Topfpflanzen und Fahrrad',
-  },
-];
+export { HOUSE_SPECS } from '../world/village';
+export type { HouseSpec } from '../world/village';
+import type { HouseSpec } from '../world/village';
 
 export interface HouseModel {
   spec: HouseSpec;
@@ -580,7 +503,8 @@ export interface HouseModel {
 }
 
 /** Baut ein Haus (Ursprung: Mitte der Grundfläche auf Bodenhöhe, Front nach +z) */
-export function buildHouse(spec: HouseSpec): HouseModel {
+export function buildHouse(spec: HouseSpec, seed = 0): HouseModel {
+  const rs = rng(seed * 31 + 7);
   const mt = mats();
   const B = new Batcher();
   B.shadowless(HOUSE_PAPER);
@@ -619,17 +543,22 @@ export function buildHouse(spec: HouseSpec): HouseModel {
       sideWalls(B, mt, hw, hd, y0, H, ['plain', 'shutter']);
       roof(B, mt, 'gable', hw + 0.8, hd + 0.9, 1.7, y0 + H);
       // Reimpaare und Querschild über der Tür (春联)
-      sign(B, '春和', 'couplet', -1.1, y0 + 1.35, hd + 0.02, 0.22, 1.1);
-      sign(B, '景明', 'couplet', 1.1, y0 + 1.35, hd + 0.02, 0.22, 1.1);
+      const pair = COUPLETS[seed % COUPLETS.length]!;
+      sign(B, pair[0], 'couplet', -1.1, y0 + 1.35, hd + 0.02, 0.22, 1.1);
+      sign(B, pair[1], 'couplet', 1.1, y0 + 1.35, hd + 0.02, 0.22, 1.1);
       sign(B, '福', 'couplet', 0, y0 + 2.5, hd + 0.02, 0.4, 0.4);
       lantern(B, mt, -1.25, y0 + 2.6, hd + 0.5, 0.8);
       lantern(B, mt, 1.25, y0 + 2.6, hd + 0.5, 0.8);
-      laundry(B, mt, hw + 0.8, hw + 3.2, 0.5);
+      // Kleinkram je nach Haus verschieden
+      if (rs() < 0.6) laundry(B, mt, hw + 0.8, hw + 3.2, 0.5);
+      else cart(B, mt, hw + 1.4, 0.8, Math.PI / 2 + 0.3);
       woodpile(B, mt, -hw - 0.7, -0.6, Math.PI / 2);
       basket(B, mt, 1.9, hd + 0.8);
-      basket(B, mt, 2.35, hd + 0.65, 0, 0.8);
+      if (rs() < 0.5) basket(B, mt, 2.35, hd + 0.65, 0, 0.8);
+      else barrel(B, mt, 2.4, hd + 0.7, 0, 0.75);
       pot(B, mt, -2.1, hd + 0.75);
-      bench(B, mt, -hw + 0.9, hd + 1.1, 0, 1.2);
+      if (rs() < 0.5) bench(B, mt, -hw + 0.9, hd + 1.1, 0, 1.2);
+      else bicycle(B, mt, -hw + 0.6, hd + 1.0, 0.2);
       loBox(w, H + plinth, d, (H + plinth) / 2, 0, '#d8c8a8');
       loRoof(hw + 0.8, hd + 0.9, 1.9, plinth + H, 0);
       break;
@@ -769,6 +698,32 @@ export function buildHouse(spec: HouseSpec): HouseModel {
       loRoof(hw + 0.55, hd + 0.55, 1.2, y0 + h, 0);
       break;
     }
+    case 'lagerhaus': {
+      sock(w, d);
+      const y0 = plinth;
+      facade(B, mt, -hw, hw, hd, y0, { h: H, bays: ['shutter', 'door', 'door', 'shutter'] });
+      facade(B, mt, -hw, hw, -hd, y0, { h: H, bays: ['plain', 'shutter', 'shutter', 'plain'] }, -1);
+      sideWalls(B, mt, hw, hd, y0, H, ['plain', 'plain']);
+      roof(B, mt, 'gable', hw + 0.7, hd + 0.8, 1.5, y0 + H);
+      // Säcke, Fässer, Körbe vor dem Tor, Rampe aus Brettern
+      for (let k = 0; k < 5; k++)
+        B.add(
+          new SphereGeometry(0.3, 7, 5),
+          mt.cloth!,
+          [-hw + 0.6 + (k % 3) * 0.55, 0.28 + Math.floor(k / 3) * 0.42, hd + 0.9 + (k % 2) * 0.2],
+          [0, k, 0],
+          [1, 0.75, 0.8],
+        );
+      for (let k = 0; k < 3; k++) barrel(B, mt, hw - 0.5 - k * 0.65, hd + 0.8);
+      basket(B, mt, hw - 0.8, hd + 1.6, 0, 0.9);
+      B.box(1.6, 0.06, 1.0, mt.mw!, 0, 0.22, hd + 0.55, 0);
+      sign(B, '仓', 'board', 0, y0 + H + 0.1, hd + 0.75, 0.7, 0.5);
+      lantern(B, mt, hw - 0.4, y0 + 2.4, hd + 0.5, 0.7);
+      woodpile(B, mt, -hw - 0.8, 0.2, Math.PI / 2);
+      loBox(w, H + plinth, d, (H + plinth) / 2, 0, '#c8b898');
+      loRoof(hw + 0.7, hd + 0.8, 1.7, plinth + H, 0);
+      break;
+    }
     case 'hofhaus': {
       // Haupthaus hinten, Hof mit Mauer, Tor vorn
       const mh = 7.2;
@@ -815,14 +770,24 @@ export function buildHouse(spec: HouseSpec): HouseModel {
       wall(1.2, hd, hw, hd);
       // Tor mit eigenem Dach
       for (const x of [-1.05, 1.05]) pillar(B, mt, x, hd, 0, 2.7, 0.13);
+      // Torflügel stehen offen (nach innen geschwenkt): der Hof ist begehbar
       for (const s of [-1, 1]) {
-        B.box(0.95, 2.3, 0.08, mt.lac!, s * 0.5, 1.15, hd - 0.05);
-        B.add(new TorusGeometry(0.06, 0.015, 4, 8), mt.gold!, [s * 0.12, 1.2, hd + 0.02]);
+        B.add(
+          new BoxGeometry(0.95, 2.3, 0.08),
+          mt.lac!,
+          [s * 0.98, 1.15, hd - 0.55],
+          [0, Math.PI / 2 - s * 0.12, 0],
+        );
+        B.add(
+          new TorusGeometry(0.06, 0.015, 4, 8),
+          mt.gold!,
+          [s * 0.92, 1.2, hd - 0.85],
+          [0, Math.PI / 2, 0],
+        );
       }
       B.box(2.4, 0.3, 0.4, mt.dw!, 0, 2.75, hd);
       roof(B, mt, 'gable', 1.7, 0.9, 0.7, 2.85, hd);
-      sign(B, '福', 'couplet', 0.5, 1.55, hd + 0.0, 0.35, 0.35);
-      sign(B, '福', 'couplet', -0.5, 1.55, hd + 0.0, 0.35, 0.35);
+      sign(B, '福', 'couplet', 0, 2.42, hd + 0.21, 0.36, 0.36);
       lantern(B, mt, -1.3, 2.4, hd + 0.35, 0.8);
       lantern(B, mt, 1.3, 2.4, hd + 0.35, 0.8);
       // Hof: Pflaster, Pflanzen, Fahrrad, Brunnenbecken
@@ -913,5 +878,104 @@ function skirt(B: Batcher, mt: Record<string, Material>, hw: number, hd: number,
       depth * 0.88,
     );
     B.add(f, mt.fascia!, [ox, y, oz], [0, ry, 0]);
+  }
+}
+
+/** Reimpaare (春联) für Wohnhäuser */
+const COUPLETS: [string, string][] = [
+  ['春和', '景明'],
+  ['家和', '业兴'],
+  ['平安', '如意'],
+  ['花好', '月圆'],
+];
+
+export type Goods = 'gemuese' | 'obst' | 'tee';
+
+/** Marktstand: Tisch mit Stoffdach, Kisten mit Ware (Ursprung Mitte, Front nach +z) */
+export function buildStall(goods: Goods, seed = 0): Group {
+  const mt = mats();
+  const B = new Batcher();
+  const r = rng(seed + 11);
+  B.box(2.2, 0.06, 1.0, mt.mw!, 0, 0.82, 0);
+  for (const x of [-1, 1]) for (const z of [-0.42, 0.42]) B.box(0.07, 0.82, 0.07, mt.dw!, x, 0.41, z);
+  for (const x of [-1.05, 1.05]) {
+    B.add(new CylinderGeometry(0.035, 0.035, 2.3, 5), mt.dw!, [x, 1.15, -0.45]);
+    B.add(new CylinderGeometry(0.035, 0.035, 2.0, 5), mt.dw!, [x, 1.0, 0.55]);
+  }
+  const roofCol = goods === 'tee' ? mt.indigo! : goods === 'obst' ? mt.redCloth! : mt.cloth!;
+  // Stoffdach, nach vorn geneigt
+  B.add(new BoxGeometry(2.4, 0.03, 1.3), roofCol, [0, 2.12, 0.05], [0.28, 0, 0]);
+  const fruit: Record<Goods, string[]> = {
+    gemuese: ['#6f9a3c', '#e0e0c8', '#b54a2a', '#7aa04a'],
+    obst: ['#e08a3c', '#d43a2a', '#f0c84a', '#9a3a5a'],
+    tee: ['#5a7a3a', '#3e4e2a', '#8a6a3a', '#6a7a4a'],
+  };
+  for (let k = 0; k < 4; k++) {
+    const x = -0.78 + k * 0.52;
+    B.box(0.46, 0.14, 0.42, mt.straw!, x, 0.92, 0.05);
+    const col = vinyl(fruit[goods][k]!, { rough: 0.6 });
+    for (let i = 0; i < 6; i++)
+      B.add(
+        new SphereGeometry(goods === 'tee' ? 0.05 : 0.07, 6, 4),
+        col,
+        [x + (r() - 0.5) * 0.3, 1.02 + r() * 0.04, 0.05 + (r() - 0.5) * 0.26],
+        [0, 0, 0],
+        goods === 'tee' ? [1.6, 0.7, 1.6] : [1, 1, 1],
+      );
+  }
+  basket(B, mt, -1.4, 0.4, 0, 0.8);
+  basket(B, mt, 1.45, 0.3, 0, 0.9);
+  if (goods === 'tee') sign(B, '新茶', 'cloth', 0, 1.7, 0.56, 0.5, 0.36);
+  return B.build(`stand-${goods}`);
+}
+
+/** Niedrige Steinmauer mit Ziegelkappe, folgt dem Gelände in Stücken (Weltkoordinaten) */
+export function addLowWall(
+  B: Batcher,
+  x0: number,
+  z0: number,
+  x1: number,
+  z1: number,
+  ground: (x: number, z: number) => number,
+): void {
+  const mt = mats();
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const n = Math.max(1, Math.round(len / 1.2));
+  const ry = Math.atan2(x1 - x0, z1 - z0);
+  for (let k = 0; k < n; k++) {
+    const t = (k + 0.5) / n;
+    const x = x0 + (x1 - x0) * t;
+    const z = z0 + (z1 - z0) * t;
+    const y = ground(x, z);
+    const l = len / n + 0.02;
+    B.add(new BoxGeometry(0.45, 0.9, l), mt.stone!, [x, y + 0.35, z], [0, ry, 0]);
+    B.add(new BoxGeometry(0.6, 0.1, l + 0.04), mt.tile!, [x, y + 0.85, z], [0, ry, 0]);
+  }
+}
+
+/** Holzzaun: Pfosten und zwei Latten (Weltkoordinaten) */
+export function addFence(
+  B: Batcher,
+  x0: number,
+  z0: number,
+  x1: number,
+  z1: number,
+  ground: (x: number, z: number) => number,
+): void {
+  const mt = mats();
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const n = Math.max(1, Math.round(len / 1.0));
+  const ry = Math.atan2(x1 - x0, z1 - z0);
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    const x = x0 + (x1 - x0) * t;
+    const z = z0 + (z1 - z0) * t;
+    B.add(new CylinderGeometry(0.04, 0.05, 1.0, 5), mt.dw!, [x, ground(x, z) + 0.45, z]);
+    if (k === n) continue;
+    const xm = x0 + (x1 - x0) * (t + 0.5 / n);
+    const zm = z0 + (z1 - z0) * (t + 0.5 / n);
+    const y = ground(xm, zm);
+    for (const h of [0.4, 0.75])
+      B.add(new BoxGeometry(0.04, 0.06, len / n + 0.05), mt.mw!, [xm, y + h, zm], [0, ry, 0]);
   }
 }

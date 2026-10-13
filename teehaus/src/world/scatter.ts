@@ -3,6 +3,17 @@
 import { fbm, rng } from '../three/noise';
 import { boundaryK, crossings, PATHS, place, PLACES, polyAt, polyLength } from './map';
 import type { Crossing } from './map';
+import {
+  FENCES,
+  footprint,
+  HOUSES,
+  LOW_WALLS,
+  onHouse,
+  STALLS,
+  toWorld,
+  VILLAGE_BAMBOO,
+  VILLAGE_TREES,
+} from './village';
 import { field, pathAt, pondEdge, terraceK, waterAt } from './terrain';
 
 export type TreeKind = 'pine' | 'pine2' | 'broad' | 'cherry' | 'ginkgo' | 'maple';
@@ -28,6 +39,14 @@ export const WELL = { x: 40, z: 60, r: 0.85 };
 
 export type Bench = Item;
 
+export interface Rect {
+  x: number;
+  z: number;
+  hw: number;
+  hd: number;
+  rot: number;
+}
+
 export interface Scatter {
   benches: Bench[];
   /** Mauer um den Aussichtspunkt: Winkelbereich der Öffnung zum Weg */
@@ -41,6 +60,8 @@ export interface Scatter {
   crossings: Crossing[];
   /** Kollisionskreise (Stamm, Fels, Laterne, Torpfosten …) */
   blockers: { x: number; z: number; r: number }[];
+  /** Kollisionsrechtecke (Häuser, Mauern, Zäune, Stände): Mitte, Halbmaße, Drehung */
+  rects: Rect[];
 }
 
 /** Nahbereich des Teehauses: hier bleibt alles wie gehabt (eigener Bewuchs in landscape.ts) */
@@ -107,7 +128,14 @@ export function scatter(): Scatter {
       if (z > 30 && z < 100 && bk < 0.2) p -= 0.35; // offenes Tal zum Fluss
       if (r() > p) continue;
       if (!free(x, z, 2.8, 2.2)) continue;
-      if (inVillage(x, z, 6) || inTeaField(x, z) || inGrove(x, z, 2) || terraceK(x, z) > 0.05) continue;
+      if (
+        inVillage(x, z, 6) ||
+        onHouse(x, z, 3) ||
+        inTeaField(x, z) ||
+        inGrove(x, z, 2) ||
+        terraceK(x, z) > 0.05
+      )
+        continue;
       if (slope > 1.6) continue;
       const u = r();
       const kind: TreeKind =
@@ -160,9 +188,6 @@ export function scatter(): Scatter {
   deco('pine', look.x - 8, look.z + 4, 1.4);
   deco('maple', look.x - 2, look.z - 9.5, 1);
   // Dorfrand: Ginkgo und Kirschen (die Mitte bleibt für den Platz frei)
-  deco('ginkgo', VILLAGE.x + 17, VILLAGE.z - 6, 1.3);
-  deco('cherry', VILLAGE.x - 16, VILLAGE.z + 4, 1);
-  deco('cherry', VILLAGE.x - 12, VILLAGE.z - 14, 1);
 
   // ── Bambus ums Teehaus (links, rechts, dahinter, am Teich) wie bisher
   const rb = rng(55);
@@ -191,6 +216,17 @@ export function scatter(): Scatter {
     bamboo.push(item(x, z, 0.8 + r() * 0.5));
   }
 
+  // ── Dorf: Bäume und Bambusbüsche zwischen den Häusern
+  for (const [kind, x, z, sc] of VILLAGE_TREES) trees.push({ ...item(x, z, sc), kind: kind as TreeKind });
+  for (const [cx, cz, rr] of VILLAGE_BAMBOO) {
+    const n = Math.round(rr * rr * 9);
+    for (let i = 0; i < n; i++) {
+      const a = r() * Math.PI * 2;
+      const d = Math.sqrt(r()) * rr;
+      bamboo.push(item(cx + Math.cos(a) * d, cz + Math.sin(a) * d, 0.7 + r() * 0.4));
+    }
+  }
+
   // ── Teefeld: Reihen quer zum Hang
   for (let row = -TEA_FIELD.rz; row <= TEA_FIELD.rz; row += 1.9) {
     for (let col = -TEA_FIELD.rx; col <= TEA_FIELD.rx; col += 1.05) {
@@ -213,7 +249,14 @@ export function scatter(): Scatter {
     const p = slope * 0.9 + (bank ? 0.6 : 0) + bk * 0.5 - 0.15;
     if (r() > p) continue;
     if (nearHouse(x, z) || pathAt(x, z).d < 1.2 || waterAt(x, z, 0.2)) continue;
-    if (inVillage(x, z) || inTeaField(x, z) || nearPlace(x, z, 1) || terraceK(x, z) > 0.05) continue;
+    if (
+      inVillage(x, z) ||
+      onHouse(x, z, 2) ||
+      inTeaField(x, z) ||
+      nearPlace(x, z, 1) ||
+      terraceK(x, z) > 0.05
+    )
+      continue;
     rocks.push(item(x, z, 0.35 + r() ** 2 * 1.8));
   }
 
@@ -305,6 +348,24 @@ export function scatter(): Scatter {
     blockers.push({ x: lk.x + Math.cos(a) * 7.3, z: lk.z + Math.sin(a) * 7.3, r: 0.25 });
   }
 
+  // ── Dorf: Häuser, Mauern, Zäune und Marktstände
+  const rects: Rect[] = [];
+  for (const h of HOUSES)
+    for (const fp of footprint(h.kind)) {
+      const [x, z] = toWorld(h, fp.x, fp.z);
+      rects.push({ x, z, hw: fp.hw, hd: fp.hd, rot: h.rot });
+    }
+  const seg = (x0: number, z0: number, x1: number, z1: number, half: number): Rect => ({
+    x: (x0 + x1) / 2,
+    z: (z0 + z1) / 2,
+    hw: half,
+    hd: Math.hypot(x1 - x0, z1 - z0) / 2,
+    rot: Math.atan2(x1 - x0, z1 - z0),
+  });
+  for (const [x0, z0, x1, z1] of LOW_WALLS) rects.push(seg(x0, z0, x1, z1, 0.25));
+  for (const [x0, z0, x1, z1] of FENCES) rects.push(seg(x0, z0, x1, z1, 0.08));
+  for (const st of STALLS) rects.push({ x: st.x, z: st.z, hw: 1.2, hd: 0.6, rot: st.rot });
+
   // Blütenbaum und Weide am Teehaus (in landscape.ts gebaut)
   blockers.push({ x: 9.4, z: 5.6, r: 0.35 }, { x: -12.5, z: 6.5, r: 0.35 });
 
@@ -319,6 +380,7 @@ export function scatter(): Scatter {
     gates,
     crossings: crossings(),
     blockers,
+    rects,
   };
   return cached;
 }

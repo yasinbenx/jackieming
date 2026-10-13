@@ -217,9 +217,11 @@ export class Game {
         const pl = world.player;
         if (!pl.busy) store.setPos(pl.x, pl.z, pl.ch.yaw);
         const z = pl.z;
-        if (Math.hypot(pl.x, z) < 16) store.markPlace(z < HALL.z1 ? 'teehaus' : z < 7.2 ? 'terrasse' : 'bruecke');
+        if (Math.hypot(pl.x, z) < 16)
+          store.markPlace(z < HALL.z1 ? 'teehaus' : z < 7.2 ? 'terrasse' : 'bruecke');
         // Orte draußen (für die Karte): erreicht, wer in ihre Nähe kommt
-        for (const p of PLACES) if (Math.hypot(pl.x - p.x, z - p.z) < Math.max(9, p.flat + 3)) store.markPlace(p.id);
+        for (const p of PLACES)
+          if (Math.hypot(pl.x - p.x, z - p.z) < Math.max(9, p.flat + 3)) store.markPlace(p.id);
       }
     });
     // Esc bricht den Weg zum Platz ab

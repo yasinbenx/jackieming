@@ -37,6 +37,7 @@ import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { clamp, fbm, noise2, rand, rng, smoothstep } from './noise';
 import { boundaryK } from '../world/map';
 import { inGrove, inTeaField, scatter } from '../world/scatter';
+import { onHouse } from '../world/village';
 import type { Item } from '../world/scatter';
 import { field, pathAt, pondEdge, surface, terraceK, waterAt, WATER_KINDS } from '../world/terrain';
 import { Nature } from './nature';
@@ -107,6 +108,8 @@ function terrain(): Mesh {
       // Wege
       const pd = sf.pathD[k]!;
       if (pd < 0.6) tmp.lerp(sf.pathKind[k] === 3 ? stairsC : earth, smoothstep(0.6, -0.3, pd) * 0.9);
+      // Vorplätze der Dorfhäuser: festgetretene Erde
+      if (onHouse(x, z, 0.4)) tmp.lerp(earth, 0.7);
       tmp.multiplyScalar(0.92 + noise2(x * 1.7, z * 1.7) * 0.16 + clamp(y * 0.002, 0, 0.08));
       tmp.toArray(colors, k * 3);
     }

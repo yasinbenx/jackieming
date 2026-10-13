@@ -32,7 +32,7 @@ Test-Adressen:
 - `?q=0|1|2` erzwingt die Grafikqualität (niedrig bis hoch)
 - `?galerie` zeigt alle Figuren nebeneinander (`&anim=walk|run|sit|wave…`, `&fig=jackie&nah=1&winkel=0.6`)
 - `/lab/modelle/` ist das **Modell-Labor**: jedes Charaktermodell drehbar, mit Datei-, Skelett- und Animationsinfos und Knöpfen zum Abspielen der Animationen
-- `/lab/haeuser/` ist das **Häuser-Labor**: sechs Dorfhaus-Varianten aus dem Baukasten (`src/three/houses.ts`) neben dem Teehaus, mit Tag/Abend/Nacht und der Fern-Stufe
+- `/lab/haeuser/` ist das **Häuser-Labor**: sieben Dorfhaus-Varianten aus dem Baukasten (`src/three/houses.ts`) neben dem Teehaus, mit Tag/Abend/Nacht und der Fern-Stufe
 - `/lab/figuren/` ist das **Figuren-Labor**: jede Rolle im Vorher-Nachher-Vergleich und alle Figuren nebeneinander, mit Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Sprechen und Verbeugen
 - `/lab/musik/` stellt die Musikvarianten zum Probehören nebeneinander
 
@@ -119,6 +119,16 @@ Das Teehaus liegt jetzt in einem begehbaren Tal von etwa 220 × 240 m. Wege mit 
 - **Laufen:** draußen ein eigenes Laufraster (0,25 m) aus Steigung, Wasser und Hindernissen; Klick zum Laufen findet Wege auch über weite Strecken (A*, für lange Wege gröber). Die Kamera bleibt über dem Boden und hält vor Bauwerken an; der Schattenausschnitt folgt der Figur.
 - **Entdeckte Orte** werden im Spielstand vermerkt (für die Karte in W4).
 
+## Das Dorf (W2)
+
+Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im Osten und am Dorfweg: Gasthaus 客栈, Teeladen 茶庄, Werkstatt 木工, Lagerhaus 仓, Hofhaus 四合院 mit begehbarem Hof, kleiner Erdgott-Schrein 土地庙 und vier Wohnhäuser mit unterschiedlichen Reimpaaren und Kleinkram. Auf dem Platz Brunnen, Bänke, ein alter Ginkgo und drei Marktstände (Gemüse, Obst, Tee); dazwischen Mäuerchen, Zäune, Bambus und Bäume.
+
+- **Nur von außen:** keine Innenräume. Papierfenster und Laternen leuchten abends warm. Vorplätze, Höfe und der Platz sind begehbar, die Häuser nicht.
+- **Daten** (`src/world/village.ts`): Hausarten, Lage und Drehung, Grundflächen, Mauern, Zäune, Stände. Unter jedem Haus ebnet das Gelände einen Platz (`terrain.ts`). Häuser verschieben: Werte dort ändern; `tests/village.test.ts` prüft Überschneidungen, Wege, Wasser, Ebenheit und Erreichbarkeit.
+- **Baukasten** (`src/three/houses.ts`): Module für Sockel, Wand, Fenster, Tür, Säule, Dach, Dachreiter, Geländer, Schilder, Requisiten. Vorschau aller Varianten auf `/lab/haeuser/`.
+- **Leistung** (`src/three/village.ts`): Das ganze Dorf ist pro Material zu wenigen Meshes verschmolzen (54 Draw-Calls für 10 Häuser samt Ständen, Mauern und Zäunen). Weiter weg (Hoch 170 m, Mittel 120 m, Niedrig 80 m) ersetzt ein einziges vereinfachtes Mesh alle Häuser. Unsichtbare Quader halten die Kamera vor Wänden an.
+- Außerdem: Die Teichspiegelung rechnet nur, wenn man in der Nähe des Teichs ist, und die Gäste im Teehaus werden nicht gezeichnet, wenn man weit weg ist. Am Dorfplatz sinkt die Zahl der Draw-Calls dadurch von etwa 1 200 auf etwa 520.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
@@ -190,9 +200,11 @@ Danach `npm run facts` ausführen. **Regel:** nur belegbare öffentliche Fakten,
 ```
 src/world/        Spielwelt: world (Renderer, Licht, Schleife, Qualität), layout, nav (Kollision, A*), cafe,
                   character + looks (Figuren), agent (Bewegung), camera, input, npcs, heroes, finds, intro,
-                  map (Orte, Wege, Gewässer), terrain (Höhe, Wasser, Untergrund), scatter (Bewuchs, Bauwerke)
+                  map (Orte, Wege, Gewässer), terrain (Höhe, Wasser, Untergrund), scatter (Bewuchs, Bauwerke),
+                  village (Dorf: Häuser, Grundflächen, Mauern, Stände)
 src/three/        Landschaft, nature (Bäume, Gras), waterways (Fluss, Bäche, Reisfelder), structures (Brücken,
-                  Laternen, Tore, Schrein, Pavillon, Dorfplatz), Effekte, Materialien
+                  Laternen, Tore, Schrein, Pavillon, Dorfplatz), houses (Häuser-Baukasten), village (Dorf in der
+                  Welt), Effekte, Materialien
 src/audio/        Web-Audio: Musik (Pentatonik), Ambiente, Effekte, Simlish-Stimmen mit Raumklang
 src/ui/           Sprechblasen, Gesprächsfenster, Lernkarte, Wörterbuch, Info, Ton-Panel, HUD
 src/content/      Dialoge, Wörter, Credits

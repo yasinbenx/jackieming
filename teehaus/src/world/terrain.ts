@@ -23,6 +23,7 @@ import {
   TERRACES,
 } from './map';
 import type { P2 } from './map';
+import { HOUSES, onHouse, padOf } from './village';
 
 /** Teich (gleiche Werte wie three/shared POND; hier dupliziert, damit das Modul ohne three.js auskommt) */
 const POND = { x: -1.2, z: 11, rx: 6.6, rz: 3.3 };
@@ -101,8 +102,48 @@ function h0(x: number, z: number): number {
 /** Breite der Böschung um ebene Orte (m) */
 const RAMP = 16;
 
-/** Schicht 4a: Orte ebnen */
+/** Ebene Hausplätze im Dorf: Höhe in der Hausmitte, weiche Böschung rundum */
+const PAD_MARGIN = 2.8;
+const padH = new Map<number, number>();
+function pads(x: number, z: number, h: number): number {
+  // liegt der Punkt auf einem Hausplatz, gilt dessen Höhe; sonst gewichtetes Mittel der nahen Böschungen
+  let wsum = 0;
+  let acc = 0;
+  let wmax = 0;
+  for (let i = 0; i < HOUSES.length; i++) {
+    const hs = HOUSES[i]!;
+    const dx = x - hs.x;
+    const dz = z - hs.z;
+    if (dx * dx + dz * dz > 120) continue;
+    const c = Math.cos(hs.rot);
+    const sn = Math.sin(hs.rot);
+    const lx = dx * c - dz * sn;
+    const lz = dx * sn + dz * c;
+    const p = padOf(hs.kind);
+    const ex = Math.max(0, Math.abs(lx) - p.hw);
+    const ez = Math.max(0, -p.hd - lz, lz - p.hd - p.front);
+    const d = Math.hypot(ex, ez);
+    if (d > PAD_MARGIN) continue;
+    let t = padH.get(i);
+    if (t === undefined) {
+      t = h1base(hs.x, hs.z);
+      padH.set(i, t);
+    }
+    if (d === 0) return t;
+    const k = smoothstep(PAD_MARGIN, 0, d);
+    acc += k * t;
+    wsum += k;
+    wmax = Math.max(wmax, k);
+  }
+  return wsum > 0 ? lerp(h, acc / wsum, wmax) : h;
+}
+
+/** Schicht 4a: Orte und Hausplätze ebnen */
 function h1(x: number, z: number): number {
+  return pads(x, z, h1base(x, z));
+}
+
+function h1base(x: number, z: number): number {
   let h = h0(x, z);
   for (const p of PLACES) {
     if (!p.flat) continue;
@@ -321,7 +362,7 @@ function carve(x: number, z: number, h: number): number {
     const half = RIVER_HALF;
     const bk = boundaryK(x, z);
     const w = half + lerp(9, 0.6, smoothstep(0, 0.4, bk));
-    if (q.d < w && !(onPath && q.d > half + 0.7)) {
+    if (q.d < w && !(onPath && q.d > half + 0.7) && !(q.d > half + 1 && onHouse(x, z, 0.5))) {
       const lv = RIVER_LEVEL;
       if (q.d < half) h = lv - 1.5 * (1 - (q.d / half) ** 2) - 0.1;
       else {

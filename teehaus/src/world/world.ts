@@ -44,6 +44,8 @@ import type { Cafe } from './cafe';
 import { loadHairKit } from './hairkit';
 import { loadRig } from './rig';
 import { groundY, NavGrid } from './nav';
+import { buildVillage } from '../three/village';
+import type { Village } from '../three/village';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
 import { Input } from './input';
@@ -71,6 +73,9 @@ interface QualitySpec {
   petals: number;
   steam: number;
 }
+
+/** Bis zu diesem Abstand (m) zeigt das Dorf volle Häuser, je Qualitätsstufe */
+const VILLAGE_RANGE: Record<Quality, number> = { 2: 170, 1: 120, 0: 80 };
 
 const QUALITY: Record<Quality, QualitySpec> = {
   2: {
@@ -143,6 +148,8 @@ export class World {
   private envTarget: WebGLRenderTarget | null = null;
   private envT = -1;
   land!: Landscape;
+  village!: Village;
+  private npcsHidden = false;
   cafe!: Cafe;
   nav!: NavGrid;
   shafts!: LightShafts;
@@ -254,6 +261,8 @@ export class World {
       nature: { grass: spec.grass, near: spec.near, far: spec.far },
     });
     this.scene.add(this.land.group);
+    this.village = buildVillage(VILLAGE_RANGE[this.quality]);
+    this.scene.add(this.village.group);
     if (this.quality > 0) {
       this.simpleWater = makeWater(false, 0);
       this.simpleWater.visible = false;
@@ -553,6 +562,7 @@ export class World {
     }
     this.petals.setActive(Math.round(240 * spec.petals * (this.calm ? 0.4 : 1)));
     this.land.nature.setRange(spec.near, spec.far, spec.grass);
+    this.village.range = VILLAGE_RANGE[q];
     this.buildEffects();
     this.resize();
   }
@@ -630,7 +640,11 @@ export class World {
   /** Alles, vor dem die Kamera anhält (Wände des Teehauses, Bauwerke draußen) */
   private _camBlockers: Mesh[] | null = null;
   get camBlockers(): Mesh[] {
-    return (this._camBlockers ??= [...this.cafe.blockers, ...this.land.structures.solid]);
+    return (this._camBlockers ??= [
+      ...this.cafe.blockers,
+      ...this.land.structures.solid,
+      ...this.village.blockers,
+    ]);
   }
 
   /**
@@ -779,6 +793,13 @@ export class World {
       this.onInsideChange?.(inside);
     }
 
+    // Weit weg vom Teehaus sind die Gäste drinnen nicht zu sehen: nicht zeichnen (spart viele Draw-Calls)
+    const far = Math.hypot(c.x, c.z) > 45;
+    if (far !== this.npcsHidden) {
+      this.npcsHidden = far;
+      for (const a of this.agents) if (a !== this.player) a.ch.root.visible = !far;
+    }
+
     // Detailstufe der Figuren (Gesicht, Feinbewegung erst in der Nähe)
     for (const a of this.agents) a.ch.setDetail(a.ch.root.position.distanceTo(c) < 11);
     this.fadeOccluders(dt);
@@ -810,6 +831,13 @@ export class World {
     this.land.flock.update(dt, this.time);
     this.land.atmosphere.update(this.time, p, motion);
     this.land.nature.update(c);
+    // Spiegelung des Teichs nur aus der Nähe (sie rendert die Szene ein zweites Mal)
+    if (this.simpleWater && this.quality > 0) {
+      const nearPond = Math.hypot(c.x - POND.x, c.z - POND.z) < 42;
+      this.land.water.visible = nearPond;
+      this.simpleWater.visible = !nearPond;
+    }
+    this.village.update(c, 0.15 + p.window * 0.45, 0.35 + p.lantern * 1.1);
     this.land.structures.lanternMat.emissiveIntensity = 0.2 + p.lantern * 1.4;
     (this.land.structures.glow.material as PointsMaterial).opacity = Math.max(0, p.lantern - 0.4) * 0.45;
     this.followShadow();

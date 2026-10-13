@@ -103,7 +103,7 @@ entries.push({
 
 // zwei Reihen: vorn Teehaus, Wohnhaus, Teeladen, Werkstatt; hinten Gasthaus, Schreinchen, Hofhaus
 const ROWS: [number, string[]][] = [
-  [0, ['wohnhaus', 'teeladen', 'werkstatt']],
+  [0, ['wohnhaus', 'teeladen', 'werkstatt', 'lagerhaus']],
   [-20, ['gasthaus', 'schreinchen', 'hofhaus']],
 ];
 for (const [rz, ids] of ROWS) {

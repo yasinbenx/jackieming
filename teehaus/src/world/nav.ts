@@ -94,6 +94,22 @@ function outdoorGrid(): Uint8Array {
       }
     }
   }
+  // Rechtecke (Häuser, Mauern, Zäune, Stände), um den Figurenradius vergrößert
+  for (const rc of sc.rects) {
+    const reach = Math.hypot(rc.hw, rc.hd) + AGENT_R;
+    const c = Math.cos(rc.rot);
+    const s = Math.sin(rc.rot);
+    for (let j = Math.floor((rc.z - reach - OZ0) / OC); j <= Math.ceil((rc.z + reach - OZ0) / OC); j++) {
+      for (let i = Math.floor((rc.x - reach - OX0) / OC); i <= Math.ceil((rc.x + reach - OX0) / OC); i++) {
+        if (i < 0 || j < 0 || i >= OW || j >= OH) continue;
+        const dx = OX0 + (i + 0.5) * OC - rc.x;
+        const dz = OZ0 + (j + 0.5) * OC - rc.z;
+        const lx = dx * c - dz * s;
+        const lz = dx * s + dz * c;
+        if (Math.abs(lx) < rc.hw + AGENT_R && Math.abs(lz) < rc.hd + AGENT_R) g[j * OW + i] = 0;
+      }
+    }
+  }
   outdoor = g;
   return g;
 }
