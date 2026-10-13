@@ -163,7 +163,7 @@ export async function enterDirect(
   world.nav.setDoor(true);
   const pl = world.player;
   pl.stopPath();
-  const ok = pos && world.nav.walkable(pos.x, pos.z) && pos.z < HALL.z1 + 2.4;
+  const ok = pos && world.nav.walkable(pos.x, pos.z);
   if (ok) pl.place(pos.x, pos.z, pos.yaw);
   else pl.place(INSIDE.x, INSIDE.z, Math.PI);
   world.cam.snapBehind(pl.ch.yaw);

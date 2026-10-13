@@ -32,6 +32,9 @@ export class FollowCam {
 
   constructor(readonly camera: PerspectiveCamera) {}
 
+  /** Bodenhöhe: die Kamera bleibt immer etwas darüber (Hänge, Böschungen) */
+  ground: ((x: number, z: number) => number) | null = null;
+
   /** Empfindlichkeit (Einstellung „Kamerageschwindigkeit“) */
   speed = 1;
 
@@ -117,10 +120,12 @@ export class FollowCam {
     }
     this.close = d;
     const want = target.clone().addScaledVector(dir, d);
+    if (this.ground) want.y = Math.max(want.y, this.ground(want.x, want.z) + 0.45);
     // Kollisionen sofort, Zurückweichen weich
     const cur = this.pos.distanceTo(target);
     if (d < cur || cur === 0 || this.snapNext) this.pos.copy(want);
     else this.pos.lerp(want, Math.min(1, dt * 5));
+    if (this.ground) this.pos.y = Math.max(this.pos.y, this.ground(this.pos.x, this.pos.z) + 0.4);
     if (this.snapNext) this.look.copy(target);
     else this.look.lerp(target, Math.min(1, dt * 12));
     this.snapNext = false;

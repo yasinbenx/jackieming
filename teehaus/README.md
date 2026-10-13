@@ -98,6 +98,26 @@ Am Tisch der Brettspieler (links in der Halle) „Xiangqi spielen“ wählen. Be
 
 **Bedienung:** Stein anklicken zeigt die erlaubten Ziele und wie er zieht, Ziel anklicken. Der letzte Zug ist markiert, „将军！“ warnt, wenn der eigene General angegriffen ist. Esc schließt, die Partie wird gespeichert und lässt sich fortsetzen. Siege, Niederlagen und Remis je Stufe stehen im Spielstand. Lernwörter: 将军, 车, 马, 炮, 兵. Regeln und Gegner: `src/minigames/xiangqi.ts` (getestet), Texte: `src/content/xiangqi.ts`.
 
+## Die Welt ums Teehaus (W1)
+
+Das Teehaus liegt jetzt in einem begehbaren Tal von etwa 220 × 240 m. Wege mit Trittplatten, Laternen und Stufen führen zu sechs Orten:
+
+| Ort                                     | Lage vom Teehaus                                                  | Weg                       |
+| --------------------------------------- | ----------------------------------------------------------------- | ------------------------- |
+| Bambushain 竹林                         | links, über den Holzsteg am Bach                                  | Westweg                   |
+| Aussichtspunkt 观景台                   | hinten links auf dem Grat (Pavillon, Bank, Blick übers Tal)       | Westweg, steiler Aufstieg |
+| Teefeld 茶园                            | rechts am sanften Hang, Reihen von Teesträuchern                  | Ostweg                    |
+| Schrein 神社                            | hinten rechts auf dem Hügel, über eine Steintreppe mit zwei Toren | Schreinweg                |
+| Dorfplatz 村子                          | vorn rechts, gepflastert, mit Brunnen (die Häuser kommen in W2)   | Dorfweg mit Tor           |
+| Steinbrücke 石桥 und Reisterrassen 梯田 | über den Fluss am Talboden                                        | Brückenweg                |
+
+- **Gelände** (`src/world/terrain.ts`): Höhenfunktion in Schichten (Tal, Hügel, ebene Plätze, Wege quer flach mit geglättetem Längsprofil, Terrassen, Bach- und Flussbetten), daraus ein 1-m-Raster. Figuren stehen exakt auf dem sichtbaren Boden.
+- **Weltdaten** (`src/world/map.ts`): Orte, Wege, Fluss und Bäche als Linienzüge – eine Quelle für Gelände, Bewuchs, Laufraster und später die Karte (M). Neue Wege oder Orte dort eintragen.
+- **Bewuchs** (`src/world/scatter.ts`, `src/three/nature.ts`): Kiefern, Tannen, Laubbäume, Kirschen, Ginkgos, Ahorn, Bambus, Teesträucher und Felsen als Instanzen. Bäume haben zwei Detailstufen (nah mit Schatten, fern einfach); jenseits der Sichtweite wird nichts gezeichnet. Die Verteilung wird alle 3 m Kamerabewegung neu sortiert. Gras wächst im Shader in einer 48-m-Kachel um die Kamera und liest Höhe und Dichte aus einer Textur. Wind bewegt Bäume, Sträucher, Bambus und Gras.
+- **Grenzen:** Am Talrand steigt das Gelände steil zu bewaldeten Bergen an, dahinter Nebel und Bergketten. Es gibt keine unsichtbaren Wände; Wasser ist nur über Brücken passierbar.
+- **Laufen:** draußen ein eigenes Laufraster (0,25 m) aus Steigung, Wasser und Hindernissen; Klick zum Laufen findet Wege auch über weite Strecken (A*, für lange Wege gröber). Die Kamera bleibt über dem Boden und hält vor Bauwerken an; der Schattenausschnitt folgt der Figur.
+- **Entdeckte Orte** werden im Spielstand vermerkt (für die Karte in W4).
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
@@ -127,7 +147,7 @@ Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/m
 
 ## Qualitätsstufen
 
-Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe und Teich-Spiegelung. Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, Animation nur jedes zweite Bild). Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
+Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, Animation nur jedes zweite Bild). Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
 ## Auf Vercel veröffentlichen
 
@@ -168,8 +188,10 @@ Danach `npm run facts` ausführen. **Regel:** nur belegbare öffentliche Fakten,
 
 ```
 src/world/        Spielwelt: world (Renderer, Licht, Schleife, Qualität), layout, nav (Kollision, A*), cafe,
-                  character + looks (Figuren), agent (Bewegung), camera, input, npcs, heroes, finds, intro
-src/three/        Landschaft, Effekte (Lichtstrahlen, Dampf, Blüten), Materialien
+                  character + looks (Figuren), agent (Bewegung), camera, input, npcs, heroes, finds, intro,
+                  map (Orte, Wege, Gewässer), terrain (Höhe, Wasser, Untergrund), scatter (Bewuchs, Bauwerke)
+src/three/        Landschaft, nature (Bäume, Gras), waterways (Fluss, Bäche, Reisfelder), structures (Brücken,
+                  Laternen, Tore, Schrein, Pavillon, Dorfplatz), Effekte, Materialien
 src/audio/        Web-Audio: Musik (Pentatonik), Ambiente, Effekte, Simlish-Stimmen mit Raumklang
 src/ui/           Sprechblasen, Gesprächsfenster, Lernkarte, Wörterbuch, Info, Ton-Panel, HUD
 src/content/      Dialoge, Wörter, Credits

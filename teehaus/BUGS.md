@@ -4,7 +4,7 @@ Laufende Liste aller gefundenen Fehler mit Ursache und Status. Neue Meldungen ko
 
 Prüfwege:
 
-- `npm test`: Unit-Tests (Wegfindung, Platzwahl, Sprechblasen-Anordnung)
+- `npm test`: Unit-Tests (Wegfindung, Platzwahl, Sprechblasen-Anordnung, Spielstand, Tee, Aufgaben, Xiangqi, Welt: Gelände, Brücken, Erreichbarkeit aller Orte)
 - `node scripts/test/rundgang.mjs`: Ende-zu-Ende-Rundgang im Browser (Laufen, alle Plätze, Gespräch, Esc, Tageszeit, Panels), Desktop und Telefon
 - `/lab/figuren/`: jede Figur in Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Verbeugen
 
@@ -12,10 +12,12 @@ Status: **behoben**, **offen**, **beobachten** (nur in der Testumgebung gesehen 
 
 ## Offen
 
-| Nr. | Bereich  | Fehler                                                                      | Ursache                                                                              | Status                                                           |
-| --- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| 21  | Leistung | Figuren und Logik brauchen auf dem Testrechner 5–6 ms pro Bild (12 Figuren) | volle Animation, Fuß-IK und Kleidungs-Skinning für jede Figur im Raum                | offen, kommt in S4 (Detailstufen nach Entfernung schärfer)       |
-| 22  | Bewegung | unter 20 fps läuft alles in Zeitlupe                                        | Zeitschritt pro Bild ist auf 0,05 s begrenzt, damit Physik und Kamera nicht springen | beobachten (nur in der Software-Grafik der Testumgebung gesehen) |
+| Nr. | Bereich  | Fehler                                                                      | Ursache                                                                                    | Status                                                           |
+| --- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| 21  | Leistung | Figuren und Logik brauchen auf dem Testrechner 5–6 ms pro Bild (12 Figuren) | volle Animation, Fuß-IK und Kleidungs-Skinning für jede Figur im Raum                      | offen, kommt in S4 (Detailstufen nach Entfernung schärfer)       |
+| 22  | Bewegung | unter 20 fps läuft alles in Zeitlupe                                        | Zeitschritt pro Bild ist auf 0,05 s begrenzt, damit Physik und Kamera nicht springen       | beobachten (nur in der Software-Grafik der Testumgebung gesehen) |
+| 31  | Laden    | Welt-Aufbau kostet beim Start etwa 1 s zusätzlich (Testrechner)             | Höhenraster, Untergrund-Tabelle, Laufraster und Grastextur werden im Hauptthread berechnet | beobachten; bei Bedarf in S4 in einen Worker verlagern           |
+| 32  | Grafik   | Teichspiegelung zeigt Bambusstämme als Zickzack                             | Wellenverzerrung der Spiegelung bei flachem Blick                                          | gemildert (Wellen schwächer), beobachten                         |
 
 ## Behoben
 
@@ -46,4 +48,6 @@ Status: **behoben**, **offen**, **beobachten** (nur in der Testumgebung gesehen 
 | 27  | Menü          | „Abbrechen“ in der Sicherheitsabfrage unlesbar                                                                    | Knopffarbe erbte die dunkle Schrift                                            | helle Schrift auf dunklem Feld                                                                                        |
 | 28  | Steuerung     | Taste M schaltete den Ton; M ist künftig die Karte                                                                | feste Tasten im Code                                                           | frei belegbare Tasten, Ton auf T, Karte auf M, Pause auf P                                                            |
 | 20  | Gespräch      | Esc während des Weges zum Platz                                                                                   | Abbruch fehlte                                                                 | Esc oder „Abbrechen“ beendet den Weg (im Rundgang geprüft)                                                            |
+| 33  | Sitzen        | Terrassenrand-Plätze: Figur fand nach W1 keinen Weg zum Hocker                                                    | neues Laufraster draußen war direkt neben der Terrasse begehbar                | Streifen ums Haus von außen gesperrt (im Rundgang geprüft)                                                            |
+| 34  | Kamera        | Kamera steckte draußen in Pavillonsäulen                                                                          | nur die Wände des Teehauses hielten die Kamera auf                             | Bauwerke draußen zählen mit                                                                                           |
 | 23  | UI            | Telefon quer: Lernkarte verdeckt im Gespräch Jackies Kopf, Gesprächsleiste schiebt sich über die Tageszeit-Knöpfe | Desktop-Regeln galten auch für niedrige Bildschirme                            | eigene Regeln für niedrige Querformate: Leiste unter der Kopfzeile, Lernkarte kompakt über der Leiste                 |

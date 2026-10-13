@@ -34,7 +34,16 @@ import {
   Vector3,
 } from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
-import { clamp, fbm, lerp, noise2, rand, rng, smoothstep } from './noise';
+import { clamp, fbm, noise2, rand, rng, smoothstep } from './noise';
+import { boundaryK } from '../world/map';
+import { inGrove, inTeaField, scatter } from '../world/scatter';
+import type { Item } from '../world/scatter';
+import { field, pathAt, pondEdge, surface, terraceK, waterAt, WATER_KINDS } from '../world/terrain';
+import { Nature } from './nature';
+import type { NatureOpts } from './nature';
+import { buildStructures } from './structures';
+import type { Structures } from './structures';
+import { buildWaterways } from './waterways';
 import { addWind, flat, mesh, POND, SHARED } from './shared';
 import { BRIDGE, bridgeY } from '../world/layout';
 import { glowTexture, mistTexture } from './textures';
@@ -42,68 +51,85 @@ import type { Palette } from './palette';
 
 // ───────────────────────────────────────── Gelände
 
-function pondEdge(x: number, z: number): number {
-  // < 1 im Teich; leicht unregelmäßiger Rand
-  const dx = (x - POND.x) / POND.rx;
-  const dz = (z - POND.z) / POND.rz;
-  const a = Math.atan2(dz, dx);
-  const wobble = 1 + Math.sin(a * 3 + 1.2) * 0.07 + Math.sin(a * 5 + 0.4) * 0.04;
-  return Math.sqrt(dx * dx + dz * dz) / wobble;
-}
-
-/** Geländehöhe an (x, z). Das Teehaus steht auf einem flachen Plateau um (0, 0). */
+/** Geländehöhe an (x, z): das 1-m-Raster der Welt, genau wie das sichtbare Mesh */
 export function heightAt(x: number, z: number): number {
-  const r = Math.hypot(x, z * 0.85);
-  const rise = smoothstep(11, 70, r);
-  // hinter dem Haus steiler (Berghang), vorne offen zum Tal
-  const back = smoothstep(4, -30, z) * 0.6 + 0.4;
-  let h = rise * (fbm(x * 0.025 + 3, z * 0.025, 4) * 26 + 3) * back;
-  h += (fbm(x * 0.18, z * 0.18, 3) - 0.5) * 0.5 * smoothstep(7, 12, r);
-  // Teichmulde
-  const e = pondEdge(x, z);
-  h = lerp(h, -0.65, smoothstep(1.25, 0.82, e));
-  return h;
+  return field().at(x, z);
 }
 
+/** Gelände aus dem Höhenraster: ein indiziertes Mesh, Farbe je Ecke nach Untergrund */
 function terrain(): Mesh {
-  const size = 260;
-  const seg = 128;
-  const g = new PlaneGeometry(size, size, seg, seg).rotateX(-Math.PI / 2);
-  const pos = g.attributes.position as BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    pos.setY(i, heightAt(x, z));
-  }
-  const geo = g.toNonIndexed();
-  geo.computeVertexNormals();
-  const p = geo.attributes.position as BufferAttribute;
-  const n = geo.attributes.normal as BufferAttribute;
-  const colors = new Float32Array(p.count * 3);
+  const f = field();
+  const W = f.nx + 1;
+  const H = f.nz + 1;
+  const pos = new Float32Array(W * H * 3);
+  const colors = new Float32Array(W * H * 3);
   const grass = new Color('#8f9a4c');
   const grass2 = new Color('#6f8540');
   const dry = new Color('#b7a35e');
   const rock = new Color('#7d7568');
   const bank = new Color('#8a7a5a');
+  const sand = new Color('#b4a582');
+  const earth = new Color('#b9a27a');
+  const stairsC = new Color('#a39d90');
+  const forest = new Color('#56693a');
+  const paddy = new Color('#7fa04a');
+  const soil = new Color('#6b5a3e');
+  const litter = new Color('#9c8a55');
   const tmp = new Color();
-  for (let i = 0; i < p.count; i += 3) {
-    // pro Dreieck eine Farbe (Low-Poly-Look)
-    const cx = (p.getX(i) + p.getX(i + 1) + p.getX(i + 2)) / 3;
-    const cy = (p.getY(i) + p.getY(i + 1) + p.getY(i + 2)) / 3;
-    const cz = (p.getZ(i) + p.getZ(i + 1) + p.getZ(i + 2)) / 3;
-    const ny = n.getY(i);
-    const v = noise2(cx * 0.35, cz * 0.35);
-    tmp
-      .copy(grass)
-      .lerp(grass2, v)
-      .lerp(dry, fbm(cx * 0.05, cz * 0.05, 2) * 0.6);
-    if (ny < 0.8) tmp.lerp(rock, smoothstep(0.8, 0.55, ny));
-    const e = pondEdge(cx, cz);
-    if (e < 1.3) tmp.lerp(bank, smoothstep(1.3, 1.0, e));
-    tmp.multiplyScalar(0.92 + noise2(cx * 1.7, cz * 1.7) * 0.16 + clamp(cy * 0.004, 0, 0.1));
-    for (let k = 0; k < 3; k++) tmp.toArray(colors, (i + k) * 3);
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      const x = f.x0 + i * f.step;
+      const z = f.z0 + j * f.step;
+      const k = j * W + i;
+      const y = f.h[k]!;
+      pos.set([x, y, z], k * 3);
+      const slope = f.slope(x, z, 0.5);
+      const v = noise2(x * 0.35, z * 0.35);
+      tmp
+        .copy(grass)
+        .lerp(grass2, v)
+        .lerp(dry, fbm(x * 0.05, z * 0.05, 2) * 0.6);
+      const bk = boundaryK(x, z);
+      if (bk > 0) tmp.lerp(forest, Math.min(1, bk * 1.6) * 0.7);
+      if (inGrove(x, z)) tmp.lerp(litter, 0.55);
+      if (inTeaField(x, z)) tmp.lerp(soil, 0.45);
+      const tk = terraceK(x, z);
+      if (tk > 0) tmp.lerp(paddy, tk * 0.6);
+      tmp.lerp(rock, smoothstep(0.55, 1.1, slope));
+      if (bk > 0.4) tmp.lerp(rock, smoothstep(0.4, 1, bk) * 0.5 * smoothstep(0.4, 0.9, slope));
+      // Ufer
+      const e = pondEdge(x, z);
+      if (e < 1.3) tmp.lerp(bank, smoothstep(1.3, 1.0, e));
+      const sf = surface();
+      const wd = sf.waterD[k]!;
+      const wk = WATER_KINDS[sf.waterKind[k]!];
+      if (wd < 1.6 && wk && wk !== 'pond') tmp.lerp(wk === 'river' ? sand : bank, wd < 0.4 ? 0.9 : 0.55);
+      // Wege
+      const pd = sf.pathD[k]!;
+      if (pd < 0.6) tmp.lerp(sf.pathKind[k] === 3 ? stairsC : earth, smoothstep(0.6, -0.3, pd) * 0.9);
+      tmp.multiplyScalar(0.92 + noise2(x * 1.7, z * 1.7) * 0.16 + clamp(y * 0.002, 0, 0.08));
+      tmp.toArray(colors, k * 3);
+    }
   }
-  geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  // Dreiecke wie in TerrainField.at: Diagonale von (i+1, j) nach (i, j+1)
+  const idx = new Uint32Array((W - 1) * (H - 1) * 6);
+  let n = 0;
+  for (let j = 0; j < H - 1; j++) {
+    for (let i = 0; i < W - 1; i++) {
+      const a = j * W + i;
+      const b = a + 1;
+      const c = a + W;
+      const d = c + 1;
+      idx.set([a, c, b, b, c, d], n);
+      n += 6;
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new BufferAttribute(pos, 3));
+  geo.setAttribute('color', new BufferAttribute(colors, 3));
+  geo.setIndex(new BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
   const m = mesh(
     geo,
     new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }),
@@ -273,7 +299,7 @@ const WATER_SHADER = {
       vec2 w = vec2(
         sin(vWorld.x * 2.3 + time * 1.2) + sin(vWorld.z * 3.1 - time * 0.9),
         cos(vWorld.z * 2.6 + time * 1.0) + sin((vWorld.x + vWorld.z) * 1.6 + time * 0.7)
-      ) * 0.006;
+      ) * 0.0035;
       vec4 uv = vUv;
       uv.xy += w * uv.w;
       vec3 refl = texture2DProj(tDiffuse, uv).rgb;
@@ -382,35 +408,6 @@ function bridge(): Group {
   return g;
 }
 
-function pathStones(): InstancedMesh {
-  const curveB = new CatmullRomCurve3([
-    new Vector3(BRIDGE.x, 0, BRIDGE.z1 + 0.5),
-    new Vector3(-0.6, 0, 18),
-    new Vector3(1.2, 0, 23),
-    new Vector3(2.4, 0, 30),
-    new Vector3(1.5, 0, 38),
-  ]);
-  const r = rng(21);
-  const pts: Vector3[] = [];
-  for (const [c, n] of [[curveB, 26]] as const) {
-    for (let i = 0; i < n; i++) pts.push(c.getPoint(i / (n - 1)));
-  }
-  const geo = new CylinderGeometry(0.42, 0.46, 0.1, 7);
-  const im = new InstancedMesh(geo, flat('#a59c8c', { rough: 0.95 }), pts.length);
-  const o = new Object3D();
-  pts.forEach((p, i) => {
-    o.position.set(p.x + rand(r, -0.15, 0.15), heightAt(p.x, p.z) + 0.03, p.z);
-    o.rotation.set(rand(r, -0.04, 0.04), r() * Math.PI, rand(r, -0.04, 0.04));
-    const s = rand(r, 0.8, 1.15);
-    o.scale.set(s, 1, s * rand(r, 0.75, 1));
-    o.updateMatrix();
-    im.setMatrixAt(i, o.matrix);
-  });
-  im.receiveShadow = true;
-  im.name = 'path';
-  return im;
-}
-
 // ───────────────────────────────────────── Pflanzen
 
 function rocks(): InstancedMesh {
@@ -428,10 +425,13 @@ function rocks(): InstancedMesh {
       z = POND.z + Math.sin(a) * POND.rz * 1.05;
       if (Math.abs(x - BRIDGE.x) < 1.4) continue; // Brückenköpfe frei
     } else {
+      // ein paar Steine im Rasen ums Haus
       const a = rand(r, 0, Math.PI * 2);
-      const d = rand(r, 8, 22);
+      const d = rand(r, 9, 15);
       x = Math.cos(a) * d;
       z = Math.sin(a) * d;
+      if (Math.abs(x) < 8.5 && z > -7.5 && z < 8) continue;
+      if (pathAt(x, z).d < 1 || waterAt(x, z, 0.5)) continue;
     }
     const s = rand(r, 0.35, 0.9);
     o.position.set(x, heightAt(x, z) + s * 0.1, z);
@@ -443,27 +443,6 @@ function rocks(): InstancedMesh {
   im.castShadow = true;
   im.receiveShadow = true;
   return im;
-}
-
-/** Huangshan-Kiefer mit flachen Nadel-Schichten */
-function pine(r: () => number): Group {
-  const g = new Group();
-  const h = rand(r, 3.5, 6);
-  const trunkMat = flat('#5a4232');
-  const trunk = mesh(new CylinderGeometry(0.1, 0.22, h, 6), trunkMat);
-  trunk.position.y = h / 2;
-  trunk.rotation.z = rand(r, -0.12, 0.12);
-  g.add(trunk);
-  const leaf = flat('#3f5a3a');
-  const n = 3 + Math.floor(r() * 3);
-  for (let i = 0; i < n; i++) {
-    const pad = mesh(new DodecahedronGeometry(1, 0), leaf);
-    const y = h * (0.55 + (i / n) * 0.5);
-    pad.position.set(rand(r, -1, 1) * (1 - i / n), y, rand(r, -0.8, 0.8));
-    pad.scale.set(rand(r, 1.2, 2.0) * (1 - i * 0.12), rand(r, 0.28, 0.4), rand(r, 1.0, 1.6));
-    g.add(pad);
-  }
-  return g;
 }
 
 /** Blühender Baum (Pflaume/Kirsche) vorn rechts; Quelle der Blütenblätter */
@@ -573,11 +552,12 @@ function addWindDown(mat: MeshStandardMaterial): void {
 }
 
 /** Bambushaine links, rechts und hinter dem Haus */
-function bamboo(count: number): Group {
+function bamboo(spots: Item[], leavesPer: number): Group {
+  const count = spots.length;
   const g = new Group();
   g.name = 'bamboo';
   const r = rng(55);
-  const stalkGeo = new CylinderGeometry(0.045, 0.055, 1, 6, 8).translate(0, 0.5, 0);
+  const stalkGeo = new CylinderGeometry(0.05, 0.06, 1, 5, 4, true).translate(0, 0.5, 0);
   // Knoten als leichte Verdickungen
   const pos = stalkGeo.attributes.position as BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
@@ -599,26 +579,18 @@ function bamboo(count: number): Group {
     side: DoubleSide,
   });
   addWind(leafMat, 0.35, 7);
-  const perStalk = 9;
+  const perStalk = leavesPer;
   const leaves = new InstancedMesh(leafGeo, leafMat, count * perStalk);
   const o = new Object3D();
-  const groves = [
-    { x: -10.6, z: -2.5, rx: 1.8, rz: 3.4 },
-    { x: 10.6, z: -2.5, rx: 1.8, rz: 3.2 },
-    { x: 0, z: -9.4, rx: 8, rz: 1.6 },
-    { x: -10.2, z: 6.6, rx: 1.4, rz: 1.4 },
-  ];
   const m4 = new Matrix4();
   const q = new Quaternion();
   let li = 0;
   for (let i = 0; i < count; i++) {
-    const gr = groves[i % groves.length]!;
-    const a = r() * Math.PI * 2;
-    const d = Math.sqrt(r());
-    const x = gr.x + Math.cos(a) * gr.rx * d;
-    const z = gr.z + Math.sin(a) * gr.rz * d;
-    const h = rand(r, 4.5, 8.5);
-    const y0 = heightAt(x, z) - 0.1;
+    const sp = spots[i]!;
+    const x = sp.x;
+    const z = sp.z;
+    const h = rand(r, 4.5, 8.5) * sp.s;
+    const y0 = sp.y - 0.1;
     const lean = new Vector3(rand(r, -0.06, 0.06), 1, rand(r, -0.06, 0.06)).normalize();
     q.setFromUnitVectors(new Vector3(0, 1, 0), lean);
     m4.compose(new Vector3(x, y0, z), q, new Vector3(1, h, 1));
@@ -637,30 +609,6 @@ function bamboo(count: number): Group {
   leaves.castShadow = true;
   stalks.receiveShadow = true;
   g.add(stalks, leaves);
-  return g;
-}
-
-function pines(): Group {
-  const g = new Group();
-  const r = rng(13);
-  const spots: [number, number][] = [];
-  for (let i = 0; i < 40; i++) {
-    const a = rand(r, 0, Math.PI * 2);
-    const d = rand(r, 14, 46);
-    const x = Math.cos(a) * d;
-    const z = Math.sin(a) * d;
-    // Blick vom Weg aufs Haus freihalten
-    if (z > 4 && Math.abs(x) < 9) continue;
-    if (pondEdge(x, z) < 1.6) continue;
-    spots.push([x, z]);
-  }
-  for (const [x, z] of spots) {
-    const p = pine(r);
-    p.position.set(x, heightAt(x, z) - 0.1, z);
-    p.scale.setScalar(rand(r, 0.8, 1.4));
-    p.rotation.y = r() * 6;
-    g.add(p);
-  }
   return g;
 }
 
@@ -983,21 +931,26 @@ export interface Landscape {
   atmosphere: Atmosphere;
   blossomCanopy: Vector3[];
   blossomPos: Vector3;
+  nature: Nature;
+  structures: Structures;
 }
 
 export function buildLandscape(opts: {
   reflect: boolean;
   reflectRes: number;
-  bamboo: number;
+  /** Blätter je Bambushalm */
+  bambooLeaves: number;
   mist: number;
+  nature: NatureOpts;
 }): Landscape {
   const group = new Group();
   group.name = 'landscape';
   group.add(terrain());
-  group.add(mountainRing(110, 1, 30, '#44523e', '#64735a'));
-  group.add(mountainRing(155, 2, 46, '#4c5870', '#6f7d96'));
-  group.add(mountainRing(215, 3, 66, '#5d6584', '#858ca8'));
-  group.add(mountainRing(285, 4, 84, '#6d7192', '#9a9db8'));
+  // Bergketten hinter dem Talrand (das Tal selbst endet an steilen Hängen im Gelände)
+  group.add(mountainRing(175, 1, 46, '#44523e', '#64735a'));
+  group.add(mountainRing(225, 2, 64, '#4c5870', '#6f7d96'));
+  group.add(mountainRing(285, 3, 84, '#5d6584', '#858ca8'));
+  group.add(mountainRing(350, 4, 104, '#6d7192', '#9a9db8'));
   const water = makeWater(opts.reflect, opts.reflectRes);
   group.add(water);
   // Teichboden (dunkel, damit die Koi Kontrast haben)
@@ -1006,11 +959,17 @@ export function buildLandscape(opts: {
   bed.position.set(POND.x, -0.4, POND.z);
   group.add(bed);
   group.add(bridge());
-  group.add(pathStones());
   group.add(rocks());
   group.add(lotus());
-  group.add(pines());
-  group.add(bamboo(opts.bamboo));
+  // Bambus am Haus und der Hain getrennt, damit jeder für sich aus dem Bild fallen kann
+  const bb = scatter().bamboo;
+  group.add(bamboo(bb.slice(0, 200), opts.bambooLeaves));
+  group.add(bamboo(bb.slice(200), opts.bambooLeaves));
+  group.add(buildWaterways());
+  const nature = new Nature(opts.nature);
+  group.add(nature.group);
+  const structures = buildStructures();
+  group.add(structures.group);
   const bt = blossomTree();
   const blossomPos = new Vector3(9.4, heightAt(9.4, 5.6), 5.6);
   bt.group.position.copy(blossomPos);
@@ -1035,6 +994,8 @@ export function buildLandscape(opts: {
     flock,
     atmosphere,
     blossomCanopy: bt.canopy.map((p) => p.clone().add(blossomPos)),
+    nature,
+    structures,
     blossomPos,
   };
 }

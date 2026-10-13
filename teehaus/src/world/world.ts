@@ -18,7 +18,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { Object3D, Texture, WebGLRenderTarget } from 'three';
+import type { Object3D, PointsMaterial, Texture, WebGLRenderTarget } from 'three';
 import {
   BloomEffect,
   DepthOfFieldEffect,
@@ -43,7 +43,7 @@ import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
 import { loadHairKit } from './hairkit';
 import { loadRig } from './rig';
-import { NavGrid } from './nav';
+import { groundY, NavGrid } from './nav';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
 import { Input } from './input';
@@ -59,6 +59,12 @@ export type Mode = 'intro' | 'free' | 'dialog' | 'cutscene';
 interface QualitySpec {
   dpr: number;
   shadow: number;
+  /** Grasbüschel um die Kamera (0 = aus) */
+  grass: number;
+  /** Bäume in voller Form bis (m), sonst einfache Form */
+  near: number;
+  /** Sichtweite für Bewuchs (m) */
+  far: number;
   bloom: boolean;
   dof: boolean;
   msaa: number;
@@ -67,9 +73,42 @@ interface QualitySpec {
 }
 
 const QUALITY: Record<Quality, QualitySpec> = {
-  2: { dpr: 2, shadow: 2048, bloom: true, dof: true, msaa: 4, petals: 1, steam: 1 },
-  1: { dpr: 1.5, shadow: 1024, bloom: true, dof: false, msaa: 0, petals: 0.55, steam: 0.8 },
-  0: { dpr: 1, shadow: 0, bloom: false, dof: false, msaa: 0, petals: 0.25, steam: 0.5 },
+  2: {
+    dpr: 2,
+    shadow: 2048,
+    bloom: true,
+    dof: true,
+    msaa: 4,
+    petals: 1,
+    steam: 1,
+    grass: 18000,
+    near: 70,
+    far: 420,
+  },
+  1: {
+    dpr: 1.5,
+    shadow: 1024,
+    bloom: true,
+    dof: false,
+    msaa: 0,
+    petals: 0.55,
+    steam: 0.8,
+    grass: 9000,
+    near: 45,
+    far: 260,
+  },
+  0: {
+    dpr: 1,
+    shadow: 0,
+    bloom: false,
+    dof: false,
+    msaa: 0,
+    petals: 0.25,
+    steam: 0.5,
+    grass: 0,
+    near: 25,
+    far: 160,
+  },
 };
 
 /** Etwas, womit der Spieler interagieren kann (E-Taste, Antippen, Knopf) */
@@ -210,8 +249,9 @@ export class World {
     this.land = buildLandscape({
       reflect: this.quality > 0,
       reflectRes: this.quality === 2 ? 1024 : 512,
-      bamboo: this.quality === 2 ? 240 : this.quality === 1 ? 160 : 90,
+      bambooLeaves: this.quality === 2 ? 9 : this.quality === 1 ? 6 : 3,
       mist: this.quality === 0 ? 14 : 26,
+      nature: { grass: spec.grass, near: spec.near, far: spec.far },
     });
     this.scene.add(this.land.group);
     if (this.quality > 0) {
@@ -260,6 +300,7 @@ export class World {
     this.buildEffects();
 
     this.cam = new FollowCam(this.camera);
+    this.cam.ground = groundY;
     this.cam.snapBehind(Math.PI);
     this.input = new Input(this.renderer.domElement);
     this.input.enabled = false;
@@ -421,6 +462,7 @@ export class World {
     const targets = [
       ...this.cafe.floors,
       ...this.land.group.children.filter((c) => c.name === 'terrain' || c.name === 'bridge'),
+      this.land.structures.walkables,
     ];
     const h = this.ray.intersectObjects(targets, true)[0];
     if (!h) return;
@@ -510,6 +552,7 @@ export class World {
       this.land.water.visible = q > 0;
     }
     this.petals.setActive(Math.round(240 * spec.petals * (this.calm ? 0.4 : 1)));
+    this.land.nature.setRange(spec.near, spec.far, spec.grass);
     this.buildEffects();
     this.resize();
   }
@@ -583,6 +626,39 @@ export class World {
   }
 
   // ───────────────────────────────────────── Hilfen
+
+  /** Alles, vor dem die Kamera anhält (Wände des Teehauses, Bauwerke draußen) */
+  private _camBlockers: Mesh[] | null = null;
+  get camBlockers(): Mesh[] {
+    return (this._camBlockers ??= [...this.cafe.blockers, ...this.land.structures.solid]);
+  }
+
+  /**
+   * Schattenausschnitt folgt der Spielfigur (in 1-m-Schritten, damit die Schattenkanten nicht flimmern).
+   * Am Teehaus eng und scharf, draußen etwas weiter.
+   */
+  private followShadow(): void {
+    const pp = this.player.ch.root.position;
+    const t = this.sun.target.position;
+    const outside = Math.hypot(pp.x, pp.z) > 22;
+    const cx = outside ? Math.round(pp.x) : 0;
+    const cz = outside ? Math.round(pp.z) : 0;
+    const cy = outside ? Math.round(pp.y) : 0;
+    const sc = this.sun.shadow.camera;
+    const half = outside ? 20 : 13;
+    if (sc.right !== half) {
+      sc.left = -half;
+      sc.right = half;
+      sc.top = half;
+      sc.bottom = -half;
+      sc.updateProjectionMatrix();
+    }
+    if (t.x !== cx || t.z !== cz || t.y !== cy) {
+      t.set(cx, cy, cz);
+      this.sun.target.updateMatrixWorld();
+    }
+    this.sun.position.copy(this.pal.sunDir).multiplyScalar(45).add(t);
+  }
 
   nudgeLantern(l: { swing: number }, k: number): void {
     l.swing = Math.min(1.2, l.swing + 0.6 * k);
@@ -689,7 +765,7 @@ export class World {
     if (this.mode === 'free' && wish && !inp.lookDX && Math.abs(inp.axis().y) > 0.2 && inp.axis().y > 0) {
       this.cam.follow(this.player.ch.yaw, dt, 0.8);
     }
-    this.cam.update(dt, this.playerTarget(), this.cafe.blockers);
+    this.cam.update(dt, this.playerTarget(), this.camBlockers);
     // Kamera klebt an der Figur (enge Ecke): Figur ausblenden statt den Kopf groß ins Bild zu schieben
     this.player.ch.root.visible = !this.hidePlayer && (this.cam.locked || this.cam.close > 0.6);
     this.updateFocus();
@@ -733,6 +809,10 @@ export class World {
     this.land.magpie.update(dt, this.time);
     this.land.flock.update(dt, this.time);
     this.land.atmosphere.update(this.time, p, motion);
+    this.land.nature.update(c);
+    this.land.structures.lanternMat.emissiveIntensity = 0.2 + p.lantern * 1.4;
+    (this.land.structures.glow.material as PointsMaterial).opacity = Math.max(0, p.lantern - 0.4) * 0.45;
+    this.followShadow();
 
     if (this.markerEl && this.markerPos) {
       this.markerT = Math.max(0, this.markerT - dt * 1.2);
