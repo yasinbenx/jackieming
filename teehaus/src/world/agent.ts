@@ -8,6 +8,7 @@ import { groundY } from './nav';
 import type { NavGrid } from './nav';
 import type { Seat } from './layout';
 import { FLOOR } from './layout';
+import { approachPoint } from './seating';
 
 export const WALK = 1.45;
 export const RUN = 3.5;
@@ -111,7 +112,7 @@ export class Agent {
 
   /** Zum Hocker gehen und hinsetzen */
   sitAt(seat: Seat, onSeated?: () => void): boolean {
-    const t = { x: seat.x - Math.sin(seat.yaw) * 0.55, z: seat.z - Math.cos(seat.yaw) * 0.55 };
+    const t = approachPoint(seat, (x, z) => this.nav.walkable(x, z));
     // Der Annäherungspunkt liegt vom Tisch weg; der Hocker selbst ist frei begehbar
     const ok = this.goTo(t.x, t.z, false, () => {
       this.seat = seat;
@@ -162,8 +163,9 @@ export class Agent {
     if (this.seatPhase === 'rising' && this.seat) {
       this.seatT = Math.min(1, this.seatT + dt / 0.7);
       const u = Math.max(0, (this.seatT - 0.35) / 0.65);
-      const bx = this.seat.x - Math.sin(this.seat.yaw) * 0.55;
-      const bz = this.seat.z - Math.cos(this.seat.yaw) * 0.55;
+      const back = approachPoint(this.seat, (x, z) => this.nav.walkable(x, z));
+      const bx = back.x;
+      const bz = back.z;
       pos.x = this.seat.x + (bx - this.seat.x) * u;
       pos.z = this.seat.z + (bz - this.seat.z) * u;
       ch.speed = u > 0 && u < 1 ? 0.6 : 0;

@@ -104,4 +104,5 @@ export const CAT_SPOTS: [number, number][] = [
 
 /** Startpunkt des Spielers (hinter der Brücke) und Eintrittspunkt innen */
 export const START = { x: 0, z: BRIDGE.z1 + 4.2 };
-export const INSIDE = { x: 0, z: HALL.z1 - 1.2 };
+/** Startpunkt drinnen: seitlich der Tür, damit die Kamera hinter der Figur an der Wand liegt und nicht durch die offene Tür schaut */
+export const INSIDE = { x: -1.1, z: HALL.z1 - 2.2 };

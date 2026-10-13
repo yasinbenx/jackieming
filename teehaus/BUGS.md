@@ -1,0 +1,43 @@
+# Fehlerliste
+
+Laufende Liste aller gefundenen Fehler mit Ursache und Status. Neue Meldungen kommen oben in „Offen“ dazu.
+
+Prüfwege:
+
+- `npm test`: Unit-Tests (Wegfindung, Platzwahl, Sprechblasen-Anordnung)
+- `node scripts/test/rundgang.mjs`: Ende-zu-Ende-Rundgang im Browser (Laufen, alle Plätze, Gespräch, Esc, Tageszeit, Panels), Desktop und Telefon
+- `/lab/figuren/`: jede Figur in Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Verbeugen
+
+Status: **behoben**, **offen**, **beobachten** (nur in der Testumgebung gesehen oder Grenzfall).
+
+## Offen
+
+| Nr. | Bereich  | Fehler                                                                      | Ursache                                                                              | Status                                                           |
+| --- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| 21  | Leistung | Figuren und Logik brauchen auf dem Testrechner 5–6 ms pro Bild (12 Figuren) | volle Animation, Fuß-IK und Kleidungs-Skinning für jede Figur im Raum                | offen, kommt in S4 (Detailstufen nach Entfernung schärfer)       |
+| 22  | Bewegung | unter 20 fps läuft alles in Zeitlupe                                        | Zeitschritt pro Bild ist auf 0,05 s begrenzt, damit Physik und Kamera nicht springen | beobachten (nur in der Software-Grafik der Testumgebung gesehen) |
+
+## Behoben
+
+| Nr. | Bereich     | Fehler                                                                       | Ursache                                                          | Behebung                                                                                                              |
+| --- | ----------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 1   | Kleidung    | Kleidung schneidet beim Gehen und Sitzen durch den Körper                    | Quaternius-Kleidung lag als eigene Hülle über dem Körper         | Körper und Kleidung aus einem Stück, an das Skelett „genäht“ (Korrektur-Runde K1/K2)                                  |
+| 2   | Kleidung    | Bein sticht beim Ausschreiten durch Schürze und Gewand                       | Hosenbein breiter als der Schoß darüber                          | schmalere Hosen unter langen Gewändern, Schürze liegt über dem Schoß und folgt denselben Gewichten                    |
+| 3   | Kleidung    | Gewand bauscht sich im Sitzen seitlich                                       | Schoß folgte je Seite nur einem Bein                             | Schoß folgt vorne/hinten dem Mittel beider Beine, am Saum den Unterschenkeln                                          |
+| 4   | Sitzen      | Spielfigur sitzt nicht neben Jackie und Yao                                  | fester Gastplatz weit weg, Gespräch begann sofort im Stehen      | freier Hocker direkt neben beiden, Figur geht hin, setzt sich, dreht sich zur Person, dann erst Gesprächskamera       |
+| 5   | Sitzen      | Füße schweben, Hände hängen                                                  | Oberschenkel waagrecht ausgerichtet, keine Sitzpose für die Arme | Oberschenkel so geneigt, dass die Füße auf dem Boden stehen, Hände auf den Knien                                      |
+| 6   | UI          | Gesprächsfenster verdeckt die Figuren                                        | breites Fenster unten über der Bildmitte                         | Leiste rechts (höchstens ein Drittel), am Telefon niedriges Blatt; Kamera rahmt die Figuren im freien Bereich         |
+| 7   | UI          | Sprechblasen zweier Sprecher überdecken sich                                 | jede Blase nur an ihrem Kopf ausgerichtet                        | gemeinsame Anordnung: Neueste hat Vorrang, andere weichen aus oder treten zurück (`src/ui/bubblelayout.ts`, getestet) |
+| 8   | UI          | leeres Gesprächsfenster dauerhaft sichtbar                                   | `[hidden]`-Regel beim Umbau entfernt                             | Regel wiederhergestellt                                                                                               |
+| 9   | UI          | Gesprächsfenster springt beim Öffnen seitlich                                | alte Einblend-Animation mit `translate(-50%)`                    | eigene Animation                                                                                                      |
+| 10  | Intro       | nach „Überspringen“ fliegt die Kamera sekundenlang durch Brücke und Geländer | Kamera glitt von ihrer letzten Position am Teich zur Figur       | Kamera springt beim Platzieren sofort hinter die Figur                                                                |
+| 11  | Intro       | erste Ansicht drinnen schaut durch die offene Tür nach draußen               | Startpunkt direkt hinter der Tür, Kamera dahinter im Freien      | Startpunkt seitlich versetzt, Kamera liegt an der Wand                                                                |
+| 12  | Kleiderwahl | Telefon: Auswahl links abgeschnitten                                         | Einblend-Animation überschrieb die Zentrierung (`transform`)     | Zentrierung über Ränder, Lage am Desktop über `translate`                                                             |
+| 13  | Sitzen      | Terrassenplatz am Rand: Figur rutscht über 1 m auf den Hocker                | Annäherungspunkt lag außerhalb der Terrasse                      | Annäherung seitlich, wenn hinten kein Boden ist (`approachPoint`, getestet)                                           |
+| 14  | Sitzen      | „Hinsetzen“ ohne Weg tut nichts                                              | Fehlschlag wurde nicht gemeldet                                  | Figur zeigt kurz ein Fragezeichen                                                                                     |
+| 15  | Gespräch    | Gesprächskamera: Spielfigur verdeckt Yao                                     | Kamera zu weit hinter dem Gast                                   | Kamera mehr von der Seite                                                                                             |
+| 16  | Gespräch    | Kamera fährt am Telefon durch die Wand                                       | Abstand für schmale Bilder zu groß                               | Kamera bleibt im Raum, im Hochformat über die Schulter                                                                |
+| 17  | UI          | Lernkarte verdeckt im Gespräch die Fragen                                    | Karte oben rechts über der Leiste                                | im Gespräch unten links (Desktop) bzw. kompakt über dem Blatt (Telefon)                                               |
+| 18  | Build       | `npm run build` brach ab                                                     | ungenutzte Variable in der Musik-Werkstatt                       | entfernt                                                                                                              |
+| 19  | Ton         | Musik wurde in Gesprächen nicht leiser                                       | Gesprächsbeginn/-ende wurden nicht gemeldet                      | Ereignisse `talk:start`/`talk:end`                                                                                    |
+| 20  | Gespräch    | Esc während des Weges zum Platz                                              | Abbruch fehlte                                                   | Esc oder „Abbrechen“ beendet den Weg (im Rundgang geprüft)                                                            |

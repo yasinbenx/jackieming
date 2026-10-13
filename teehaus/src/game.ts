@@ -18,6 +18,7 @@ import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
 import { HALL, SEATS, TABLES } from './world/layout';
+import { freeSeatAt } from './world/seating';
 import type { Seat } from './world/layout';
 import { Vector3 } from 'three';
 import { wordById } from './content/words';
@@ -244,17 +245,11 @@ export class Game {
 
   private approach: { cancel: boolean; hint: HTMLElement } | null = null;
 
-  /** Freier Hocker am Haupttisch (niemand sitzt oder steht darauf) */
+  /** Freier Hocker am Haupttisch (niemand sitzt oder steht darauf), der Spielfigur am nächsten */
   private freeSeat(): Seat | null {
     const w = this.world;
-    for (const s of SEATS) {
-      if (s.table !== 'main' || !s.free) continue;
-      const taken = w.agents.some(
-        (a) => a !== w.player && (a.seat === s || Math.hypot(a.x - s.x, a.z - s.z) < 0.35),
-      );
-      if (!taken) return s;
-    }
-    return null;
+    const others = w.agents.filter((a) => a !== w.player);
+    return freeSeatAt('main', SEATS, others, w.player);
   }
 
   /** Gesprächsmodus: Figur dreht sich zum Gast, Kamera fährt heran, Fragenliste öffnet sich */
@@ -313,7 +308,7 @@ export class Game {
     const vfov = (cam.fov * Math.PI) / 180;
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
     // Hochformat: eher über die Schulter des Gastes, dann stehen beide hintereinander statt nebeneinander
-    const over = aspect < 1 ? 0.95 : 0.45;
+    const over = aspect < 1 ? 0.95 : 0.2;
     const dirCam = n
       .clone()
       .multiplyScalar(aspect < 1 ? 0.55 : 0.85)

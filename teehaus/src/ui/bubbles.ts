@@ -5,6 +5,7 @@ import { bus } from '../core/bus';
 import { store } from '../state/store';
 import { h, prefersReducedMotion } from './dom';
 import { Typer } from './typewriter';
+import { layoutBubbles } from './bubblelayout';
 
 export interface Speaker {
   id: string;
@@ -177,40 +178,29 @@ export class Bubbles {
     const pr = panel?.getBoundingClientRect();
     const side = pr && pr.left > window.innerWidth * 0.45 ? pr.left : window.innerWidth;
     const bottomLimit = pr && pr.left <= window.innerWidth * 0.45 ? pr.top - 8 : window.innerHeight;
-    const placed: { l: number; r: number; t: number; b: number }[] = [];
     // Wer zuletzt zu sprechen begann, bekommt seinen Platz am Kopf; die anderen weichen aus oder treten zurück
     const order = [...this.stacks.values()]
       .filter((st) => st.length)
       .map((st) => ({ st, s: this.project(st[0]!.speaker.anchor()) }))
       .sort((a, b) => b.st[0]!.born - a.st[0]!.born);
-    for (const { st: stack, s } of order) {
+    const spots = layoutBubbles(
+      order.map(({ st, s }) => ({
+        x: s.x,
+        y: s.y,
+        visible: s.visible,
+        sizes: st.map((it) => ({ w: it.el.offsetWidth || 220, h: it.el.offsetHeight || 60 })),
+      })),
+      { width: window.innerWidth, height: window.innerHeight, right: side, bottom: bottomLimit },
+    );
+    order.forEach(({ st }, gi) => {
       any = true;
-      let y = Math.min(s.y - 8, bottomLimit);
-      for (const [i, it] of stack.entries()) {
-        const w = it.el.offsetWidth || 220;
-        const hgt = it.el.offsetHeight || 60;
-        const x = Math.min(side - w / 2 - 10, Math.max(w / 2 + 10, s.x));
-        let top = Math.max(hgt + 64, y);
-        // nicht über andere Blasen legen: nach oben ausweichen
-        for (let k = 0; k < 6; k++) {
-          const hit = placed.find(
-            (r) => x - w / 2 < r.r + 6 && x + w / 2 > r.l - 6 && top - hgt < r.b + 6 && top > r.t - 6,
-          );
-          if (!hit) break;
-          top = hit.t - 8;
-        }
-        const clipped = top < hgt + 8;
-        top = Math.max(hgt + 8, top);
-        it.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(top)}px) translate(-50%, -100%)`;
+      st.forEach((it, i) => {
+        const sp = spots[gi]![i]!;
+        it.el.style.transform = `translate(${Math.round(sp.x)}px, ${Math.round(sp.bottom)}px) translate(-50%, -100%)`;
         it.el.style.zIndex = String(20 - i);
-        // ältere Blasen nur zeigen, wenn oben genug Platz ist (sonst würden sie sich überdecken)
-        const still = placed.some((r) => x - w / 2 < r.r && x + w / 2 > r.l && top - hgt < r.b && top > r.t);
-        const hide = !s.visible || still || (i > 0 && (y < hgt + 64 || clipped));
-        it.el.classList.toggle('offscreen', hide);
-        if (!hide) placed.push({ l: x - w / 2, r: x + w / 2, t: top - hgt, b: top });
-        y = top - hgt - 10;
-      }
-    }
+        it.el.classList.toggle('offscreen', sp.hidden);
+      });
+    });
     if (any) this.raf = requestAnimationFrame(this.loop);
   };
 }

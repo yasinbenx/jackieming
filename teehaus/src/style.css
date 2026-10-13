@@ -2414,7 +2414,8 @@ body.is-picking #loader {
   z-index: 30;
   right: max(24px, 5vw);
   top: 50%;
-  transform: translateY(-50%);
+  /* Lage über translate, damit die Einblend-Animation (transform) sie nicht überschreibt */
+  translate: 0 -50%;
   width: min(340px, calc(100vw - 32px));
   padding: 18px 20px 20px;
   border-radius: 4px;
@@ -2426,7 +2427,7 @@ body.is-picking #loader {
 }
 .outfit.out {
   opacity: 0;
-  transform: translateY(-46%);
+  transform: translateY(12px);
 }
 .outfit h2 {
   font: 600 19px var(--font-latin);
@@ -2488,11 +2489,12 @@ body.is-picking #loader {
   .outfit {
     top: auto;
     bottom: calc(16px + var(--safe-b));
-    right: 50%;
-    transform: translateX(50%);
-  }
-  .outfit.out {
-    transform: translate(50%, 10px);
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: 340px;
+    margin-inline: auto;
+    translate: none;
   }
 }
 

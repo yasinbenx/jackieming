@@ -44,7 +44,10 @@ export class FollowCam {
   /** Kamera sofort hinter die Figur setzen */
   snapBehind(yaw: number): void {
     this.dYaw = this.yaw = yaw + Math.PI;
+    this.snapNext = true;
   }
+  /** beim nächsten Bild ohne Überblendung an die Zielposition springen */
+  private snapNext = false;
 
   /** Gemächlich hinter die Laufrichtung drehen (nur, wenn der Spieler die Kamera nicht selbst bewegt) */
   follow(yaw: number, dt: number, amount: number): void {
@@ -113,9 +116,11 @@ export class FollowCam {
     const want = target.clone().addScaledVector(dir, d);
     // Kollisionen sofort, Zurückweichen weich
     const cur = this.pos.distanceTo(target);
-    if (d < cur || cur === 0) this.pos.copy(want);
+    if (d < cur || cur === 0 || this.snapNext) this.pos.copy(want);
     else this.pos.lerp(want, Math.min(1, dt * 5));
-    this.look.lerp(target, Math.min(1, dt * 12));
+    if (this.snapNext) this.look.copy(target);
+    else this.look.lerp(target, Math.min(1, dt * 12));
+    this.snapNext = false;
     if (this.look.lengthSq() === 0) this.look.copy(target);
 
     if (this.locked && this.shot) {
