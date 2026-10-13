@@ -23,6 +23,7 @@ export interface HudHandlers {
   onInfo: () => void;
   onToast: () => void;
   onSound?: (anchor: HTMLElement) => void;
+  onPause?: () => void;
 }
 
 export interface Hud {
@@ -113,6 +114,14 @@ export function createHud(stage: World, handlers: HudHandlers): Hud {
         { class: 'hud-icon', type: 'button', 'aria-label': 'Info und Hilfe', onclick: handlers.onInfo },
         'ⓘ',
       ),
+      h('button', {
+        class: 'hud-icon hud-pause',
+        type: 'button',
+        'aria-label': 'Pause und Menü',
+        title: 'Pause (Esc)',
+        onclick: () => handlers.onPause?.(),
+        html: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" fill="currentColor"/></svg>',
+      }),
     ),
   );
   document.body.appendChild(el);

@@ -5,6 +5,7 @@ import { pinyinHtml, pinyinText } from '../content/pinyin';
 import { EGGS } from '../content/extras';
 import { CREDITS, CREDITS_EXTRA } from '../content/credits';
 import { store } from '../state/store';
+import { keyLabel } from '../state/savefile';
 import { h } from './dom';
 import { Modal } from './modal';
 import { speakChinese, speechAvailable } from './speech';
@@ -80,51 +81,13 @@ export class Dictionary {
 }
 
 export class InfoPage {
-  readonly modal = new Modal('info', 'Über das Teehaus', '关于');
+  readonly modal = new Modal('info', 'Hilfe und Hinweise', '关于');
 
-  constructor(
-    private onReset: () => void,
-    private onCredits: () => void,
-  ) {}
+  constructor(private actions: { onCredits: () => void; onSettings: () => void; onTutorial: () => void }) {}
 
   open(): void {
-    let confirming = false;
-    const quality = h('select', { id: 'quality-select', class: 'select' }) as HTMLSelectElement;
-    for (const [v, label] of [
-      ['auto', 'Automatisch'],
-      ['2', 'Hoch'],
-      ['1', 'Mittel'],
-      ['0', 'Niedrig'],
-    ] as const) {
-      const o = h('option', { value: v }, label) as HTMLOptionElement;
-      o.selected = String(store.settings.quality) === v;
-      quality.append(o);
-    }
-    quality.addEventListener('change', () => {
-      const v = quality.value;
-      store.setSettings({ quality: v === 'auto' ? 'auto' : (Number(v) as 0 | 1 | 2) });
-    });
-    const calm = h('input', { type: 'checkbox', id: 'calm-toggle' });
-    calm.checked = store.settings.calm;
-    calm.addEventListener('change', () => store.setSettings({ calm: calm.checked }));
-    const resetBtn = h(
-      'button',
-      {
-        class: 'btn ghost danger',
-        type: 'button',
-        onclick: () => {
-          if (!confirming) {
-            confirming = true;
-            resetBtn.textContent = 'Wirklich alles zurücksetzen?';
-            return;
-          }
-          store.reset();
-          this.onReset();
-          this.modal.close();
-        },
-      },
-      'Fortschritt zurücksetzen',
-    );
+    const k = store.settings.keys;
+    const K = (code: string) => h('kbd', {}, keyLabel(code));
     this.modal.setContent(
       h(
         'div',
@@ -132,60 +95,87 @@ export class InfoPage {
         h('b', {}, 'Fiktives Gespräch, basiert auf öffentlich bekannten Fakten.'),
         ' Keine echten Zitate. Nicht mit den dargestellten Personen verbunden.',
       ),
-      h('h3', {}, 'So funktioniert es'),
+      h('h3', {}, 'Steuerung'),
       h(
         'ul',
         { class: 'info-list' },
         h(
           'li',
           {},
-          'Laufen: WASD oder Pfeiltasten (Umschalt = schneller), auf dem Handy der Joystick links unten. Oder einfach auf den Boden klicken bzw. tippen.',
+          'Gehen: ',
+          K(k.forward),
+          ' ',
+          K(k.left),
+          ' ',
+          K(k.back),
+          ' ',
+          K(k.right),
+          ' oder Pfeiltasten, ',
+          K(k.run),
+          ' halten zum Laufen. Auf dem Telefon der Joystick links unten. Oder auf den Boden klicken bzw. tippen.',
         ),
-        h('li', {}, 'Ansprechen und Benutzen: E-Taste oder den Hinweis antippen. Winken: G.'),
         h(
           'li',
           {},
-          'Kamera: mit der Maus ziehen oder auf dem Handy wischen, Mausrad oder zwei Finger zum Zoomen.',
+          'Ansprechen und Benutzen: ',
+          K(k.use),
+          ' oder den Hinweis antippen. Winken: ',
+          K(k.wave),
+          '.',
         ),
+        h('li', {}, 'Kamera: mit der Maus ziehen oder wischen, Mausrad oder zwei Finger zum Zoomen.'),
+        h('li', {}, 'Hinsetzen: an einen freien Hocker gehen. Aufstehen: einfach loslaufen.'),
         h(
           'li',
           {},
-          'Wähle ein Thema und stelle Fragen. Neue Fragen schalten sich frei, wenn du die vorherigen gestellt hast.',
+          'Ton an/aus: ',
+          K(k.sound),
+          '. Karte: ',
+          K(k.map),
+          '. Pause: ',
+          K(k.pause),
+          ' oder ',
+          h('kbd', {}, 'Esc'),
+          '.',
         ),
+        h('li', {}, 'Im Gespräch: Leertaste zeigt die Antwort sofort, Esc beendet das Gespräch.'),
+        h('li', {}, 'Tasten lassen sich in den Einstellungen umlegen.'),
+      ),
+      h('h3', {}, 'Was es zu tun gibt'),
+      h(
+        'ul',
+        { class: 'info-list' },
+        h('li', {}, 'Sprich Jackie und Yao am großen Tisch hinten rechts an. Deine Figur setzt sich dazu.'),
+        h('li', {}, 'Neue Fragen schalten sich frei, wenn du die vorherigen gestellt hast.'),
         h(
           'li',
           {},
-          'Nach vielen Antworten erscheint ein „Wort des Moments“. Gesammelte Wörter findest du im Wörterbuch (词典).',
+          'Nach vielen Antworten erscheint ein „Wort des Moments“. Alle Wörter stehen im Wörterbuch (词典).',
         ),
         h(
           'li',
           {},
           'Im Teehaus ist einiges versteckt: Probier die Teekanne, die Laternen, die Elster oder den Teich.',
         ),
-        h('li', {}, 'Esc schließt Fenster. Mit Leertaste oder „Überspringen“ siehst du Antworten sofort.'),
-      ),
-      h('h3', {}, 'Bewegung und Barrierefreiheit'),
-      h(
-        'label',
-        { class: 'calm-row', for: 'calm-toggle' },
-        calm,
-        h(
-          'span',
-          {},
-          h('b', {}, 'Ruhe-Modus: '),
-          'weniger Bewegung (keine Kamerafahrt, sanftere Animationen, weniger Blütenblätter, keine Tiefenunschärfe, Antworten sofort sichtbar). Wird automatisch aktiv, wenn dein System „Bewegung reduzieren“ meldet.',
-        ),
       ),
       h(
-        'label',
-        { class: 'calm-row', for: 'quality-select' },
+        'div',
+        { class: 'info-actions' },
         h(
-          'span',
-          {},
-          h('b', {}, 'Grafik: '),
-          'Bei „Automatisch“ wird die Qualität gesenkt, wenn es ruckelt.',
+          'button',
+          { class: 'btn ghost', type: 'button', onclick: () => this.actions.onTutorial() },
+          'Tutorial wiederholen',
         ),
-        quality,
+        h(
+          'button',
+          { class: 'btn ghost', type: 'button', onclick: () => this.actions.onSettings() },
+          'Einstellungen',
+        ),
+        h(
+          'button',
+          { class: 'btn ghost', type: 'button', onclick: () => this.actions.onCredits() },
+          'Credits und Lizenzen',
+        ),
       ),
       h('h3', {}, 'Woher kommen die Inhalte?'),
       h(
@@ -193,24 +183,14 @@ export class InfoPage {
         {},
         'Alle Antworten sind frei formulierte Ich-Texte auf Grundlage öffentlich bekannter Fakten. Die Fakten und ihre Quellen stehen zum Gegenprüfen in der Datei ',
         h('code', {}, 'FAKTEN.md'),
-        ' im Projekt. Persönlichkeitsaussagen und Scherze sind Charakterisierungen, keine belegten Aussagen der echten Personen.',
+        ' im Projekt. Persönlichkeitsaussagen und Scherze sind Charakterisierungen, keine belegten Aussagen der echten Personen. Die Gesichter sind frei erfunden und stilisiert.',
       ),
       h('h3', {}, 'Technik und Datenschutz'),
       h(
         'p',
         {},
-        'Gebaut mit TypeScript und three.js. Figuren, Teehaus, Landschaft und Klänge entstehen live im Code. Es gibt keinen Server und keine KI: Alle Fragen und Antworten stehen fest im Spiel. Dein Spielstand liegt nur in deinem Browser (localStorage), es gibt keine Cookies und kein Tracking.',
+        'Gebaut mit TypeScript und three.js. Figuren, Teehaus, Landschaft und Klänge entstehen live im Code. Es gibt keinen Server und keine KI: Alle Fragen und Antworten stehen fest im Spiel. Dein Spielstand wird automatisch nur in deinem Browser gespeichert (localStorage), es gibt keine Cookies und kein Tracking.',
       ),
-      h(
-        'p',
-        {},
-        h(
-          'button',
-          { class: 'btn ghost', type: 'button', onclick: () => this.onCredits() },
-          'Credits und Lizenzen',
-        ),
-      ),
-      resetBtn,
     );
     this.modal.open();
   }

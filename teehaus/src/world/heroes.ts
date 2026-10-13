@@ -41,6 +41,7 @@ export class Hero {
     this.speaker = {
       id,
       name: profile.zh,
+      label: profile.nameDe,
       anchor: () => ch.headWorld().add(new Vector3(0, ch.H * 0.1 + 0.16, 0)),
       onBlip: () => (ch.talk = 1),
       onEnd: () => (ch.talk = 0),

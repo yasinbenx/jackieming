@@ -161,6 +161,7 @@ export class World {
     if (q === '0' || q === '1' || q === '2') {
       this.quality = Number(q) as Quality;
       this.qualityForced = true;
+      this.urlQuality = true;
     } else if (store.settings.quality !== 'auto') {
       this.quality = store.settings.quality;
       this.qualityForced = true;
@@ -244,7 +245,7 @@ export class World {
     // Haarmodelle (klein, ~0,4 MB) vor den Figuren laden
     await Promise.all([loadHairKit(), loadRig()]);
     // Spielfigur
-    this.outfit = Math.min(PLAYER_LOOKS.length - 1, Math.max(0, store.settings.outfit ?? 0));
+    this.outfit = Math.min(PLAYER_LOOKS.length - 1, Math.max(0, store.outfit));
     this.player = new Agent(PLAYER_LOOKS[this.outfit]!, this.nav);
     this.player.place(START.x, START.z, Math.PI);
     this.scene.add(this.player.ch.root);
@@ -283,7 +284,7 @@ export class World {
     const idx = ((i % PLAYER_LOOKS.length) + PLAYER_LOOKS.length) % PLAYER_LOOKS.length;
     if (idx === this.outfit && this.player) return;
     this.outfit = idx;
-    store.setSettings({ outfit: idx });
+    store.setOutfit(idx);
     const old = this.player;
     const p = new Agent(PLAYER_LOOKS[idx]!, this.nav);
     p.place(old.x, old.z, old.ch.yaw);
@@ -317,8 +318,16 @@ export class World {
     this.interactables.push(i);
   }
 
+  /** Eine Interaktion wurde benutzt (Tutorial) */
+  onUse?: (id: string) => void;
+  /** Spielfigur ausblenden (Hauptmenü) */
+  hidePlayer = false;
+
   private useFocus(): void {
-    if (this.focus && this.mode === 'free') this.focus.use();
+    if (this.focus && this.mode === 'free') {
+      this.focus.use();
+      this.onUse?.(this.focus.id);
+    }
   }
 
   private updateFocus(): void {
@@ -378,6 +387,7 @@ export class World {
       const p = this.player.ch.root.position;
       if (Math.hypot(ip.x - p.x, ip.z - p.z) <= bestIt.radius) {
         bestIt.use();
+        this.onUse?.(bestIt.id);
         return;
       }
       // hingehen, dann benutzen
@@ -391,6 +401,7 @@ export class World {
           this.pendingUse = null;
           this.player.faceTo(ip.x, ip.z);
           target.use();
+          this.onUse?.(target.id);
         }
       });
       return;
@@ -458,7 +469,15 @@ export class World {
     this.composer.multisampling = spec.msaa;
   }
 
+  /** Automatische Qualitätswahl nach Bildrate an/aus */
+  setAutoQuality(on: boolean): void {
+    if (!this.urlQuality) this.qualityForced = !on;
+  }
+  /** Qualität per Adresse (?q=) fest vorgegeben */
+  private urlQuality = false;
+
   setQuality(q: Quality, forced = true): void {
+    if (this.urlQuality && forced) return;
     if (q === this.quality) return;
     this.quality = q;
     this.qualityForced = forced;
@@ -507,6 +526,7 @@ export class World {
   // ───────────────────────────────────────── Tageszeit
 
   setTime(id: TimePreset | 'auto', instant = false): void {
+    if (id === 'day' || id === 'golden' || id === 'night' || id === 'auto') store.setTime(id);
     if (id === 'auto') {
       this.auto = true;
       this.autoPhase = Math.asin(clamp((this.t - 0.5) * 2, -1, 1));
@@ -660,7 +680,7 @@ export class World {
     }
     this.cam.update(dt, this.playerTarget(), this.cafe.blockers);
     // Kamera klebt an der Figur (enge Ecke): Figur ausblenden statt den Kopf groß ins Bild zu schieben
-    this.player.ch.root.visible = this.cam.locked || this.cam.close > 0.6;
+    this.player.ch.root.visible = !this.hidePlayer && (this.cam.locked || this.cam.close > 0.6);
     this.updateFocus();
     inp.endFrame();
 

@@ -19,6 +19,8 @@ export class Soundscape {
   private murmurers: Murmurer[] = [];
   private next = 5;
   private placeTimer = 0;
+  /** Jemand murmelt (für Untertitel) */
+  onMurmur?: (sp: Speaker) => void;
 
   constructor(
     private world: World,
@@ -59,6 +61,7 @@ export class Soundscape {
     const m = near[Math.floor(Math.random() * near.length)];
     if (!m) return;
     this.voice.murmur(m.speaker.id, 3 + Math.floor(Math.random() * 5), 0.3);
+    this.onMurmur?.(m.speaker);
     window.setTimeout(() => m.speaker.onEnd?.(), 1600);
   }
 }

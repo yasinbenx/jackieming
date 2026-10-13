@@ -1,6 +1,7 @@
 // Ton-Einstellungen: Stumm-Schalter, getrennte Regler für Musik (音乐), Stimmen (声音) und Effekte (音效). Wird gespeichert.
 import { store } from '../state/store';
 import { h } from './dom';
+import { keyLabel } from '../state/savefile';
 
 export class SoundPanel {
   readonly el: HTMLElement;
@@ -9,6 +10,7 @@ export class SoundPanel {
   private sfx: HTMLInputElement;
   private voices: HTMLInputElement;
   private anchor: HTMLElement | null = null;
+  private hint = h('p', { class: 'sp-hint' });
 
   constructor(private onChange: () => void) {
     this.mute = h('input', { type: 'checkbox', id: 'snd-mute', role: 'switch' });
@@ -42,7 +44,7 @@ export class SoundPanel {
         h('span', {}, h('span', { lang: 'zh' }, '音效'), ' Effekte'),
         this.sfx,
       ),
-      h('p', { class: 'sp-hint' }, 'Tipp: Mit der Taste M schaltest du den Ton schnell aus oder an.'),
+      this.hint,
     );
     document.body.appendChild(this.el);
     const apply = (): void => {
@@ -68,22 +70,20 @@ export class SoundPanel {
     });
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !this.el.hidden) this.close();
-      if (
-        (e.key === 'm' || e.key === 'M') &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !(e.target instanceof HTMLInputElement)
-      ) {
-        store.setSettings({ muted: !store.settings.muted });
-        this.sync();
-        this.onChange();
-      }
     });
     this.sync();
   }
 
+  /** Ton schnell an/aus (Taste) */
+  toggleMute(): void {
+    store.setSettings({ muted: !store.settings.muted });
+    this.sync();
+    this.onChange();
+  }
+
   sync(): void {
     const s = store.settings;
+    this.hint.textContent = `Tipp: Mit der Taste ${keyLabel(s.keys.sound)} schaltest du den Ton schnell aus oder an.`;
     this.mute.checked = s.muted;
     this.music.value = String(s.music);
     this.sfx.value = String(s.sfx);

@@ -39,16 +39,26 @@ Fehler und ihr Stand stehen in [`BUGS.md`](./BUGS.md).
 
 ## Bedienung
 
-| Aktion                  | Maus / Touch                                 | Tastatur         |
-| ----------------------- | -------------------------------------------- | ---------------- |
-| Gehen / Laufen          | Boden anklicken bzw. Joystick                | WASD / Pfeile, ⇧ |
-| Kamera drehen / zoomen  | ziehen, Mausrad / zwei Finger                | –                |
-| Ansprechen, benutzen    | Figur/Gegenstand antippen                    | E                |
-| Weg zum Platz abbrechen | „Abbrechen“                                  | Esc              |
-| Winken                  | –                                            | G                |
-| Antwort sofort zeigen   | Blase antippen                               | Leertaste        |
-| Gespräch schließen      | ×                                            | Esc              |
-| Ton                     | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | M                |
+| Aktion                  | Maus / Touch                                 | Tastatur (Standard, umlegbar) |
+| ----------------------- | -------------------------------------------- | ----------------------------- |
+| Gehen / Laufen          | Boden anklicken bzw. Joystick                | WASD / Pfeile, Umschalt       |
+| Kamera drehen / zoomen  | ziehen, Mausrad / zwei Finger                | –                             |
+| Ansprechen, benutzen    | Figur/Gegenstand antippen                    | E                             |
+| Weg zum Platz abbrechen | „Abbrechen“                                  | Esc                           |
+| Winken                  | –                                            | G                             |
+| Antwort sofort zeigen   | Blase antippen                               | Leertaste                     |
+| Gespräch schließen      | ×                                            | Esc                           |
+| Pause                   | ☰ oben rechts                               | Esc oder P                    |
+| Ton an/aus              | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | T                             |
+| Karte                   | –                                            | M (kommt mit der Welt)        |
+
+## Menü, Spielstand und Einstellungen
+
+- **Hauptmenü** über der echten 3D-Szene (das Teehaus von der anderen Teichseite): Weiter, Neues Spiel, Einstellungen, Credits, Info und Hinweis. „Neues Spiel“ fragt nach, wenn schon ein Spielstand da ist.
+- **Spielstand** wird automatisch gespeichert (gebündelt, alle paar Sekunden und beim Verlassen der Seite) in `localStorage` unter `teehaus.save` mit Versionsnummer: gestellte Fragen, Wörter, Quiz, Outfit, Tageszeit, Position, entdeckte Orte, Aufgaben, Münzen, Spielergebnisse, Tutorial. Einstellungen liegen getrennt unter `teehaus.settings`. Der alte Stand (`teehaus.v1`) wird beim ersten Start übernommen. Ist ein Spielstand unlesbar, wird er unter `teehaus.save.backup` gesichert und ein neues Spiel begonnen (Hinweis im Menü). Format und Umzug: `src/state/savefile.ts` (getestet).
+- **Pausemenü** (Esc, P oder ☰): Weiter, Einstellungen, Hilfe, Zurück zum Hauptmenü. Esc schließt immer zuerst das oberste Fenster.
+- **Einstellungen:** Musik, Stimmen, Effekte getrennt; Grafikqualität (Automatisch, Hoch, Mittel, Niedrig); Kamerageschwindigkeit; Tastenbelegung (belegte Tasten werden getauscht, Esc und Pfeile bleiben fest); Pinyin an/aus; Schriftgröße; hoher Kontrast; weniger Bewegung; Untertitel fürs Gemurmel. „Einstellungen zurücksetzen“ und „Fortschritt zurücksetzen“ jeweils mit Sicherheitsabfrage.
+- **Tutorial** beim ersten Spiel: Gehen, Umsehen, Ansprechen, Hinsetzen. Jede Einblendung erledigt sich, sobald man es getan hat; überspringbar, in der Hilfe wiederholbar.
 
 ## Figuren und Animation
 

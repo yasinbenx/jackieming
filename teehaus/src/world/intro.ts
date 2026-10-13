@@ -28,6 +28,7 @@ function fader(): { el: HTMLElement; to(o: number, ms: number): Promise<void> } 
 
 /** Kleiderauswahl vor dem Haus. Löst auf, wenn der Spieler losgeht. */
 export function pickOutfit(world: World): Promise<void> {
+  world.hidePlayer = false;
   const p = world.player.ch.root.position;
   const shot = (): void =>
     world.cam.setShot(
@@ -147,4 +148,40 @@ export async function walkIn(
   world.input.enabled = true;
   await wait(250);
   await f.to(0, 700);
+}
+
+/** Weiterspielen: ohne Kleiderwahl und Weg direkt an die gespeicherte Stelle (drinnen oder auf der Terrasse) */
+export async function enterDirect(
+  world: World,
+  pos: { x: number; z: number; yaw: number } | null,
+): Promise<void> {
+  const f = fader();
+  await f.to(1, 350);
+  world.hidePlayer = false;
+  world.cam.setShot(null);
+  world.cafe.door.set(1);
+  world.nav.setDoor(true);
+  const pl = world.player;
+  pl.stopPath();
+  const ok = pos && world.nav.walkable(pos.x, pos.z) && pos.z < HALL.z1 + 2.4;
+  if (ok) pl.place(pos.x, pos.z, pos.yaw);
+  else pl.place(INSIDE.x, INSIDE.z, Math.PI);
+  world.cam.snapBehind(pl.ch.yaw);
+  world.cam.pitch = 0.3;
+  world.cam.dist = 3.8;
+  world.mode = 'free';
+  world.input.enabled = true;
+  await wait(200);
+  await f.to(0, 700);
+}
+
+/** Bildausschnitt fürs Hauptmenü: das Teehaus von der anderen Teichseite */
+export function menuShot(world: World): void {
+  world.mode = 'cutscene';
+  world.input.enabled = false;
+  world.hidePlayer = true;
+  world.cam.setShot(
+    { pos: new Vector3(-9.5, 4.6, 25.5), look: new Vector3(1.2, 3.0, 0) },
+    world.calm ? 0.01 : 2.2,
+  );
 }

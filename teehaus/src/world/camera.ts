@@ -32,9 +32,12 @@ export class FollowCam {
 
   constructor(readonly camera: PerspectiveCamera) {}
 
+  /** Empfindlichkeit (Einstellung „Kamerageschwindigkeit“) */
+  speed = 1;
+
   rotate(dx: number, dy: number): void {
-    this.dYaw -= dx * 0.0055;
-    this.dPitch = Math.max(-0.05, Math.min(1.15, this.dPitch + dy * 0.004));
+    this.dYaw -= dx * 0.0055 * this.speed;
+    this.dPitch = Math.max(-0.05, Math.min(1.15, this.dPitch + dy * 0.004 * this.speed));
   }
 
   zoom(dz: number): void {

@@ -83,9 +83,9 @@ const covered = () => {
 };
 
 await p.goto(`http://localhost:${port}/?q=1`);
-await p.waitForSelector('#enter:not([disabled])', { timeout: 240000 });
+await p.waitForSelector('#mainmenu.show', { timeout: 240000 });
 await shot('00-start');
-await p.evaluate(() => document.querySelector('#enter').click());
+await p.evaluate(() => document.querySelector('#mainmenu [data-id=new]').click());
 await p.waitForSelector('.outfit', { timeout: 60000 });
 await shot('01-outfit');
 await p.evaluate(() => document.querySelector('.outfit .btn.primary').click());
@@ -247,7 +247,7 @@ for (const [i, n] of [
 }
 // Panels
 for (const [sel, n] of [
-  ['#hud [aria-label*="örter"]', 'woerter'],
+  ['#hud .hud-words', 'woerter'],
   ['#hud [aria-label="Info und Hilfe"]', 'info'],
   ['#hud [aria-label="Ton-Einstellungen"]', 'ton'],
 ]) {

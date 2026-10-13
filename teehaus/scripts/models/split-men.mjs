@@ -58,7 +58,14 @@ for (const [name, prefix] of Object.entries(chars)) {
   await d.transform(...compress);
   const out = `${outDir}/${name.toLowerCase()}.glb`;
   await io.write(out, d);
-  console.log(name, fs.statSync(out).size, r.listMeshes().map((m) => m.getName()).join(','));
+  console.log(
+    name,
+    fs.statSync(out).size,
+    r
+      .listMeshes()
+      .map((m) => m.getName())
+      .join(','),
+  );
 }
 {
   const d = await io.read(src);

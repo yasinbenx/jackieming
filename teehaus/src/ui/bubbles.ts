@@ -11,6 +11,8 @@ export interface Speaker {
   id: string;
   /** Anzeigename in der Blase (Zeichen) */
   name: string;
+  /** deutscher Name (Untertitel) */
+  label?: string;
   /** Weltpunkt über dem Kopf */
   anchor: () => Vector3;
   /** Mundbewegung / Gesten beim Sprechen */

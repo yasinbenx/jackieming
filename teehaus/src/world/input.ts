@@ -1,5 +1,8 @@
-// Eingabe: Tastatur (WASD/Pfeile, Umschalt = laufen, E = Interaktion), Maus (ziehen = Kamera, Klick = hinlaufen,
-// Rad = Zoom) und Touch (virtueller Joystick, Wischen = Kamera, Tippen = hinlaufen, zwei Finger = Zoom).
+// Eingabe: Tastatur (Belegung aus den Einstellungen, Pfeiltasten immer zusätzlich), Maus (ziehen = Kamera,
+// Klick = hinlaufen, Rad = Zoom) und Touch (virtueller Joystick, Wischen = Kamera, Tippen = hinlaufen, zwei Finger
+// = Zoom). Tasten für Karte, Ton und Pause melden sich über onAction.
+import { store } from '../state/store';
+import type { Action } from '../state/store';
 
 export interface Tap {
   x: number;
@@ -29,6 +32,8 @@ export class Input {
   interact = false;
   wave = false;
   enabled = true;
+  /** Taste für Karte, Ton oder Pause gedrückt */
+  onAction?: (a: Action) => void;
   readonly joyEl: HTMLElement;
   private knob: HTMLElement;
   private touchMode = false;
@@ -47,10 +52,13 @@ export class Input {
     window.addEventListener('keydown', (e) => {
       if (this.isTyping(e)) return;
       this.keys.add(e.code);
-      if (e.code === 'KeyE' || (e.code === 'Enter' && this.enabled)) {
-        if (e.code === 'KeyE' || !(e.target instanceof HTMLButtonElement)) this.interact = true;
+      const k = store.settings.keys;
+      if (e.code === k.use || (e.code === 'Enter' && this.enabled)) {
+        if (e.code === k.use || !(e.target instanceof HTMLButtonElement)) this.interact = true;
       }
-      if (e.code === 'KeyG') this.wave = true;
+      if (e.code === k.wave) this.wave = true;
+      if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey)
+        for (const a of ['map', 'sound', 'pause'] as const) if (e.code === k[a]) this.onAction?.(a);
       if (
         e.code.startsWith('Arrow') &&
         this.enabled &&
@@ -178,9 +186,10 @@ export class Input {
   axis(): { x: number; y: number; run: boolean } {
     if (!this.enabled) return { x: 0, y: 0, run: false };
     const k = this.keys;
-    let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
-    let y = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
-    let run = k.has('ShiftLeft') || k.has('ShiftRight');
+    const b = store.settings.keys;
+    let x = (k.has(b.right) || k.has('ArrowRight') ? 1 : 0) - (k.has(b.left) || k.has('ArrowLeft') ? 1 : 0);
+    let y = (k.has(b.forward) || k.has('ArrowUp') ? 1 : 0) - (k.has(b.back) || k.has('ArrowDown') ? 1 : 0);
+    let run = k.has(b.run) || (b.run === 'ShiftLeft' && k.has('ShiftRight'));
     if (this.joy.id >= 0) {
       x = this.joy.x;
       y = this.joy.y;

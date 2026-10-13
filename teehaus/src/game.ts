@@ -17,6 +17,11 @@ import { Npcs } from './world/npcs';
 import { Finds } from './world/finds';
 import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
+import { SettingsPage } from './ui/settings';
+import { PauseMenu } from './ui/menu';
+import { Tutorial } from './ui/tutorial';
+import { Captions } from './ui/captions';
+import { murmurCaption } from './content/captions';
 import { HALL, SEATS, TABLES } from './world/layout';
 import { freeSeatAt } from './world/seating';
 import type { Seat } from './world/layout';
@@ -50,19 +55,33 @@ export class Game {
 
   constructor(readonly world: World) {
     this.wordCard = new WordCard(() => `${store.words.size} von ${WORDS.length} Wörtern`);
-    this.info = new InfoPage(
-      () => this.refresh(),
-      () => {
+    this.info = new InfoPage({
+      onCredits: () => {
         this.info.modal.close();
         this.credits.open();
       },
-    );
+      onSettings: () => {
+        this.info.modal.close();
+        this.settings.open();
+      },
+      onTutorial: () => {
+        this.info.modal.close();
+        this.pause.hide();
+        this.resumeMode();
+        this.tutorial.begin(true);
+      },
+    });
+    this.settings = new SettingsPage({
+      apply: () => this.applySettings(),
+      onProgressReset: () => this.onProgressReset?.(),
+    });
     this.sound = new SoundPanel(() => this.onSoundChange());
     this.hud = createHud(world, {
       onWords: () => this.dict.open(),
       onInfo: () => this.info.open(),
       onToast: () => undefined,
       onSound: (a) => this.sound.toggle(a),
+      onPause: () => this.togglePause(),
     });
     this.hud.setSoundIcon(store.settings.muted);
     world.onInsideChange = (inside) => this.audio.setInside(inside);
@@ -125,16 +144,54 @@ export class Game {
       store.addWord('qingjin');
     }
     store.subscribe(() => this.refresh());
-    let calm = store.settings.calm;
-    let quality = store.settings.quality;
-    store.subscribe(() => {
-      if (store.settings.calm !== calm) {
-        calm = store.settings.calm;
-        world.setCalm(calm);
-      }
-      if (store.settings.quality !== quality) {
-        quality = store.settings.quality;
-        if (quality !== 'auto') world.setQuality(quality);
+    this.applySettings();
+    // Tasten für Karte, Ton und Pause
+    world.input.onAction = (a) => {
+      if (a === 'sound') this.sound.toggleMute();
+      else if (a === 'map') {
+        if (world.mode === 'free')
+          this.toast.show('Die Karte kommt, sobald es draußen mehr zu entdecken gibt.');
+      } else if (a === 'pause') this.togglePause();
+    };
+    // Esc öffnet die Pause, wenn nichts anderes offen ist (vor allen anderen Esc-Handlern prüfen)
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape') return;
+        // ein Fenster über der Pause (Einstellungen, Hilfe) schließt zuerst
+        if (this.pause.open && document.querySelector('.modal:not([hidden])')) return;
+        if (this.pause.open) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          this.togglePause();
+        } else if (this.canPause()) {
+          e.preventDefault();
+          this.togglePause();
+        }
+      },
+      true,
+    );
+    // Tutorial, Untertitel, Autospeichern, entdeckte Orte
+    this.tutorial = new Tutorial({
+      player: () => ({ x: world.player.x, z: world.player.z, seated: world.player.seated }),
+      touch: () => world.input.touch,
+    });
+    world.onUse = (id) => this.tutorial.used(id);
+    this.captions = new Captions();
+    scape.onMurmur = (sp) => {
+      if (store.settings.captions) this.captions.show(sp.label ?? '', sp.name, murmurCaption(sp.id));
+    };
+    let saveT = 0;
+    world.tickers.push((dt) => {
+      if (world.input.lookDX) this.tutorial.looked(world.input.lookDX);
+      this.tutorial.update(dt);
+      saveT += dt;
+      if (saveT > 4 && world.mode === 'free' && document.body.classList.contains('is-inside')) {
+        saveT = 0;
+        const pl = world.player;
+        if (!pl.busy) store.setPos(pl.x, pl.z, pl.ch.yaw);
+        const z = pl.z;
+        store.markPlace(z < HALL.z1 ? 'teehaus' : z < 7.2 ? 'terrasse' : 'bruecke');
       }
     });
     // Esc bricht den Weg zum Platz ab
@@ -377,6 +434,90 @@ export class Game {
   private onSoundChange(): void {
     this.audio.applySettings();
     this.hud.setSoundIcon(store.settings.muted);
+  }
+
+  /** Alle Einstellungen anwenden (Ton, Grafik, Kamera, Darstellung) */
+  applySettings(): void {
+    const s = store.settings;
+    const w = this.world;
+    this.onSoundChange();
+    this.sound.sync();
+    w.setCalm(s.calm);
+    if (s.quality !== 'auto') w.setQuality(s.quality);
+    w.setAutoQuality?.(s.quality === 'auto');
+    w.cam.speed = s.camSpeed;
+    const b = document.body.classList;
+    b.toggle('no-pinyin', !s.pinyin);
+    b.toggle('high-contrast', s.contrast);
+    document.documentElement.style.setProperty('--ui-scale', String(s.uiScale));
+  }
+
+  // ───────────────────────────────────────── Pause und Menü
+
+  readonly settings: SettingsPage;
+  readonly pause = new PauseMenu();
+  readonly tutorial: Tutorial;
+  private captions: Captions;
+  private pausedMode: World['mode'] | null = null;
+  /** vom Hauptprogramm gesetzt: zurück zum Hauptmenü */
+  onMainMenu?: () => void;
+  onProgressReset?: () => void;
+
+  /** Darf Esc jetzt die Pause öffnen? (kein anderes Fenster offen, Spiel läuft) */
+  private canPause(): boolean {
+    const w = this.world;
+    if (w.mode !== 'free') return false;
+    if (this.approach || this.talk.open) return false;
+    return !document.querySelector(
+      '.modal:not([hidden]), .sound-panel:not([hidden]), .outfit, #mainmenu:not([hidden])',
+    );
+  }
+
+  togglePause(): void {
+    const w = this.world;
+    if (this.pause.open) {
+      this.pause.hide();
+      this.resumeMode();
+      return;
+    }
+    if (!document.body.classList.contains('is-inside')) return;
+    if (w.mode !== 'free' && w.mode !== 'dialog') return;
+    this.pausedMode = w.mode;
+    w.mode = 'cutscene';
+    w.player.stopPath();
+    store.flush();
+    this.pause.show([
+      {
+        id: 'resume',
+        label: 'Weiter',
+        zh: '继续',
+        primary: true,
+        onClick: () => this.togglePause(),
+      },
+      { id: 'settings', label: 'Einstellungen', zh: '设置', onClick: () => this.settings.open() },
+      { id: 'help', label: 'Hilfe', zh: '帮助', onClick: () => this.info.open() },
+      {
+        id: 'menu',
+        label: 'Zurück zum Hauptmenü',
+        zh: '主菜单',
+        onClick: () => {
+          this.pause.hide();
+          if (this.talk.open) this.talk.close();
+          this.pausedMode = null;
+          this.onMainMenu?.();
+        },
+      },
+    ]);
+  }
+
+  /** Spielmodus nach Pause wiederherstellen */
+  resumeMode(): void {
+    if (this.pausedMode) this.world.mode = this.pausedMode;
+    this.pausedMode = null;
+  }
+
+  openInfo(): void {
+    this.info.open();
   }
 
   openHeights(): void {

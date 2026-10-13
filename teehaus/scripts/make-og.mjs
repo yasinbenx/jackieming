@@ -24,12 +24,12 @@ const browser = await chromium.launch({
   ],
 });
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
-await page.goto(url);
+await page.goto(`${url.replace(/\/$/, '')}/?og`);
 // Vorschaubild = Startbild (gemalter Hintergrund, 茶馆, Pinyin, Titel), ohne Knopf; der Hinweis bleibt klein unten
-await page.waitForSelector('#enter:not([disabled])', { timeout: 240000 });
+await page.waitForFunction(() => document.body.classList.contains('is-loaded'), null, { timeout: 240000 });
 await page.evaluate(() => {
   const css = document.createElement('style');
-  css.textContent = '#enter,.bar,.petals{display:none!important}';
+  css.textContent = '.bar,.petals{display:none!important}';
   document.head.appendChild(css);
 });
 await page.waitForTimeout(3000);

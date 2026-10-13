@@ -49,6 +49,7 @@ export class Npc {
     this.speaker = {
       id: profile.id,
       name: profile.zh,
+      label: profile.name,
       anchor: () => ch.headWorld().add(new Vector3(0, ch.H * 0.12 + 0.12, 0)),
       onBlip: () => (ch.talk = 1),
       onEnd: () => (ch.talk = 0),
