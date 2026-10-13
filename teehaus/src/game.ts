@@ -19,6 +19,7 @@ import { Heroes } from './world/heroes';
 import { TalkPanel } from './ui/talk';
 import { TeaGame } from './ui/teagame';
 import { QuestRunner } from './world/questrun';
+import { XiangqiGame } from './ui/xiangqi';
 import { SettingsPage } from './ui/settings';
 import { PauseMenu } from './ui/menu';
 import { Tutorial } from './ui/tutorial';
@@ -93,7 +94,7 @@ export class Game {
       say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
       icon: (sp, sym) => this.bubbles.icon(sp, sym),
       award: (id) => this.award(id),
-      busy: () => this.talking || this.tea.open,
+      busy: () => this.talking || this.tea.open || this.xq.open,
       brew: () => this.startBrew(),
       onTalk: (id) => this.quests?.onTalk(id) ?? false,
       onCat: () => this.quests?.onCat(),
@@ -107,6 +108,17 @@ export class Game {
       onTalk: (id) => this.startTalk(id),
     });
     this.heroSay = (by, text) => this.heroes.say(by, text);
+    // Brettspieltisch: Mini-Xiangqi
+    const boardT = TABLES.find((x) => x.id === 'board')!;
+    world.addInteractable({
+      id: 'xiangqi',
+      pos: () => new Vector3(boardT.x, 0.5, boardT.z + 0.75),
+      radius: 1.4,
+      priority: 3,
+      label: () => 'Xiangqi spielen <span lang="zh">下象棋</span>',
+      enabled: () => !world.player.seated && !this.talking,
+      use: () => this.startXiangqi(),
+    });
     this.quests = new QuestRunner({
       world,
       npcs: this.npcs,
@@ -481,7 +493,7 @@ export class Game {
   private canPause(): boolean {
     const w = this.world;
     if (w.mode !== 'free') return false;
-    if (this.approach || this.talk.open || this.tea.open) return false;
+    if (this.approach || this.talk.open || this.tea.open || this.xq.open) return false;
     if (document.querySelector('.quest-offer:not([hidden])')) return false;
     return !document.querySelector(
       '.modal:not([hidden]), .sound-panel:not([hidden]), .outfit, #mainmenu:not([hidden])',
@@ -543,6 +555,43 @@ export class Game {
     onResult: (leaves) => this.quests.onBrew(leaves),
   });
   quests!: QuestRunner;
+
+  // ───────────────────────────────────────── Mini-Xiangqi am Brettspieltisch
+
+  readonly xq = new XiangqiGame({
+    say: (npc, text) => {
+      const n = this.npcs.list.find((x) => x.profile.id === npc);
+      if (n) void this.bubbles.say(n.speaker, text, { hold: 3 });
+    },
+    act: (npc, what) =>
+      this.npcs.list.find((x) => x.profile.id === npc)?.ch.play(what, what === 'think' ? 1.6 : 1.3),
+    award: (id) => this.award(id),
+    onClose: () => this.endXiangqi(),
+  });
+
+  private startXiangqi(): void {
+    const w = this.world;
+    if (this.xq.open || w.mode !== 'free') return;
+    const t = TABLES.find((x) => x.id === 'board')!;
+    w.mode = 'cutscene';
+    this.bubbles.dismissAll();
+    const pl = w.player;
+    if (pl.seated) pl.standUp();
+    pl.walkDirect([[t.x, t.z + 0.95]], () => pl.faceYaw(Math.PI));
+    // von links vorne: Tisch, Gegner und Spielfigur im freien Bildteil links der Brett-Leiste
+    w.cam.setShot(
+      { pos: new Vector3(t.x - 2.0, 2.4, t.z + 2.3), look: new Vector3(t.x + 0.9, 0.9, t.z + 0.65) },
+      w.calm ? 0.01 : 1.2,
+    );
+    window.setTimeout(() => this.xq.start(), 900);
+  }
+
+  private endXiangqi(): void {
+    const w = this.world;
+    w.cam.setShot(null);
+    w.mode = 'free';
+    this.refresh();
+  }
 
   /** An der Theke: Meister kommt herüber, Kamera auf Theke und Meister, dann die Leiste */
   private startBrew(): void {

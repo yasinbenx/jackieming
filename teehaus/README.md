@@ -84,6 +84,20 @@ Hat der Teemeister eine Aufgabe, erscheint ein **!** über ihm; ansprechen, Aufg
 
 Im Pausemenü: **Aufgaben** (Aufgabenbuch mit Stand) und **Garderobe** (Kleidung und Hut oder Frisur wechseln; noch nicht freigeschaltete Teile sind ausgegraut). Botengänge ins Dorf kommen mit der Welt-Erweiterung. Daten: `src/content/quests.ts`, Ablauf: `src/minigames/quests.ts` (getestet), im Spiel: `src/world/questrun.ts`.
 
+## Mini-Xiangqi am Brettspieltisch (象棋 xiàngqí)
+
+Am Tisch der Brettspieler (links in der Halle) „Xiangqi spielen“ wählen. Beim ersten Mal erklären Regeln und Figurenkarten das Spiel, danach wählt man einen Gegner:
+
+| Stufe  | Gegner             | Spielweise                                         | Sieg      |
+| ------ | ------------------ | -------------------------------------------------- | --------- |
+| 1 初学 | Brettspieler Lin   | schaut einen Zug weit, greift oft daneben          | 5 Münzen  |
+| 2 中级 | Brettspieler Lin   | zwei Halbzüge voraus, kleine Fehler                | 10 Münzen |
+| 3 高手 | Alter Meister Zhou | bis vier Halbzüge voraus (Alpha-Beta), ohne Zufall | 20 Münzen |
+
+**Regeln (vereinfacht):** Brett mit 5 × 6 Punkten, acht Steine pro Seite: General 帅/将, zwei Wagen 车 (jū), Pferd 马, Kanone 炮, drei Soldaten 兵/卒. Echte Zugregeln (Pferd kann gehemmt werden, Kanone schlägt nur über genau einen Stein, Soldaten jenseits der Mitte auch seitwärts). Rot beginnt. Gewonnen hat, wer den General schlägt; wer keinen Zug hat, verliert; nach 120 Halbzügen unentschieden. Ohne Palast, Elefanten, Berater und ohne das Verbot gegenüberstehender Generäle.
+
+**Bedienung:** Stein anklicken zeigt die erlaubten Ziele und wie er zieht, Ziel anklicken. Der letzte Zug ist markiert, „将军！“ warnt, wenn der eigene General angegriffen ist. Esc schließt, die Partie wird gespeichert und lässt sich fortsetzen. Siege, Niederlagen und Remis je Stufe stehen im Spielstand. Lernwörter: 将军, 车, 马, 炮, 兵. Regeln und Gegner: `src/minigames/xiangqi.ts` (getestet), Texte: `src/content/xiangqi.ts`.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.

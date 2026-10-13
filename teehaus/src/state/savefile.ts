@@ -87,6 +87,8 @@ export interface Progress {
   tutorial: { done: boolean; steps: string[] };
   /** Ergebnisse späterer Spiele (Brettspiel, Tee) */
   games: Record<string, number>;
+  /** Gespeicherte laufende Partien (z. B. Xiangqi), Kurzform je Spiel */
+  saves: Record<string, string>;
   /** Garderobe: freigeschaltete Belohnungen (outfit:…, head:…) und gewählter Kopf */
   wardrobe: { owned: string[]; head: string };
   savedAt: number;
@@ -125,6 +127,7 @@ export function defaultProgress(): Progress {
     pos: null,
     tutorial: { done: false, steps: [] },
     games: {},
+    saves: {},
     wardrobe: { owned: [], head: 'eigen' },
     savedAt: 0,
   };
@@ -200,6 +203,11 @@ export function cleanProgress(raw: unknown): Progress {
         : null,
     tutorial: { done: bool(tut.done, false), steps: [...new Set(strings(tut.steps))] },
     games,
+    saves: Object.fromEntries(
+      Object.entries(isObj(raw.saves) ? raw.saves : {}).filter(
+        (e): e is [string, string] => typeof e[1] === 'string',
+      ),
+    ),
     wardrobe: {
       owned: [...new Set(strings(isObj(raw.wardrobe) ? raw.wardrobe.owned : []))],
       head: isObj(raw.wardrobe) && typeof raw.wardrobe.head === 'string' ? raw.wardrobe.head : 'eigen',

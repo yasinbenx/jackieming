@@ -182,6 +182,12 @@ class Store {
     this.p.games[id] = value;
     this.save();
   }
+  /** laufende Partie speichern (null = löschen) */
+  setSave(id: string, data: string | null): void {
+    if (data === null) delete this.p.saves[id];
+    else this.p.saves[id] = data;
+    this.save(false);
+  }
   /** Belohnung freischalten; true, wenn neu */
   grant(item: string): boolean {
     if (this.p.wardrobe.owned.includes(item)) return false;
