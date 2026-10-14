@@ -9,7 +9,7 @@ import { h } from '../ui/dom';
 const wait = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Schwarzblende über der Szene */
-function fader(): { el: HTMLElement; to(o: number, ms: number): Promise<void> } {
+export function fader(): { el: HTMLElement; to(o: number, ms: number): Promise<void> } {
   let el = document.getElementById('fade');
   if (!el) {
     el = h('div', { id: 'fade', 'aria-hidden': 'true' });

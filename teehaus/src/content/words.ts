@@ -156,6 +156,8 @@ export const WORDS: Word[] = [
   { id: 'taozi', zh: '桃子', py: 'tao2zi5', de: 'Pfirsich', note: 'Symbol für ein langes Leben' },
   { id: 'baozi', zh: '包子', py: 'bao1zi5', de: 'gefülltes Dampfbrötchen' },
   { id: 'yuebing', zh: '月饼', py: 'yue4bing3', de: 'Mondkuchen', note: 'gegessen zum Mondfest im Herbst' },
+  { id: 'xiayu', zh: '下雨', py: 'xia4yu3', de: 'es regnet', note: 'wörtlich: „Regen fällt herunter“' },
+  { id: 'wu', zh: '雾', py: 'wu4', de: 'Nebel' },
   { id: 'duoshaoqian', zh: '多少钱', py: 'duo1shao5 qian2', de: 'Wie viel kostet das?' },
 ];
 

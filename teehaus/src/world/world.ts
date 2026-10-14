@@ -18,7 +18,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { Object3D, PointsMaterial, Texture, WebGLRenderTarget } from 'three';
+import type { Object3D, PointsMaterial, ShaderMaterial, Texture, WebGLRenderTarget } from 'three';
 import {
   BloomEffect,
   DepthOfFieldEffect,
@@ -46,6 +46,8 @@ import { loadRig } from './rig';
 import { groundY, NavGrid } from './nav';
 import { buildVillage } from '../three/village';
 import { Critters } from '../three/critters';
+import { DebugOverlay } from '../ui/debug';
+import { Rain, Weather, WEATHER_ZH } from './weather';
 import type { Village } from '../three/village';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
@@ -77,6 +79,10 @@ interface QualitySpec {
 
 /** Bis zu diesem Abstand (m) zeigt das Dorf volle Häuser, je Qualitätsstufe */
 const VILLAGE_RANGE: Record<Quality, number> = { 2: 170, 1: 120, 0: 80 };
+
+const WX_GREY = new Color();
+const WX_DAY = new Color('#a3a9ad');
+const WX_NIGHT = new Color('#252a33');
 
 const QUALITY: Record<Quality, QualitySpec> = {
   2: {
@@ -146,12 +152,18 @@ export class World {
   private fill = new PointLight('#ffc48a', 1, 9, 1.4);
   private sky = makeSky();
   private pmrem!: PMREMGenerator;
-  private envTarget: WebGLRenderTarget | null = null;
   private envT = -1;
+  private envCache = new Map<number, WebGLRenderTarget>();
   land!: Landscape;
   village!: Village;
   critters!: Critters;
   private npcsHidden = false;
+  private frameNo = 0;
+  readonly weather = new Weather();
+  private rain!: Rain;
+  private moreFireflies: Fireflies[] = [];
+  /** Debug-Anzeige (F3) */
+  debug: DebugOverlay | null = null;
   cafe!: Cafe;
   nav!: NavGrid;
   shafts!: LightShafts;
@@ -230,6 +242,8 @@ export class World {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
     this.renderer.shadowMap.enabled = spec.shadow > 0;
     this.renderer.shadowMap.type = PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.info.autoReset = false;
     this.renderer.toneMapping = NoToneMapping;
     host.appendChild(this.renderer.domElement);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -291,6 +305,17 @@ export class World {
     this.petals.setActive(Math.round(240 * spec.petals * (this.calm ? 0.4 : 1)));
     this.scene.add(this.petals.mesh);
     this.fireflies = new Fireflies(40, new Vector3(POND.x, 0, POND.z), POND.rx, POND.rz);
+    // Glühwürmchen auch am Fluss beim Dorf und im Bambushain
+    for (const [x, z, rx, rz] of [
+      [24, 77, 16, 3],
+      [-30, 24, 12, 9],
+    ] as const) {
+      const ff = new Fireflies(36, new Vector3(x, 0, z), rx, rz, (gx, gz) => groundY(gx, gz));
+      this.moreFireflies.push(ff);
+      this.scene.add(ff.points);
+    }
+    this.rain = new Rain(this.quality === 2 ? 4000 : this.quality === 1 ? 2200 : 900);
+    this.scene.add(this.rain.mesh);
     this.scene.add(this.fireflies.points);
     this.nav = new NavGrid();
     await progress(0.7);
@@ -322,6 +347,17 @@ export class World {
     this.applyTime(true);
     window.addEventListener('resize', () => this.resize());
     this.resize();
+    this.slimReflection();
+    this.debug = new DebugOverlay(() => this.quality);
+    this.debug.lines.push(() => `Wetter     ${WEATHER_ZH[this.weather.kind]} ${this.weather.kind}`);
+    this.debug.lines.push(() => {
+      const pp = this.player.ch.root.position;
+      return `Zone       ${this.zoneAt(pp.x, pp.z)} · geladen: ${this.zoneList
+        .filter((z) => z.on)
+        .map((z) => z.id)
+        .join(', ')}`;
+    });
+    this.setupZones();
     this.renderer.compile(this.scene, this.camera);
     this.renderer.setAnimationLoop(() => this.frame());
     await progress(1);
@@ -588,7 +624,7 @@ export class World {
     f.frames = 0;
     f.windows++;
     if (f.windows < 2) return;
-    if (fps < 40 && this.quality > 0) this.setQuality((this.quality - 1) as Quality, false);
+    if (fps < 48 && this.quality > 0) this.setQuality((this.quality - 1) as Quality, false);
   }
 
   // ───────────────────────────────────────── Tageszeit
@@ -626,20 +662,118 @@ export class World {
     RIM.uRimColor.value.copy(p.sun).lerp(new Color('#ffd9a8'), 0.5);
     RIM.uRim.value = 0.3 + (1 - p.stars) * 0.2;
     for (const m of this.cafe.windowMats) m.emissiveIntensity = 0.15 + p.window * 0.35;
-    if (force || Math.abs(this.t - this.envT) > 0.06) {
+    if (force || Math.abs(this.t - this.envT) > 0.05) {
       this.envT = this.t;
-      const envScene = new Scene();
-      envScene.add(this.sky.clone());
-      const old = this.envTarget;
-      this.envTarget = this.pmrem.fromScene(envScene, 0.04);
-      this.scene.environment = this.envTarget.texture as Texture;
+      // Umgebungslicht je Tageszeit-Stufe nur einmal berechnen und aufheben (sonst ruckelt es bei jedem
+      // Wechsel kurz, weil der Himmel in eine Würfelkarte gerechnet wird)
+      const key = Math.round(this.t * 20);
+      let env = this.envCache.get(key);
+      if (!env) {
+        const envScene = new Scene();
+        envScene.add(this.sky.clone());
+        env = this.pmrem.fromScene(envScene, 0.04);
+        this.envCache.set(key, env);
+      }
+      this.scene.environment = env.texture as Texture;
       this.scene.environmentIntensity = 0.5 - p.stars * 0.25;
-      old?.dispose();
       bus.emit('time:changed', { t: this.t });
     }
   }
 
+  // ───────────────────────────────────────── Zonen
+
+  /**
+   * Weltteile, die erst in der Nähe gebraucht werden: jenseits ihres Radius (plus Rand gegen Flackern) werden
+   * sie gar nicht gezeichnet; der Nebel verdeckt den Übergang.
+   */
+  private zoneList: { id: string; x: number; z: number; r: number; objs: () => Object3D[]; on: boolean }[] =
+    [];
+  private setupZones(): void {
+    const byName = (n: string): Object3D[] => {
+      const o = this.land.group.getObjectByName(n);
+      return o ? [o] : [];
+    };
+    this.zoneList = [
+      { id: 'Teehaus', x: 0, z: 2, r: 150, objs: () => [this.cafe.group], on: true },
+      { id: 'Dorf', x: 38, z: 57, r: 140, objs: () => [this.village.group, this.critters.group], on: true },
+      { id: 'Terrassen', x: -32, z: 110, r: 120, objs: () => byName('paddies'), on: true },
+    ];
+  }
+
+  private updateZones(c: Vector3): void {
+    for (const z of this.zoneList) {
+      const d = Math.hypot(c.x - z.x, c.z - z.z);
+      const want = z.on ? d < z.r + 12 : d < z.r;
+      if (want === z.on) continue;
+      z.on = want;
+      for (const o of z.objs()) o.visible = want;
+    }
+  }
+
+  /** Name der Gegend, in der die Spielfigur gerade ist */
+  zoneAt(x: number, z: number): string {
+    if (Math.hypot(x, z * 0.85) < 18) return 'Teehaus';
+    if (Math.hypot(x - 38, z - 57) < 34) return 'Dorf';
+    if (Math.hypot(x - 62, z + 60) < 22) return 'Schrein';
+    if (z > 76) return 'Fluss und Terrassen';
+    if (Math.hypot(x, z - 18) > 85) return 'Berge';
+    return 'Weg';
+  }
+
+  // ───────────────────────────────────────── Wetter
+
+  /** Wolken, Regen und Nebel über die Tageszeit-Palette legen (jedes Bild, nur ein paar Werte) */
+  private applyWeather(): void {
+    const p = this.pal;
+    const w = this.weather;
+    const c = w.cloud;
+    const fogK = w.fog;
+    const grey = WX_GREY.copy(WX_DAY).lerp(WX_NIGHT, p.stars);
+    const u = (this.sky.material as ShaderMaterial).uniforms;
+    (u.top!.value as Color).copy(p.skyTop).lerp(grey, c * 0.75);
+    (u.horizon!.value as Color).copy(p.skyHorizon).lerp(grey, Math.min(1, c * 0.55 + fogK * 0.35));
+    (u.sunColor!.value as Color).copy(p.sun).multiplyScalar(1 - c * 0.8);
+    const fog = this.scene.fog as FogExp2;
+    fog.color.copy(p.fog).lerp(grey, Math.max(c * 0.5, fogK * 0.75));
+    fog.density = p.fogDensity * 0.55 * (1 + fogK * 3.2 + w.rain * 0.9 + c * 0.25);
+    this.sun.intensity = p.sunIntensity * (1 - 0.65 * c);
+    this.hemi.intensity = p.hemi * (1 - 0.2 * c);
+  }
+
   // ───────────────────────────────────────── Hilfen
+
+  /** Weitere Objekte, die sich nicht im Teich spiegeln sollen (z. B. Dorfbewohner) */
+  readonly noReflect: (() => Object3D[])[] = [];
+
+  /**
+   * Die Teichspiegelung rendert die Szene ein zweites Mal. Figuren, Gras, Tiere und das Dorf sind darin kaum zu
+   * sehen, kosten aber viele Draw-Calls: Während des Spiegel-Renderns werden sie kurz ausgeblendet.
+   */
+  private slimReflection(): void {
+    const water = this.land.water;
+    const orig = water.onBeforeRender;
+    const hidden: Object3D[] = [];
+    water.onBeforeRender = (...args: Parameters<typeof orig>) => {
+      const list: Object3D[] = [
+        ...this.agents.map((a) => a.ch.root),
+        this.village.group,
+        this.critters.group,
+        ...this.land.group.children.filter((c) => c.name === 'nature'),
+        ...this.noReflect.flatMap((f) => f()),
+      ];
+      for (const o of list)
+        if (o.visible) {
+          o.visible = false;
+          hidden.push(o);
+        }
+      try {
+        orig.apply(water, args);
+      } finally {
+        for (const o of hidden) o.visible = true;
+        hidden.length = 0;
+      }
+    };
+  }
 
   /** Alles, vor dem die Kamera anhält (Wände des Teehauses, Bauwerke draußen) */
   private _camBlockers: Mesh[] | null = null;
@@ -805,7 +939,12 @@ export class World {
     }
 
     // Detailstufe der Figuren (Gesicht, Feinbewegung erst in der Nähe)
-    for (const a of this.agents) a.ch.setDetail(a.ch.root.position.distanceTo(c) < 11);
+    for (const a of this.agents) {
+      const d = a.ch.root.position.distanceTo(c);
+      a.ch.setDetail(d < 11);
+      // ferne Figuren seltener animieren (Spieler immer voll)
+      a.animStride = a === this.player || d < 12 ? 1 : d < 24 ? 2 : 3;
+    }
     this.fadeOccluders(dt);
 
     // ── Laternen und Effekte
@@ -829,7 +968,13 @@ export class World {
     this.shafts.update(p.sunDir.clone().negate(), shaftK, p.sun, this.time, motion);
     this.steam.update(dt, this.time, QUALITY[this.quality].steam);
     this.petals.update(dt, this.time, motion);
-    this.fireflies.update(this.time, p.stars);
+    const dark = p.stars * (1 - this.weather.rain);
+    this.fireflies.update(this.time, dark);
+    for (const ff of this.moreFireflies) ff.update(this.time, dark);
+    this.weather.update(dt);
+    this.applyWeather();
+    this.rain.update(this.time, c, this.weather.rain, this.inside);
+    this.updateZones(c);
     this.land.koi.update(dt * motion + dt * (1 - motion) * 0.3, this.time);
     this.land.magpie.update(dt, this.time);
     this.land.flock.update(dt, this.time);
@@ -858,7 +1003,13 @@ export class World {
       // Schärfe dort, wo die Kamera hinschaut (im Gespräch: das Gesicht des Gegenübers)
       this.dof.target = this.cam.lookPoint;
     }
+    // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
+    this.frameNo++;
+    if (this.frameNo % 2 === 0 || this.cam.locked) this.renderer.shadowMap.needsUpdate = true;
+    const info = this.renderer.info;
+    info.reset();
     this.composer.render(dt);
+    this.debug?.update(rawDt, performance.now() - now, info.render.calls, info.render.triangles);
   }
 
   /**

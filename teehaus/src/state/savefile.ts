@@ -50,6 +50,8 @@ export interface Settings {
   quality: 'auto' | 0 | 1 | 2;
   /** Weniger Bewegung (zusätzlich zur Systemeinstellung) */
   calm: boolean;
+  /** Wetter: wechselnd oder immer klar */
+  weather: 'auto' | 'klar';
   /** Kamerageschwindigkeit (Maus/Wischen), 1 = normal */
   camSpeed: number;
   keys: Record<Action, string>;
@@ -101,6 +103,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voices: 0.8,
   quality: 'auto',
   calm: false,
+  weather: 'auto',
   camSpeed: 1,
   keys: { ...DEFAULT_KEYS },
   pinyin: true,
@@ -159,6 +162,7 @@ export function cleanSettings(raw: unknown): Settings {
     voices: num(r.voices, d.voices, 0, 1),
     quality: q === 'auto' || q === 0 || q === 1 || q === 2 ? q : d.quality,
     calm: bool(r.calm, d.calm),
+    weather: r.weather === 'klar' ? 'klar' : 'auto',
     camSpeed: num(r.camSpeed, d.camSpeed, 0.3, 2.5),
     keys,
     pinyin: bool(r.pinyin, d.pinyin),

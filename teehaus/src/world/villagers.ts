@@ -553,6 +553,17 @@ export class Villagers {
       });
     }
     w.tickers.push((dt) => this.update(dt));
+    w.noReflect.push(() => [
+      this.crowd.body,
+      this.crowd.head,
+      this.crowd.hair,
+      this.crowd.hat,
+      ...this.list.flatMap((r) => (r.rig ? [r.rig.root] : [])),
+    ]);
+    w.debug?.lines.push(() => {
+      const vis = this.list.filter((r) => r.visible);
+      return `Bewohner   ${vis.filter((r) => r.full).length} voll · ${this.crowd.body.count} einfach · ${this.list.length - vis.length} zu Hause`;
+    });
     // volle Figuren nach und nach im Hintergrund vorbereiten (kein Ruckeln, wenn man ins Dorf kommt)
     const warmUp = (): void => {
       const r = this.list[this.warm++];

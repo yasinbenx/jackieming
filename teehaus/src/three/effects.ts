@@ -390,17 +390,16 @@ export class Fireflies {
   private pos: Float32Array;
   private alpha: Float32Array;
 
-  constructor(n: number, center: Vector3, rx: number, rz: number) {
+  constructor(n: number, center: Vector3, rx: number, rz: number, ground?: (x: number, z: number) => number) {
     const p = pointsGeo(n);
     this.pos = p.pos;
     this.alpha = p.alpha;
     this.seed = new Float32Array(n * 4);
     const r = rng(7);
     for (let i = 0; i < n; i++) {
-      this.seed.set(
-        [center.x + rand(r, -rx, rx), rand(r, 0.3, 1.6), center.z + rand(r, -rz, rz), r() * 10],
-        i * 4,
-      );
+      const x = center.x + rand(r, -rx, rx);
+      const z = center.z + rand(r, -rz, rz);
+      this.seed.set([x, (ground ? ground(x, z) : 0) + rand(r, 0.3, 1.6), z, r() * 10], i * 4);
       p.size[i] = rand(r, 0.5, 1.0);
     }
     this.points = new Points(p.geo, particleMaterial('#e8ff9a', AdditiveBlending, 0.09));

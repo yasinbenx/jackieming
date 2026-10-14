@@ -1405,9 +1405,31 @@ export class RigCharacter {
     this.blob.visible = f > 0.5;
   }
 
+  /** kleine Gesichtsteile (Augen, Brauen, Wimpern …), die aus der Ferne ausgeblendet werden */
+  private fine: Mesh[] | null = null;
+
   setDetail(on: boolean): void {
+    if (this.fine && on === this.detail) return;
     this.detail = on;
     if (this.mouth) this.mouth.visible = on;
+    if (!this.fine) {
+      // einmal sammeln: kleine, ungeskinnte Teile außer Requisiten, Mund und Schattenfleck
+      const skip = new Set<Object3D>();
+      for (const pr of Object.values(this.props)) pr?.traverse((o) => skip.add(o));
+      if (this.mouth) skip.add(this.mouth);
+      if (this.mouthOpen) skip.add(this.mouthOpen);
+      skip.add(this.blob);
+      const fine: Mesh[] = [];
+      this.root.traverse((o) => {
+        const m = o as Mesh;
+        if (!m.isMesh || (m as SkinnedMesh).isSkinnedMesh || skip.has(m) || !m.visible) return;
+        const g = m.geometry;
+        const tris = (g.index ? g.index.count : g.attributes.position!.count) / 3;
+        if (tris <= 136) fine.push(m);
+      });
+      this.fine = fine;
+    }
+    for (const m of this.fine) m.visible = on;
   }
 
   // ───────────────────────────────────────── Animation

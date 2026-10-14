@@ -36,6 +36,23 @@ export class Agent {
   /** Durchsichtigkeit, wenn die Figur die Sicht verdeckt (1 = normal) */
   fade = 1;
 
+  /** Animation nur jedes n-te Bild (ferne Figuren); die Zeit wird aufgesammelt */
+  animStride = 1;
+  private animAcc = 0;
+  private animN = 0;
+
+  /** Figur animieren – unsichtbare gar nicht, ferne seltener */
+  private animate(dt: number): void {
+    this.animAcc += dt;
+    if (!this.ch.root.visible) {
+      this.animAcc = Math.min(this.animAcc, 0.2);
+      return;
+    }
+    if (++this.animN % this.animStride !== 0) return;
+    this.ch.update(Math.min(0.15, this.animAcc));
+    this.animAcc = 0;
+  }
+
   constructor(
     look: Look,
     private nav: NavGrid,
@@ -148,7 +165,7 @@ export class Agent {
       ch.yaw = this.seatFromYaw + dy * u;
       ch.speed = 0;
       if (this.seatT >= 1) this.seatPhase = 'seated';
-      ch.update(dt);
+      this.animate(dt);
       return;
     }
     if (this.seatPhase === 'seated') {
@@ -156,7 +173,7 @@ export class Agent {
       if (wish && Math.hypot(wish.x, wish.z) > 0.3) this.standUp();
       else {
         if (this.yawTarget !== null) this.turnTo(this.yawTarget, dt, 1.2);
-        ch.update(dt);
+        this.animate(dt);
         return;
       }
     }
@@ -169,7 +186,7 @@ export class Agent {
       pos.x = this.seat.x + (bx - this.seat.x) * u;
       pos.z = this.seat.z + (bz - this.seat.z) * u;
       ch.speed = u > 0 && u < 1 ? 0.6 : 0;
-      ch.update(dt);
+      this.animate(dt);
       if (this.seatT >= 1) {
         this.seatPhase = 'none';
         this.seat = null;
@@ -233,7 +250,7 @@ export class Agent {
     ch.speed = sp;
     if (sp > 0.15) this.turnTo(Math.atan2(this.vel.x, this.vel.y), dt, 9);
     else if (this.yawTarget !== null) this.turnTo(this.yawTarget, dt, 5);
-    ch.update(dt);
+    this.animate(dt);
   }
 
   private turnTo(target: number, dt: number, rate: number): void {

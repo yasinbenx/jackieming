@@ -14,6 +14,11 @@ export class Ambience {
   private cricketGain!: GainNode;
   private outLp!: BiquadFilterNode;
   private nodes: AudioScheduledSourceNode[] = [];
+  /** Klang je Ort (0..1): Nähe zu Fluss, Bambus, Dorf, Hühnern, Schrein; Regenstärke */
+  private zone = { river: 0, bamboo: 0, village: 0, chickens: 0, shrine: 0, rain: 0 };
+  private riverGain!: GainNode;
+  private rustleGain!: GainNode;
+  private rainGain!: GainNode;
   /** Töne des Windspiels (MIDI); folgen der Tonart der Musik */
   private chimePool = [86, 88, 91, 93, 95];
 
@@ -88,7 +93,43 @@ export class Ambience {
     this.cricketGain.gain.value = 0.0001;
     cr.connect(cAm).connect(this.cricketGain).connect(this.outLp);
 
-    for (const n of [wind, water, kettle, lfo, lfo2, cr, crLfo, crGate]) {
+    // Fluss: tiefes, breites Rauschen
+    const river = e.noiseSource();
+    const rlp = ctx.createBiquadFilter();
+    rlp.type = 'lowpass';
+    rlp.frequency.value = 900;
+    this.riverGain = ctx.createGain();
+    this.riverGain.gain.value = 0.0001;
+    river.connect(rlp).connect(this.riverGain).connect(this.outLp);
+    // Bambus: hohes Rascheln in Böen
+    const rustle = e.noiseSource();
+    const rbp = ctx.createBiquadFilter();
+    rbp.type = 'bandpass';
+    rbp.frequency.value = 2600;
+    rbp.Q.value = 0.8;
+    const rAm = ctx.createGain();
+    rAm.gain.value = 0.5;
+    const rLfo = ctx.createOscillator();
+    rLfo.frequency.value = 0.23;
+    const rLg = ctx.createGain();
+    rLg.gain.value = 0.45;
+    rLfo.connect(rLg).connect(rAm.gain);
+    this.rustleGain = ctx.createGain();
+    this.rustleGain.gain.value = 0.0001;
+    rustle.connect(rbp).connect(rAm).connect(this.rustleGain).connect(this.outLp);
+    // Regen: breites Rauschen, im Haus dumpf (läuft durch den Tiefpass)
+    const rain = e.noiseSource();
+    const rhp = ctx.createBiquadFilter();
+    rhp.type = 'highpass';
+    rhp.frequency.value = 400;
+    const rnlp = ctx.createBiquadFilter();
+    rnlp.type = 'lowpass';
+    rnlp.frequency.value = 5200;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0.0001;
+    rain.connect(rhp).connect(rnlp).connect(this.rainGain).connect(this.outLp);
+
+    for (const n of [wind, water, kettle, lfo, lfo2, cr, crLfo, crGate, river, rustle, rLfo, rain]) {
       n.start();
       this.nodes.push(n);
     }
@@ -97,6 +138,21 @@ export class Ambience {
     this.loopBirds();
     this.loopChimes();
     this.loopDishes();
+    this.loopVillage();
+    this.loopTemple();
+  }
+
+  /** Klang je Ort setzen (Werte 0..1, werden weich übergeblendet) */
+  setZone(z: {
+    river: number;
+    bamboo: number;
+    village: number;
+    chickens: number;
+    shrine: number;
+    rain: number;
+  }): void {
+    this.zone = z;
+    this.apply();
   }
 
   stop(): void {
@@ -139,7 +195,15 @@ export class Ambience {
     this.windGain.gain.setTargetAtTime(this.inside ? 0.035 : 0.06, now, 1);
     this.waterGain.gain.setTargetAtTime(this.inside ? 0.01 : 0.02, now, 1);
     this.kettleGain.gain.setTargetAtTime(this.inside ? 0.006 : 0.0001, now, 1);
-    this.cricketGain.gain.setTargetAtTime(0.0001 + night * (this.inside ? 0.006 : 0.012), now, 1.5);
+    const z = this.zone;
+    this.cricketGain.gain.setTargetAtTime(
+      0.0001 + night * (this.inside ? 0.006 : 0.012) * (1 - z.rain),
+      now,
+      1.5,
+    );
+    this.riverGain.gain.setTargetAtTime(0.0001 + z.river * (this.inside ? 0.01 : 0.05), now, 1.2);
+    this.rustleGain.gain.setTargetAtTime(0.0001 + z.bamboo * 0.03, now, 1.2);
+    this.rainGain.gain.setTargetAtTime(0.0001 + z.rain * (this.inside ? 0.025 : 0.06), now, 2);
   }
 
   private later(fn: () => void, ms: number): void {
@@ -176,6 +240,60 @@ export class Ambience {
       }
     }
     this.later(() => this.loopDishes(), 3500 + Math.random() * 8000);
+  }
+
+  /** Dorf: gackernde Hühner, Hämmern aus der Werkstatt */
+  private loopVillage(): void {
+    if (!this.running) return;
+    const e = this.e;
+    const z = this.zone;
+    const day = 1 - smoothstep(0.55, 0.8, this.tod);
+    if (z.chickens > 0.05 && Math.random() < 0.7 * day) {
+      // Gackern: kurze, nach oben gezogene Töne mit rauem Obertonteppich
+      const n = 2 + Math.floor(Math.random() * 4);
+      const t = e.now;
+      for (let i = 0; i < n; i++) {
+        const f = 520 + Math.random() * 140;
+        e.tone({
+          freq: f,
+          glideTo: f * (i === n - 1 ? 1.6 : 1.15),
+          dur: i === n - 1 ? 0.22 : 0.07,
+          gain: 0.03 * z.chickens,
+          type: 'sawtooth',
+          lowpass: 1800,
+          bus: e.buses.amb,
+          when: t + i * 0.13,
+        });
+      }
+    }
+    if (z.village > 0.1 && Math.random() < 0.35 * day) {
+      const t = e.now;
+      for (let i = 0; i < 3; i++)
+        e.tone({
+          freq: 180,
+          glideTo: 90,
+          dur: 0.09,
+          gain: 0.025 * z.village,
+          bus: e.buses.amb,
+          when: t + i * 0.45,
+          reverb: 0.3,
+        });
+    }
+    this.later(() => this.loopVillage(), 2500 + Math.random() * 5000);
+  }
+
+  /** Tempelglocke am Schrein: tief, lang ausklingend */
+  private loopTemple(): void {
+    if (!this.running) return;
+    const z = this.zone;
+    if (z.shrine > 0.05) {
+      const e = this.e;
+      const g = 0.06 * z.shrine;
+      e.tone({ freq: 110, dur: 7, gain: g, bus: e.buses.amb, reverb: 0.7, attack: 0.004 });
+      e.tone({ freq: 110 * 2.4, dur: 4, gain: g * 0.4, bus: e.buses.amb, reverb: 0.6, attack: 0.004 });
+      e.tone({ freq: 110 * 5.1, dur: 1.5, gain: g * 0.15, bus: e.buses.amb, attack: 0.003 });
+    }
+    this.later(() => this.loopTemple(), 18000 + Math.random() * 14000);
   }
 
   /** Einzelne Wassertropfen */

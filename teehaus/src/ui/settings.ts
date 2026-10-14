@@ -152,6 +152,19 @@ export class SettingsPage {
         this.toggle('set-calm', 'calm'),
         'ruhigere Kamera, keine Unschärfe, weniger Blüten',
       ),
+      row(
+        'Wetter',
+        this.select<'auto' | 'klar'>(
+          'set-weather',
+          [
+            ['auto', 'Wechselnd'],
+            ['klar', 'Immer klar'],
+          ],
+          s.weather,
+          (v) => this.set('weather', v),
+        ),
+        'Wolken, Regen und Nebel kommen und gehen',
+      ),
 
       h('h3', {}, h('span', { lang: 'zh' }, '操作'), ' Steuerung'),
       row('Kamerageschwindigkeit', this.slider('set-cam', 'camSpeed', 0.4, 2, 0.1)),

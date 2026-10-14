@@ -3,6 +3,14 @@ import { PLACES } from './world/map';
 import { Villagers } from './world/villagers';
 import { VILLAGE_CATS } from './three/critters';
 import { Shop } from './ui/shop';
+import { WorldMap } from './ui/worldmap';
+import type { MapMarker } from './ui/worldmap';
+import type { Place } from './world/map';
+import { soundZone } from './world/soundzone';
+import { fader } from './world/intro';
+import { QUESTS } from './content/quests';
+import { ERRANDS, VILLAGERS } from './content/villagers';
+import { currentQuest } from './minigames/quests';
 import type { World } from './world/world';
 import { store } from './state/store';
 import { bus } from './core/bus';
@@ -29,7 +37,7 @@ import { PauseMenu } from './ui/menu';
 import { Tutorial } from './ui/tutorial';
 import { Captions } from './ui/captions';
 import { murmurCaption } from './content/captions';
-import { HALL, SEATS, TABLES } from './world/layout';
+import { HALL, INSIDE, SEATS, TABLES } from './world/layout';
 import { freeSeatAt } from './world/seating';
 import type { Seat } from './world/layout';
 import { Vector3 } from 'three';
@@ -52,6 +60,7 @@ export class Game {
   readonly npcs: Npcs;
   villagers!: Villagers;
   shop!: Shop;
+  map!: WorldMap;
   readonly finds: Finds;
   readonly heroes: Heroes;
   readonly talk: TalkPanel;
@@ -160,6 +169,33 @@ export class Game {
       addSpeaker: (sp) => scape.add(sp),
     });
     (window as unknown as { __villagers: Villagers }).__villagers = this.villagers;
+    // Karte mit Schnellreise
+    this.map = new WorldMap({
+      player: () => ({ x: world.player.x, z: world.player.z, yaw: world.player.ch.yaw }),
+      markers: () => this.mapMarkers(),
+      canTravel: () => world.mode === 'free' && !this.talking && !world.player.seated,
+      travel: (p) => void this.travelTo(p),
+      onOpen: () => {
+        world.input.enabled = false;
+      },
+      onClose: () => {
+        if (world.mode === 'free') world.input.enabled = true;
+      },
+    });
+    // Klang je Ort und Wetter (zweimal pro Sekunde reicht)
+    let zoneT = 0;
+    world.tickers.push((dt) => {
+      zoneT -= dt;
+      if (zoneT > 0) return;
+      zoneT = 0.5;
+      this.audio.amb.setZone(soundZone(world));
+    });
+    world.weather.onChange = (k) => {
+      if (k === 'regen') this.toast.show('<span lang="zh">下雨了</span> xià yǔ le · Es fängt an zu regnen.');
+      else if (k === 'nebel') this.toast.show('<span lang="zh">起雾了</span> qǐ wù le · Nebel zieht auf.');
+      if (k === 'regen') this.award('xiayu');
+      if (k === 'nebel') this.award('wu');
+    };
     VILLAGE_CATS.forEach((_, i) => {
       world.addInteractable({
         id: `dorfkatze-${i}`,
@@ -223,8 +259,7 @@ export class Game {
     world.input.onAction = (a) => {
       if (a === 'sound') this.sound.toggleMute();
       else if (a === 'map') {
-        if (world.mode === 'free')
-          this.toast.show('Die Karte kommt, sobald es draußen mehr zu entdecken gibt.');
+        if (world.mode === 'free' || this.map.open) this.map.toggle();
       } else if (a === 'pause') this.togglePause();
     };
     // Esc öffnet die Pause, wenn nichts anderes offen ist (vor allen anderen Esc-Handlern prüfen)
@@ -256,7 +291,21 @@ export class Game {
       if (store.settings.captions) this.captions.show(sp.label ?? '', sp.name, murmurCaption(sp.id));
     };
     let saveT = 0;
+    let placeT = 0;
     world.tickers.push((dt) => {
+      // Orte draußen (für die Karte): entdeckt, sobald man in ihre Nähe kommt
+      placeT += dt;
+      if (placeT > 0.5 && world.mode === 'free') {
+        placeT = 0;
+        const pl = world.player;
+        for (const p of PLACES)
+          if (
+            Math.hypot(pl.x - p.x, pl.z - p.z) < Math.max(9, p.flat + 3) &&
+            store.markPlace(p.id) &&
+            p.id !== 'teehaus'
+          )
+            this.toast.show(`Neuer Ort: <span lang="zh">${p.zh}</span> ${p.de} · auf der Karte (M)`);
+      }
       if (world.input.lookDX) this.tutorial.looked(world.input.lookDX);
       this.tutorial.update(dt);
       saveT += dt;
@@ -267,9 +316,6 @@ export class Game {
         const z = pl.z;
         if (Math.hypot(pl.x, z) < 16)
           store.markPlace(z < HALL.z1 ? 'teehaus' : z < 7.2 ? 'terrasse' : 'bruecke');
-        // Orte draußen (für die Karte): erreicht, wer in ihre Nähe kommt
-        for (const p of PLACES)
-          if (Math.hypot(pl.x - p.x, z - p.z) < Math.max(9, p.flat + 3)) store.markPlace(p.id);
       }
     });
     // Esc bricht den Weg zum Platz ab
@@ -502,6 +548,46 @@ export class Game {
     window.setTimeout(() => this.heroes.enterYao(), 4000);
   }
 
+  /** Markierungen auf der Karte: Teemeister-Aufgabe und Dorfaufträge */
+  private mapMarkers(): MapMarker[] {
+    const out: MapMarker[] = [];
+    if (currentQuest(QUESTS, store.progress.quests)) out.push({ x: -4.4, z: -4, label: 'Teemeister' });
+    for (const e of ERRANDS) {
+      const st = store.progress.quests[`dorf-${e.id}`];
+      if (st === 'erledigt') continue;
+      const who = st?.startsWith('aktiv') ? e.to : e.from;
+      const r = this.villagers.list.find((v) => v.v.id === who);
+      const v = VILLAGERS.find((x) => x.id === who)!;
+      if (r) out.push({ x: r.x, z: r.z, label: v.name });
+    }
+    return out;
+  }
+
+  /** Schnellreise: Überblenden, an den Ort setzen, Kamera dahinter */
+  private async travelTo(p: Place): Promise<void> {
+    const w = this.world;
+    const f = fader();
+    w.input.enabled = false;
+    await f.to(1, 400);
+    let x = p.x;
+    let z = p.z;
+    if (p.id === 'teehaus') {
+      x = INSIDE.x;
+      z = INSIDE.z;
+    } else {
+      // freie Stelle am Ort, leicht zum Weg hin versetzt
+      const n = w.nav.nearest(p.x + 2.5, p.z + 2.5, 8);
+      if (n) [x, z] = n;
+    }
+    w.player.stopPath();
+    w.player.place(x, z, Math.atan2(p.x - x, p.z - z) || Math.PI);
+    w.cam.snapBehind(w.player.ch.yaw);
+    store.markPlace(p.id);
+    await new Promise((r) => setTimeout(r, 250));
+    await f.to(0, 600);
+    if (w.mode === 'free') w.input.enabled = true;
+  }
+
   /** Lernwort vergeben: beim ersten Mal erscheint die Wortkarte */
   award(id: string): void {
     const w = wordById(id);
@@ -522,6 +608,7 @@ export class Game {
     this.onSoundChange();
     this.sound.sync();
     w.setCalm(s.calm);
+    w.weather.fixed = s.weather === 'klar' ? 'klar' : w.weather.urlFixed;
     if (s.quality !== 'auto') w.setQuality(s.quality);
     w.setAutoQuality?.(s.quality === 'auto');
     w.cam.speed = s.camSpeed;
