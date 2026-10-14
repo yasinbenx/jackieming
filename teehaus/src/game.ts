@@ -1,5 +1,8 @@
 // Verdrahtet Welt, Oberfläche, Ton und Spielstand. NPCs, Dialog und Fundstücke hängen sich hier an.
 import { PLACES } from './world/map';
+import { Villagers } from './world/villagers';
+import { VILLAGE_CATS } from './three/critters';
+import { Shop } from './ui/shop';
 import type { World } from './world/world';
 import { store } from './state/store';
 import { bus } from './core/bus';
@@ -47,6 +50,8 @@ export class Game {
   readonly toast = new Toast();
   readonly bubbles: Bubbles;
   readonly npcs: Npcs;
+  villagers!: Villagers;
+  shop!: Shop;
   readonly finds: Finds;
   readonly heroes: Heroes;
   readonly talk: TalkPanel;
@@ -100,7 +105,10 @@ export class Game {
       onTalk: (id) => this.quests?.onTalk(id) ?? false,
       onCat: () => this.quests?.onCat(),
     });
-    world.onWave = () => this.npcs.waveFrom(world.player.ch.root.position);
+    world.onWave = () => {
+      this.npcs.waveFrom(world.player.ch.root.position);
+      this.villagers?.waveFrom(world.player.ch.root.position);
+    };
     this.heroes = new Heroes({
       world,
       say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
@@ -130,6 +138,46 @@ export class Game {
     });
     const scape = new Soundscape(world, this.audio.voice, () => this.talking);
     scape.add(world.playerSpeaker);
+    // Dorf: Laden, Bewohner, Katzen
+    this.shop = new Shop({
+      award: (id) => this.award(id),
+      toast: (html) => this.toast.show(html, 4200),
+      thanks: () => {
+        const wang = this.villagers.list.find((r) => r.v.shop);
+        if (wang) void this.bubbles.say(wang.speaker, '谢谢！Beehre uns bald wieder.', { hold: 2 });
+      },
+    });
+    this.villagers = new Villagers({
+      world,
+      say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
+      icon: (sp, sym) => this.bubbles.icon(sp, sym),
+      award: (id) => this.award(id),
+      toast: (html) => this.toast.show(html, 5200),
+      busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
+      night: () => world.pal.stars > 0.55,
+      openShop: () => window.setTimeout(() => this.shop.show(), 400),
+      onTalk: (id) => void this.quests?.onTalk(id),
+      addSpeaker: (sp) => scape.add(sp),
+    });
+    (window as unknown as { __villagers: Villagers }).__villagers = this.villagers;
+    VILLAGE_CATS.forEach((_, i) => {
+      world.addInteractable({
+        id: `dorfkatze-${i}`,
+        pos: () => world.critters.catPos(i),
+        radius: 1.2,
+        priority: 1,
+        label: () => 'Katze streicheln <span lang="zh">猫</span>',
+        enabled: () => !world.player.seated,
+        use: () => {
+          const c = world.critters.catPos(i);
+          world.player.faceTo(c.x, c.z);
+          world.player.ch.play('pet', 2.4);
+          bus.emit('scene:purr');
+          this.bubbles.icon(world.playerSpeaker, '❤');
+          this.award('mao');
+        },
+      });
+    });
     for (const n of this.npcs.list)
       scape.add(n.speaker, n === this.npcs.master ? undefined : () => n.agent.seated && !n.engaged);
     for (const hero of [this.heroes.jackie, this.heroes.yao])

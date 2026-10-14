@@ -1,11 +1,20 @@
 // Das Dorf in der Welt: alle Häuser, Marktstände, Mäuerchen und Zäune, pro Material zu wenigen Meshes
 // verschmolzen (wenige Draw-Calls). Aus der Ferne ein einziges einfaches Mesh. Unsichtbare Quader halten die
 // Kamera vor Wänden an.
-import { BoxGeometry, Group, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Vector3 } from 'three';
+import {
+  BoxGeometry,
+  CylinderGeometry,
+  Group,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  Quaternion,
+  Vector3,
+} from 'three';
 import type { BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Batcher } from '../world/cafe';
-import { FENCES, footprint, HOUSES, LOW_WALLS, spec, STALLS, toWorld } from '../world/village';
+import { Batcher, M } from '../world/cafe';
+import { BOARD_TABLE, FENCES, footprint, HOUSES, LOW_WALLS, spec, STALLS, toWorld } from '../world/village';
 import { field } from '../world/terrain';
 import { BAKED } from './geo';
 import { addFence, addLowWall, buildHouse, buildStall, HOUSE_PAPER, LANTERN_MAT } from './houses';
@@ -74,6 +83,26 @@ export function buildVillage(range: number): Village {
   const ground = (x: number, z: number): number => f.at(x, z);
   for (const [x0, z0, x1, z1] of LOW_WALLS) addLowWall(B, x0, z0, x1, z1, ground);
   for (const [x0, z0, x1, z1] of FENCES) addFence(B, x0, z0, x1, z1, ground);
+
+  // Steintisch mit Spielbrett und zwei Hockern für die Brettspieler
+  {
+    const t = BOARD_TABLE;
+    const y = f.at(t.x, t.z);
+    const stone = M.stone();
+    B.add(new CylinderGeometry(0.42, 0.5, 0.7, 10), stone, [t.x, y + 0.35, t.z]);
+    B.add(new CylinderGeometry(0.55, 0.55, 0.08, 12), stone, [t.x, y + 0.72, t.z]);
+    B.add(new BoxGeometry(0.62, 0.03, 0.7), M.midWood(), [t.x, y + 0.775, t.z]);
+    for (let i = 0; i < 10; i++) {
+      const red = i % 2 === 0;
+      B.add(new CylinderGeometry(0.035, 0.035, 0.025, 8), red ? M.lacquer() : M.darkWood(), [
+        t.x - 0.22 + (i % 5) * 0.11,
+        y + 0.8,
+        t.z + (red ? -0.22 : 0.22) + (i % 3) * 0.02,
+      ]);
+    }
+    for (const sx of [-0.85, 0.85])
+      B.add(new CylinderGeometry(0.2, 0.24, 0.42, 9), stone, [t.x + sx, y + 0.21, t.z]);
+  }
 
   const hi = B.build('village-hi');
   const lo = new Mesh(mergeGeometries(loParts)!, BAKED);

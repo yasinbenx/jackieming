@@ -129,6 +129,17 @@ Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im 
 - **Leistung** (`src/three/village.ts`): Das ganze Dorf ist pro Material zu wenigen Meshes verschmolzen (54 Draw-Calls für 10 Häuser samt Ständen, Mauern und Zäunen). Weiter weg (Hoch 170 m, Mittel 120 m, Niedrig 80 m) ersetzt ein einziges vereinfachtes Mesh alle Häuser. Unsichtbare Quader halten die Kamera vor Wänden an.
 - Außerdem: Die Teichspiegelung rechnet nur, wenn man in der Nähe des Teichs ist, und die Gäste im Teehaus werden nicht gezeichnet, wenn man weit weg ist. Am Dorfplatz sinkt die Zahl der Draw-Calls dadurch von etwa 1 200 auf etwa 520.
 
+## Dorfbewohner und Tiere (W3)
+
+18 frei erfundene Bewohner mit generischen Gesichtern leben im Tal: Teehändlerin Frau Wang, Gemüsehändler Zhao, Obsthändlerin Sun, Wirt Liu, Schreiner Chen, die Reisbauern Zhou und Wu, Teepflückerin Mei, Fischer Huang, Mönch Jingxin, zwei Großväter beim Brettspiel, die Kinder Xiaoming und Lili, Wäscherin Yun, Lehrer Shu, Pilgerin An und Bote Bo. Dazu Hühner, Enten auf Teich und Fluss und zwei Dorfkatzen.
+
+- **Tagesabläufe** (`src/content/villagers.ts`): Jeder Bewohner hat eine Folge von Orten und Tätigkeiten (verkaufen, fegen, hobeln, pflücken, angeln, sich verbeugen, sitzen, spielen). Sie gehen über ein **Wegenetz** aus den Wegen der Welt und benannten Orten (`src/world/waygraph.ts`, Orte in `village.ts`), weichen der Spielfigur aus und gehen **abends nach Hause**; nachts sind die Wege leer, morgens kommen sie wieder.
+- **Ansprechen** (E oder Klick): kurzer fester Spruch, danach das **Wort des Moments** der Figur (21 neue Wörter, z. B. 茶叶, 鸡, 下棋, 书法). Winken wird erwidert.
+- **Auftrag:** Teepflückerin Mei bittet darum, ihre Teeblätter zu Frau Wang zu bringen (12 Münzen und ein Lernwort).
+- **Laden:** Frau Wang verkauft Pfirsich, Baozi und Mondkuchen (je ein Lernwort) sowie Reishut und Gelehrtenkappe für die Garderobe, bezahlt mit den Münzen aus Tee-Mini-Spiel und Aufgaben.
+- **Sitzen:** Auf alle Bänke und an den Spieltisch kann sich auch die Spielfigur setzen, wenn der Platz frei ist.
+- **Leistung:** Nur die nächsten Bewohner (Hoch 6, Mittel 4, Niedrig 2, bis 26 m) sind volle, animierte Figuren; nur die nächsten davon werfen Schatten. Alle anderen sind einfache instanzierte Figuren (4 Draw-Calls für alle), sehr weit weg gar nichts. Volle Figuren werden in den ersten Sekunden nach dem Start nacheinander im Hintergrund angelegt. Tiere sind instanziert.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
@@ -201,10 +212,11 @@ Danach `npm run facts` ausführen. **Regel:** nur belegbare öffentliche Fakten,
 src/world/        Spielwelt: world (Renderer, Licht, Schleife, Qualität), layout, nav (Kollision, A*), cafe,
                   character + looks (Figuren), agent (Bewegung), camera, input, npcs, heroes, finds, intro,
                   map (Orte, Wege, Gewässer), terrain (Höhe, Wasser, Untergrund), scatter (Bewuchs, Bauwerke),
-                  village (Dorf: Häuser, Grundflächen, Mauern, Stände)
+                  village (Dorf: Häuser, Grundflächen, Mauern, Stände, Orte), waygraph (Wegenetz), villagers
+                  (Bewohner: Tagesablauf, Darstellung, Ansprechen)
 src/three/        Landschaft, nature (Bäume, Gras), waterways (Fluss, Bäche, Reisfelder), structures (Brücken,
                   Laternen, Tore, Schrein, Pavillon, Dorfplatz), houses (Häuser-Baukasten), village (Dorf in der
-                  Welt), Effekte, Materialien
+                  Welt), critters (Hühner, Enten, Katzen), Effekte, Materialien
 src/audio/        Web-Audio: Musik (Pentatonik), Ambiente, Effekte, Simlish-Stimmen mit Raumklang
 src/ui/           Sprechblasen, Gesprächsfenster, Lernkarte, Wörterbuch, Info, Ton-Panel, HUD
 src/content/      Dialoge, Wörter, Credits

@@ -214,3 +214,80 @@ export function onHouse(x: number, z: number, pad = 0): boolean {
   }
   return false;
 }
+
+// ───────────────────────────────────────── Orte für die Bewohner
+
+/** Steintisch mit zwei Hockern für die Brettspieler auf dem Platz */
+export const BOARD_TABLE = { x: 33, z: 58, rot: 0 };
+
+export interface Spot {
+  x: number;
+  z: number;
+  /** Blickrichtung beim Verweilen (rad, 0 = +z) */
+  yaw: number;
+  /** Sitzplatz: Sitzhöhe */
+  seat?: number;
+  /** liegt im Haus/hinter der Theke: letzte Meter ohne Laufraster-Prüfung */
+  inside?: boolean;
+}
+
+const houseName = (h: HousePlacement): string =>
+  HOUSES.filter((o) => o.kind === h.kind).length > 1 ? `${h.kind}${h.seed}` : h.kind;
+
+let spotCache: Record<string, Spot> | null = null;
+
+/** Benannte Orte im Dorf und im Tal (Weltkoordinaten) */
+export function villageSpots(benches: { x: number; z: number; rot: number }[]): Record<string, Spot> {
+  if (spotCache) return spotCache;
+  const S: Record<string, Spot> = {};
+  for (const h of HOUSES) {
+    const p = padOf(h.kind);
+    const sp = spec(h.kind);
+    const [x, z] = toWorld(h, h.kind === 'hofhaus' ? 0 : -0.2, sp.d / 2 + (h.kind === 'hofhaus' ? 1.2 : 0.9));
+    S[`tuer-${houseName(h)}`] = { x, z, yaw: h.rot + Math.PI };
+    const [vx, vz] = toWorld(h, 1.6, p.hd + p.front - 0.4);
+    S[`vor-${houseName(h)}`] = { x: vx, z: vz, yaw: h.rot };
+  }
+  const H = (kind: string): HousePlacement => HOUSES.find((h) => h.kind === kind)!;
+  const at = (h: HousePlacement, lx: number, lz: number, yaw: number, inside = false): Spot => {
+    const [x, z] = toWorld(h, lx, lz);
+    return { x, z, yaw: h.rot + yaw, inside };
+  };
+  S['theke-teeladen'] = at(H('teeladen'), 0, spec('teeladen').d / 2 - 1.15, 0, true);
+  S['hobelbank'] = at(H('werkstatt'), -0.6, 1.25, Math.PI, true);
+  S['hof'] = at(H('hofhaus'), -2.2, 2.0, Math.PI / 2);
+  S['schreinchen'] = at(H('schreinchen'), 0, spec('schreinchen').d / 2 + 2.2, Math.PI);
+  for (const st of STALLS) {
+    const c = Math.cos(st.rot);
+    const s = Math.sin(st.rot);
+    // hinter dem Stand, Blick nach vorn
+    S[`stand-${st.goods}`] = { x: st.x - s * 1.05, z: st.z - c * 1.05, yaw: st.rot, inside: true };
+  }
+  const D = place('dorf');
+  S['brunnen'] = { x: D.x + 1.5, z: D.z + 0.3, yaw: -Math.PI / 2 };
+  S['platz-a'] = { x: D.x - 4, z: D.z + 3.5, yaw: 0.5 };
+  S['platz-b'] = { x: D.x + 5.5, z: D.z - 3, yaw: -2.2 };
+  S['brett-a'] = { x: BOARD_TABLE.x - 0.85, z: BOARD_TABLE.z, yaw: Math.PI / 2, seat: 0.42 };
+  S['brett-b'] = { x: BOARD_TABLE.x + 0.85, z: BOARD_TABLE.z, yaw: -Math.PI / 2, seat: 0.42 };
+  S['brett-zuschauer'] = { x: BOARD_TABLE.x, z: BOARD_TABLE.z - 1.4, yaw: 0 };
+  benches.forEach((b, i) => {
+    S[`bank-${i}`] = { x: b.x, z: b.z, yaw: b.rot, seat: 0.45 };
+  });
+  // Tal
+  S['teehaus-weg'] = { x: 1.6, z: 27, yaw: Math.PI };
+  S['bambus'] = { x: -27, z: 24.5, yaw: 0.8 };
+  S['teefeld-weg'] = { x: 50.5, z: -6.5, yaw: 1.2 };
+  S['teefeld-a'] = { x: 46, z: -12.35, yaw: 0, inside: true };
+  S['teefeld-b'] = { x: 59, z: -8.55, yaw: 0, inside: true };
+  S['schrein'] = { x: 61.6, z: -54.6, yaw: Math.PI };
+  S['schrein-hof'] = { x: 57.5, z: -57.5, yaw: 1.6 };
+  S['aussicht'] = { x: -61.5, z: -39, yaw: Math.atan2(64, 59) };
+  S['flussbruecke'] = { x: 47.2, z: 72, yaw: 0.3 };
+  S['angelplatz'] = { x: 31, z: 75.6, yaw: 0 };
+  S['angelplatz-2'] = { x: 39, z: 75.6, yaw: 0.1 };
+  S['terrassen'] = { x: -22.5, z: 96.5, yaw: -0.3 };
+  S['terrassen-2'] = { x: -16, z: 99, yaw: 0.2 };
+  S['huehner'] = { x: 21, z: 64.5, yaw: -Math.PI / 2 };
+  spotCache = S;
+  return S;
+}

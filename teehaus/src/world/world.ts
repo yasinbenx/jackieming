@@ -45,6 +45,7 @@ import { loadHairKit } from './hairkit';
 import { loadRig } from './rig';
 import { groundY, NavGrid } from './nav';
 import { buildVillage } from '../three/village';
+import { Critters } from '../three/critters';
 import type { Village } from '../three/village';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
@@ -149,6 +150,7 @@ export class World {
   private envT = -1;
   land!: Landscape;
   village!: Village;
+  critters!: Critters;
   private npcsHidden = false;
   cafe!: Cafe;
   nav!: NavGrid;
@@ -263,6 +265,8 @@ export class World {
     this.scene.add(this.land.group);
     this.village = buildVillage(VILLAGE_RANGE[this.quality]);
     this.scene.add(this.village.group);
+    this.critters = new Critters((x, z) => this.nav?.walkable(x, z) ?? true);
+    this.scene.add(this.critters.group);
     if (this.quality > 0) {
       this.simpleWater = makeWater(false, 0);
       this.simpleWater.visible = false;
@@ -838,6 +842,7 @@ export class World {
       this.simpleWater.visible = !nearPond;
     }
     this.village.update(c, 0.15 + p.window * 0.45, 0.35 + p.lantern * 1.1);
+    this.critters.update(dt, this.time, this.player.ch.root.position, p.stars > 0.55);
     this.land.structures.lanternMat.emissiveIntensity = 0.2 + p.lantern * 1.4;
     (this.land.structures.glow.material as PointsMaterial).opacity = Math.max(0, p.lantern - 0.4) * 0.45;
     this.followShadow();

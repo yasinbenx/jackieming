@@ -113,15 +113,39 @@ if (+w >= 900) {
   notes.push(`laufen: ${before.map((v) => v.toFixed(2))} -> ${after.map((v) => v.toFixed(2))}`);
   await shot('03-gelaufen');
 }
-// alle freien Plätze
+// alle freien Plätze im Teehaus; dazu zwei Bänke im Dorf, dort startet die Figur davor
 const seats = await p.evaluate(() =>
-  window.__world.interactables.filter((i) => i.id.startsWith('sit-')).map((i) => i.id),
+  window.__world.interactables
+    .filter((i) => i.id.startsWith('sit-'))
+    .filter((i) => {
+      const q = i.pos();
+      return Math.abs(q.x) < 8 && q.z < 8;
+    })
+    .map((i) => i.id),
 );
+seats.push('sit-bank-0', 'sit-bank-2');
+// Plätze, auf denen gerade ein Dorfbewohner sitzt, sind gesperrt
+const busySeat = await p.evaluate(() => {
+  const w = window.__world;
+  const v = window.__villagers.list.find((r) => r.sitting);
+  if (!v) return null;
+  const it = w.interactables.find(
+    (i) => i.id.startsWith('sit-') && i.pos().distanceTo({ x: v.x, y: i.pos().y, z: v.z }) < 0.4,
+  );
+  return it ? [it.id, it.enabled()] : null;
+});
+if (busySeat) expectEq(`besetzt ${busySeat[0]}`, busySeat[1], false);
 for (const id of seats) {
   await p.evaluate((id) => {
     const w = window.__world;
-    w.player.place(-1.1, 1.8, 0);
     const it = w.interactables.find((i) => i.id === id);
+    const q = it.pos();
+    if (Math.abs(q.x) < 8 && q.z < 8) w.player.place(-1.1, 1.8, 0);
+    else {
+      // freien Punkt nahe am Platz suchen
+      const n = w.nav.nearest(q.x + 1.2, q.z + 1.2, 3) ?? [q.x + 1.5, q.z];
+      w.player.place(n[0], n[1], 0);
+    }
     if (!it.enabled || it.enabled()) it.use();
   }, id);
   await sim(15);

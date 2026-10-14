@@ -12,12 +12,14 @@ Status: **behoben**, **offen**, **beobachten** (nur in der Testumgebung gesehen 
 
 ## Offen
 
-| Nr. | Bereich  | Fehler                                                                      | Ursache                                                                                    | Status                                                           |
-| --- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| 21  | Leistung | Figuren und Logik brauchen auf dem Testrechner 5–6 ms pro Bild (12 Figuren) | volle Animation, Fuß-IK und Kleidungs-Skinning für jede Figur im Raum                      | offen, kommt in S4 (Detailstufen nach Entfernung schärfer)       |
-| 22  | Bewegung | unter 20 fps läuft alles in Zeitlupe                                        | Zeitschritt pro Bild ist auf 0,05 s begrenzt, damit Physik und Kamera nicht springen       | beobachten (nur in der Software-Grafik der Testumgebung gesehen) |
-| 31  | Laden    | Welt-Aufbau kostet beim Start etwa 1 s zusätzlich (Testrechner)             | Höhenraster, Untergrund-Tabelle, Laufraster und Grastextur werden im Hauptthread berechnet | beobachten; bei Bedarf in S4 in einen Worker verlagern           |
-| 32  | Grafik   | Teichspiegelung zeigt Bambusstämme als Zickzack                             | Wellenverzerrung der Spiegelung bei flachem Blick                                          | gemildert (Wellen schwächer), beobachten                         |
+| Nr. | Bereich  | Fehler                                                                      | Ursache                                                                                    | Status                                                                                                         |
+| --- | -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| 21  | Leistung | Figuren und Logik brauchen auf dem Testrechner 5–6 ms pro Bild (12 Figuren) | volle Animation, Fuß-IK und Kleidungs-Skinning für jede Figur im Raum                      | offen, kommt in S4 (Detailstufen nach Entfernung schärfer)                                                     |
+| 22  | Bewegung | unter 20 fps läuft alles in Zeitlupe                                        | Zeitschritt pro Bild ist auf 0,05 s begrenzt, damit Physik und Kamera nicht springen       | beobachten (nur in der Software-Grafik der Testumgebung gesehen)                                               |
+| 31  | Laden    | Welt-Aufbau kostet beim Start etwa 1 s zusätzlich (Testrechner)             | Höhenraster, Untergrund-Tabelle, Laufraster und Grastextur werden im Hauptthread berechnet | beobachten; bei Bedarf in S4 in einen Worker verlagern                                                         |
+| 36  | Leistung | Anlegen einer vollen Bewohner-Figur dauert auf dem Testrechner 30–60 ms     | Schneiderei und Skelett werden pro Figur gebaut                                            | beobachten: geschieht einzeln im Hintergrund in den ersten Sekunden nach dem Start; kurze Ruckler dort möglich |
+| 37  | Leistung | Am vollen Dorfplatz etwa 800 Draw-Calls                                     | jede volle Figur besteht aus rund 45 Teilen                                                | begrenzt auf 6/4/2 volle Figuren, Schatten nur in der Nähe; weiteres Zusammenfassen der Figurteile in S4       |
+| 32  | Grafik   | Teichspiegelung zeigt Bambusstämme als Zickzack                             | Wellenverzerrung der Spiegelung bei flachem Blick                                          | gemildert (Wellen schwächer), beobachten                                                                       |
 
 ## Behoben
 

@@ -4,6 +4,7 @@ import { fbm, rng } from '../three/noise';
 import { boundaryK, crossings, PATHS, place, PLACES, polyAt, polyLength } from './map';
 import type { Crossing } from './map';
 import {
+  BOARD_TABLE,
   FENCES,
   footprint,
   HOUSES,
@@ -365,6 +366,7 @@ export function scatter(): Scatter {
   for (const [x0, z0, x1, z1] of LOW_WALLS) rects.push(seg(x0, z0, x1, z1, 0.25));
   for (const [x0, z0, x1, z1] of FENCES) rects.push(seg(x0, z0, x1, z1, 0.08));
   for (const st of STALLS) rects.push({ x: st.x, z: st.z, hw: 1.2, hd: 0.6, rot: st.rot });
+  rects.push({ x: BOARD_TABLE.x, z: BOARD_TABLE.z, hw: 0.45, hd: 0.45, rot: BOARD_TABLE.rot });
 
   // Blütenbaum und Weide am Teehaus (in landscape.ts gebaut)
   blockers.push({ x: 9.4, z: 5.6, r: 0.35 }, { x: -12.5, z: 6.5, r: 0.35 });
