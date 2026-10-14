@@ -1,6 +1,7 @@
 // Quiz (测验 cèyàn) mit Abzeichen (徽章 huīzhāng): Startseite mit Bestwert und Abzeichen, dann acht Fragen aus den
 // gesammelten Wörtern und dem Gespräch mit Jackie und Yao, am Ende das Ergebnis.
 // Tastatur: 1–3 wählt eine Antwort, Enter geht weiter.
+import { QUIZ_PRAISE } from '../content/lines';
 import { Modal } from './modal';
 import { h } from './dom';
 import { pinyinHtml } from '../content/pinyin';
@@ -71,14 +72,7 @@ export class QuizPanel {
     if (this.score === n && n >= 8 && store.addBadge('quiz-perfekt')) earned.push('quiz-perfekt');
     for (const id of earned) this.host.badge(id);
     this.qs = [];
-    const msg =
-      this.score === n
-        ? '太棒了！ Alles richtig!'
-        : this.score >= n * 0.75
-          ? '很好！ Sehr gut.'
-          : this.score >= n / 2
-            ? '不错。 Nicht schlecht.'
-            : '加油！ Weiter üben!';
+    const msg = QUIZ_PRAISE.find(([f]) => this.score >= n * f)?.[1] ?? '';
     this.modal.setContent(
       h('p', { class: 'quiz-result' }, h('b', {}, `${this.score} von ${n} richtig`)),
       h('p', { class: 'quiz-msg', lang: 'zh' }, msg),

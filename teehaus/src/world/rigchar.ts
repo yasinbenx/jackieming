@@ -21,6 +21,7 @@ import {
   Quaternion,
   Skeleton,
   SkinnedMesh,
+  Sphere,
   SphereGeometry,
   TorusGeometry,
   Vector3,
@@ -452,6 +453,18 @@ export class RigCharacter {
     this.inst.traverse((o) => {
       if (o.userData.tassel) this.addDangle(o, 28, 0.06, true);
       if (o.userData.hairSway) this.addDangle(o, 60, 0.012, false);
+    });
+    // Sichtbarkeitstest für die animierten Teile: eine großzügige Kugel um die ganze Figur (reicht für
+    // ausgestreckte Arme, Sitzen, Verbeugen). Ohne sie wurden alle Figuren immer gezeichnet, auch hinter der
+    // Kamera, und warfen Schatten im Schattendurchgang.
+    const c = new Vector3(0, this.H * 0.5, 0);
+    const r = this.H * 0.75 + 0.6;
+    this.root.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      const s = m.matrixWorld.getMaxScaleOnAxis() || 1;
+      m.boundingSphere = new Sphere(c.clone().applyMatrix4(m.matrixWorld.clone().invert()), r / s);
+      m.frustumCulled = true;
     });
   }
 

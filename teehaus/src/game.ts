@@ -1,4 +1,5 @@
 // Verdrahtet Welt, Oberfläche, Ton und Spielstand. NPCs, Dialog und Fundstücke hängen sich hier an.
+import { SHOP_THANKS, WEATHER_TOASTS } from './content/lines';
 import { PLACES } from './world/map';
 import { Villagers } from './world/villagers';
 import { VILLAGE_CATS } from './three/critters';
@@ -176,7 +177,7 @@ export class Game {
       toast: (html) => this.toast.show(html, 4200),
       thanks: () => {
         const wang = this.villagers.list.find((r) => r.v.shop);
-        if (wang) void this.bubbles.say(wang.speaker, '谢谢！Beehre uns bald wieder.', { hold: 2 });
+        if (wang) void this.bubbles.say(wang.speaker, SHOP_THANKS, { hold: 2 });
       },
     });
     this.villagers = new Villagers({
@@ -216,9 +217,12 @@ export class Game {
       zoneT = 0.5;
       this.audio.amb.setZone(soundZone(world));
     });
+    // beim Schließen des Tabs die letzte Position mitnehmen (gespeichert wird sonst alle 4 s)
+    window.addEventListener('pagehide', () => this.savePos(), { capture: true });
+    document.addEventListener('visibilitychange', () => document.hidden && this.savePos(), { capture: true });
     world.weather.onChange = (k) => {
-      if (k === 'regen') this.toast.show('<span lang="zh">下雨了</span> xià yǔ le · Es fängt an zu regnen.');
-      else if (k === 'nebel') this.toast.show('<span lang="zh">起雾了</span> qǐ wù le · Nebel zieht auf.');
+      const msg = k === 'regen' || k === 'nebel' ? WEATHER_TOASTS[k] : undefined;
+      if (msg) this.toast.show(msg);
       if (k === 'regen') this.award('xiayu');
       if (k === 'nebel') this.award('wu');
     };
@@ -340,7 +344,7 @@ export class Game {
       if (saveT > 4 && world.mode === 'free' && document.body.classList.contains('is-inside')) {
         saveT = 0;
         const pl = world.player;
-        if (!pl.busy) store.setPos(pl.x, pl.z, pl.ch.yaw);
+        this.savePos();
         const z = pl.z;
         if (Math.hypot(pl.x, z) < 16)
           store.markPlace(z < HALL.z1 ? 'teehaus' : z < 7.2 ? 'terrasse' : 'bruecke');
@@ -617,6 +621,15 @@ export class Game {
   }
 
   /** Lernwort vergeben: beim ersten Mal erscheint die Wortkarte */
+  /** Position der Spielfigur merken (nur im freien Spiel, nicht mitten in einer Bewegung zum Platz) */
+  savePos(): void {
+    const pl = this.world.player;
+    if (!document.body.classList.contains('is-inside') || pl.busy) return;
+    const mode = this.pausedMode ?? this.world.mode;
+    if (mode !== 'free' && mode !== 'dialog') return;
+    store.setPos(pl.x, pl.z, pl.ch.yaw);
+  }
+
   /** Neues Abzeichen melden */
   badgeToast(id: string): void {
     const b = BADGES.find((x) => x.id === id);
@@ -706,6 +719,7 @@ export class Game {
     this.pausedMode = w.mode;
     w.mode = 'cutscene';
     w.player.stopPath();
+    this.savePos();
     store.flush();
     this.pause.show([
       {

@@ -17,15 +17,17 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Befehl                                        | Zweck                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| `npm run dev`                                 | Entwicklungsserver                                                 |
-| `npm run build`                               | Typprüfung + Produktions-Build nach `dist/`                        |
-| `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie Vercel) |
-| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                 |
-| `npm run facts`                               | `FAKTEN.md` aus den Inhalten erzeugen; `check:content` prüft nur   |
-| `npm test`                                    | Unit-Tests (Wegfindung, Platzwahl, Sprechblasen)                   |
-| `node scripts/test/rundgang.mjs`              | Rundgang im Browser mit Prüfwerten (siehe Kopf der Datei)          |
+| Befehl                                        | Zweck                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `npm run dev`                                 | Entwicklungsserver                                                   |
+| `npm run build`                               | Typprüfung + Produktions-Build nach `dist/`                          |
+| `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie Vercel)   |
+| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                   |
+| `npm run facts`                               | `FAKTEN.md` aus den Inhalten erzeugen; `check:content` prüft nur     |
+| `npm test`                                    | Unit-Tests (Wegfindung, Platzwahl, Sprechblasen, Welt, Dorf, Quiz …) |
+| `npm run check`                               | alles Statische auf einmal: Typen, Lint, Format, Inhalte, Unit-Tests |
+| `npm run test:e2e`                            | Rundgang im Browser: Laufen, alle Plätze, Gespräch, Esc, Panels      |
+| `npm run test:gesamt`                         | Gesamttest im Browser: alle Spielteile, Speichern, Draw-Calls        |
 
 Test-Adressen:
 
@@ -36,7 +38,13 @@ Test-Adressen:
 - `/lab/figuren/` ist das **Figuren-Labor**: jede Rolle im Vorher-Nachher-Vergleich und alle Figuren nebeneinander, mit Stehen, Gehen, Laufen, Sitzen, Winken, Trinken, Sprechen und Verbeugen
 - `/lab/musik/` stellt die Musikvarianten zum Probehören nebeneinander
 
+- `?debug` blendet die Debug-Anzeige (F3) gleich ein, `?wetter=regen|nebel|wolkig|klar` legt das Wetter fest
+
 Fehler und ihr Stand stehen in [`BUGS.md`](./BUGS.md).
+
+### Browser-Tests
+
+Beide Skripte brauchen einen laufenden Build (`npm run build && npm run preview`, Port 4173) und Playwright mit Chromium (`npm i -D playwright && npx playwright install chromium`, oder `PLAYWRIGHT_MODULE`/`CHROMIUM_PATH` setzen). Der Gesamttest spielt einmal alles durch: neues Spiel, auf Chinesisch bestellen (erst falsch, dann richtig), Wörterbuch-Suche und -Filter, eine Quizrunde mit Abzeichen, Karte und Schnellreise, Regen, Laden, Tee-Mini-Spiel, Xiangqi, Pausemenü, F3, Draw-Calls an vier Orten, Neuladen und Weiterspielen an der gespeicherten Stelle; jeder Konsolenfehler zählt als Fehler. Beide enden mit Exit-Code 1, wenn etwas fehlschlägt.
 
 ## Bedienung
 
@@ -189,7 +197,20 @@ Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/m
 
 Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, kleine Gesichtsteile) und werden ab 12 m nur jedes zweite, ab 24 m jedes dritte Bild animiert, unsichtbare gar nicht. Die Schattenkarte wird jedes zweite Bild neu gezeichnet (in Kamerafahrten jedes Bild), die Teichspiegelung lässt Figuren, Gras, Tiere und Dorf weg, das Umgebungslicht wird je Tageszeit-Stufe zwischengespeichert. Hoch rendert mit Pixeldichte höchstens 1,5 und 2× MSAA, Mittel mit 1,25. Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 48 fps eine Stufe tiefer). Messwerte zeigt F3. Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
+## Qualität und Technik (S4)
+
+- **Ladebildschirm mit Fortschritt:** Schriften, Welt, Figuren und Haarmodelle werden nachgeladen (die 3D-Welt, das Spiel und das Menü sind eigene, nachgeladene Teile). Am Ende werden alle Bewohner-Figuren angelegt und **die ganze Szene einmal unsichtbar gezeichnet** – auch die gerade ausgeblendeten Teile wie Dorf, Terrassen und Regen. So sind alle Shader übersetzt und alle Texturen und Geometrien auf der Grafikkarte, bevor das Spiel beginnt; vorher stand das Bild beim ersten Gang ins Dorf mehrere Sekunden.
+- **Sichtbarkeitstest für Figuren:** Jede animierte Figur hat eine großzügige Hüllkugel; was nicht im Bild ist, wird nicht gezeichnet und wirft im Schattendurchgang nichts.
+- **Debug-Anzeige (F3):** FPS und langsamstes Bild, CPU-Zeit, Draw-Calls und Dreiecke (gemittelt), Qualitätsstufe, Speicher (Geometrien, Texturen, Shader, JS-Speicher in Chromium), Spielzustand (Modus, offenes Fenster, Position, Tageszeit), Wetter, Zone und geladene Zonen, Bewohner.
+- **Automatische Qualität** nach Bildrate (siehe Qualitätsstufen).
+- **Spielstand:** Die Position wird zusätzlich beim Pausieren und beim Schließen des Tabs gespeichert. Ist die gespeicherte Stelle inzwischen versperrt, beginnt man an der nächsten freien Stelle daneben.
+- **Bewohner weichen einander aus** (rechts vorbei, abbremsen, wenn es eng wird; `src/world/avoid.ts`, getestet).
+- **Inhalte in Datendateien:** siehe „Inhalte ändern“.
+- Bedient wird am PC mit Maus und Tastatur; die Touch-Steuerung aus früheren Runden ist vorhanden, wurde in dieser Runde aber nicht weiter getestet.
+
 ## Auf Vercel veröffentlichen
+
+Vor dem Veröffentlichen: `npm run check`, `npm run build` und am besten `npm run test:gesamt` gegen `npm run preview`.
 
 1. Repository bei [vercel.com](https://vercel.com) importieren (**Add New → Project**).
 2. **Root Directory** auf `teehaus` setzen. Preset **Vite**, Build `npm run build`, Output `dist`.
@@ -219,7 +240,12 @@ Modelle neu erzeugen: siehe Kopfkommentare in `scripts/models/pack-hair.mjs` und
 Alles liegt getrennt vom Code in `src/content/`:
 
 - `dialogs.ts`: alle Fragen und Antworten (Jackie, Yao), Zwischenrufe, Charakterkarten, Sprüche der Gäste
-- `words.ts`: Lernwörter (Zeichen, Pinyin mit Tonziffern, Deutsch)
+- `words.ts`: Lernwörter (Zeichen, Pinyin mit Tonziffern, Deutsch); `wordgroups.ts`: Themen fürs Wörterbuch
+- `quiz.ts`: Wissensfragen fürs Quiz; `badges.ts`: Abzeichen und ihre Bedingungen
+- `order.ts`: Satzbausteine und Prüfung beim Bestellen; `teas.ts`: Teesorten, Temperaturen, Ziehzeiten
+- `quests.ts`: Aufgaben vom Teemeister; `villagers.ts`: Dorfbewohner, Tagesabläufe, Aufträge, Laden
+- `xiangqi.ts`: Gegner, Regeln und Sprüche beim Brettspiel
+- `lines.ts`: kurze Sätze (Meister beim Bestellen, Händlerin, Wettermeldungen, Quiz-Lob)
 - `credits.ts`: Fremdinhalte und Lizenzen
 
 Danach `npm run facts` ausführen. **Regel:** nur belegbare öffentliche Fakten, keine erfundenen Zitate, nichts zu Privatleben, Gesundheit, Skandalen oder Politik; im Zweifel weglassen.

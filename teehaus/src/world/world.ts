@@ -2,6 +2,7 @@
 // Steuerung und Kamera, Interaktionen und Qualitätsregelung. NPCs und Dialog hängen sich über Hooks an.
 import {
   Color,
+  WebGLRenderTarget,
   DirectionalLight,
   FogExp2,
   HalfFloatType,
@@ -18,7 +19,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { Object3D, PointsMaterial, ShaderMaterial, Texture, WebGLRenderTarget } from 'three';
+import type { Object3D, PointsMaterial, ShaderMaterial, Texture } from 'three';
 import {
   BloomEffect,
   DepthOfFieldEffect,
@@ -351,6 +352,19 @@ export class World {
     this.resize();
     this.slimReflection();
     this.debug = new DebugOverlay(() => this.quality);
+    this.debug.memoryInfo = () => {
+      const i = this.renderer.info;
+      return {
+        geometries: i.memory.geometries,
+        textures: i.memory.textures,
+        programs: i.programs?.length ?? 0,
+      };
+    };
+    this.debug.lines.push(() => {
+      const pp = this.player.ch.root.position;
+      const open = document.querySelector('.modal:not([hidden]), #worldmap:not([hidden]), .menu.show');
+      return `Zustand    ${this.mode}${this.player.seated ? ' · sitzt' : ''}${open ? ` · Fenster ${open.id || open.className}` : ''} · x ${pp.x.toFixed(1)} z ${pp.z.toFixed(1)} · Tageszeit ${this.t.toFixed(2)}`;
+    });
     this.debug.lines.push(() => `Wetter     ${WEATHER_ZH[this.weather.kind]} ${this.weather.kind}`);
     this.debug.lines.push(() => {
       const pp = this.player.ch.root.position;
@@ -363,6 +377,41 @@ export class World {
     this.renderer.compile(this.scene, this.camera);
     this.renderer.setAnimationLoop(() => this.frame());
     await progress(1);
+  }
+
+  /**
+   * Alle Shader vorab übersetzen, auch für gerade ausgeblendete Teile (Dorf, Terrassen, Regen, Figuren der
+   * Bewohner). Sonst übersetzt der Browser sie beim ersten Anblick, und das Bild steht kurz.
+   */
+  async precompile(): Promise<void> {
+    const hidden: Object3D[] = [];
+    const culled: Object3D[] = [];
+    this.scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+      if (o.frustumCulled) {
+        culled.push(o);
+        o.frustumCulled = false;
+      }
+    });
+    try {
+      if (this.renderer.extensions.has('KHR_parallel_shader_compile'))
+        await this.renderer.compileAsync(this.scene, this.camera);
+      // einmal unsichtbar in ein winziges Ziel zeichnen: lädt alle Texturen und Geometrien auf die Grafikkarte
+      // und übersetzt auch die Schatten-Shader
+      const rt = new WebGLRenderTarget(4, 4);
+      const prev = this.renderer.getRenderTarget();
+      this.renderer.shadowMap.needsUpdate = true;
+      this.renderer.setRenderTarget(rt);
+      this.renderer.render(this.scene, this.camera);
+      this.renderer.setRenderTarget(prev);
+      rt.dispose();
+    } finally {
+      for (const o of hidden) o.visible = false;
+      for (const o of culled) o.frustumCulled = true;
+    }
   }
 
   // ───────────────────────────────────────── Spielfigur

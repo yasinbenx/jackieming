@@ -163,8 +163,9 @@ export async function enterDirect(
   world.nav.setDoor(true);
   const pl = world.player;
   pl.stopPath();
-  const ok = pos && world.nav.walkable(pos.x, pos.z);
-  if (ok) pl.place(pos.x, pos.z, pos.yaw);
+  // gespeicherte Stelle; ist sie inzwischen versperrt, die nächste freie in der Nähe, sonst im Teehaus
+  const free = pos ? world.nav.nearest(pos.x, pos.z, 3) : null;
+  if (free && pos) pl.place(free[0], free[1], pos.yaw);
   else pl.place(INSIDE.x, INSIDE.z, Math.PI);
   world.cam.snapBehind(pl.ch.yaw);
   world.cam.pitch = 0.3;

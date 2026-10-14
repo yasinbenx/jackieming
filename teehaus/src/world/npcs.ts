@@ -1,5 +1,6 @@
 // Gäste, Teemeister und Katze: einfache Zustandsmaschinen (Idle, Arbeiten, Gehen, Sitzen, Reagieren) und kleine
 // Interaktionen (Ansprechen, Tee bestellen, Katze streicheln, Hinsetzen, Winken).
+import { orderReply } from '../content/lines';
 import { CircleGeometry, Group, LatheGeometry, Mesh, Vector2, Vector3 } from 'three';
 import type { MeshStandardMaterial } from 'three';
 import type { World } from './world';
@@ -239,13 +240,7 @@ class Master extends Npc {
     this.ch.play('pour', 2.6);
     window.setTimeout(() => bus.emit('scene:pour'), 500);
     const k = this.servedAt++;
-    const line: NpcLine = tea
-      ? {
-          text: polite
-            ? `好的！一杯${tea.zh}，马上来。 Hǎo de! So höflich bestellt. Ein ${tea.de} kommt sofort.`
-            : `好的，一杯${tea.zh}。 Hǎo de! Ein ${tea.de}, bitte schön.`,
-        }
-      : TEA_LINES[k % TEA_LINES.length]!;
+    const line: NpcLine = tea ? { text: orderReply(tea, polite) } : TEA_LINES[k % TEA_LINES.length]!;
     // Schale erscheint auf der Theke
     window.setTimeout(() => {
       if (!this.cupOnCounter) {

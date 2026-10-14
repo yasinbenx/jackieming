@@ -22,6 +22,7 @@ import { groundY } from './nav';
 import { scatter } from './scatter';
 import { villageSpots } from './village';
 import type { Spot } from './village';
+import { avoidance } from './avoid';
 import { buildWayGraph, nearestNode, route } from './waygraph';
 import type { WayGraph } from './waygraph';
 import { ERRANDS, VILLAGERS } from '../content/villagers';
@@ -309,7 +310,10 @@ class Resident {
         const pz = pl.z - this.z;
         const pd = Math.hypot(px, pz);
         const blocked = pd < 0.9 && (px * dx + pz * dz) / Math.max(1e-6, d * pd) > 0.4;
-        const vmax = (this.v.look.child ? 1.35 : 1.15) * (this.v.speed ?? 1);
+        // anderen Bewohnern ausweichen
+        const av =
+          d > 0.01 ? avoidance(this.x, this.z, dx / d, dz / d, m.neighbors(this)) : { side: 0, slow: 0 };
+        const vmax = (this.v.look.child ? 1.35 : 1.15) * (this.v.speed ?? 1) * (1 - av.slow);
         this.speed += ((blocked ? 0 : vmax) - this.speed) * Math.min(1, dt * 4);
         if (d < 0.25) {
           this.path.shift();
@@ -318,6 +322,14 @@ class Resident {
         const stepLen = Math.min(d, this.speed * dt);
         this.x += (dx / d) * stepLen;
         this.z += (dz / d) * stepLen;
+        if (av.side) {
+          const sx = this.x + (dz / d) * av.side * dt;
+          const sz = this.z - (dx / d) * av.side * dt;
+          if (m.ctx.world.nav.walkable(sx, sz)) {
+            this.x = sx;
+            this.z = sz;
+          }
+        }
         let dy = Math.atan2(dx, dz) - this.yaw;
         dy = Math.atan2(Math.sin(dy), Math.cos(dy));
         this.yaw += dy * Math.min(1, dt * 8);
@@ -564,16 +576,33 @@ export class Villagers {
       const vis = this.list.filter((r) => r.visible);
       return `Bewohner   ${vis.filter((r) => r.full).length} voll · ${this.crowd.body.count} einfach · ${this.list.length - vis.length} zu Hause`;
     });
-    // volle Figuren nach und nach im Hintergrund vorbereiten (kein Ruckeln, wenn man ins Dorf kommt)
+    // Rückfall, falls prepare() nicht aufgerufen wird: nach und nach im Hintergrund anlegen
     const warmUp = (): void => {
       const r = this.list[this.warm++];
       if (!r) return;
-      const t0 = performance.now();
-      r.ensureRig();
-      this.warmMs.push(Math.round(performance.now() - t0));
+      this.timeRig(r);
       window.setTimeout(warmUp, 120);
     };
     window.setTimeout(warmUp, 3000);
+  }
+
+  private timeRig(r: Resident): void {
+    if (r.rig) return;
+    const t0 = performance.now();
+    r.ensureRig();
+    this.warmMs.push(Math.round(performance.now() - t0));
+  }
+
+  /**
+   * Alle vollen Figuren schon während des Ladebildschirms anlegen (sonst kostet jede beim ersten Auftauchen im
+   * Dorf 30–60 ms und das Bild ruckelt). Zwischendurch ein Bild Pause, damit der Ladebalken weiterläuft.
+   */
+  async prepare(progress?: (f: number) => Promise<void> | void): Promise<void> {
+    for (let i = 0; i < this.list.length; i++) {
+      this.timeRig(this.list[i]!);
+      if (i % 3 === 2) await progress?.((i + 1) / this.list.length);
+    }
+    this.warm = this.list.length;
   }
 
   spot(name: string): Spot {
@@ -586,6 +615,16 @@ export class Villagers {
     const pl = this.ctx.world.player;
     if (pl.seated && Math.hypot(pl.x - sp.x, pl.z - sp.z) < 0.4) return true;
     return this.list.some((r) => r !== me && r.sitting && Math.hypot(r.x - sp.x, r.z - sp.z) < 0.3);
+  }
+
+  private near: { x: number; z: number; moving: boolean }[] = [];
+  /** andere Bewohner in der Nähe (zum Ausweichen) */
+  neighbors(me: Resident): { x: number; z: number; moving: boolean }[] {
+    this.near.length = 0;
+    for (const r of this.list)
+      if (r !== me && r.visible && Math.abs(r.x - me.x) < 2 && Math.abs(r.z - me.z) < 2)
+        this.near.push({ x: r.x, z: r.z, moving: r.state === 'walk' });
+    return this.near;
   }
 
   /** Sitzplätze der Bewohner (für den Spieler gesperrt, solange besetzt) */

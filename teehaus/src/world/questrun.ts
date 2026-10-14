@@ -1,6 +1,7 @@
 // Aufgaben im Spiel: Der Teemeister bietet sie an (Ausrufezeichen über ihm), eine Anzeige oben links zeigt den
 // nächsten Schritt, Ereignisse aus der Welt (Tasse genommen, Gast angesprochen, Katze gefunden, Tee gebrüht)
 // bringen sie voran. Beim Abgeben gibt es Münzen und Garderoben-Teile. Dazu Aufgabenbuch und Garderobe.
+import { DELIVER_THANKS } from '../content/lines';
 import { Vector3 } from 'three';
 import type { World } from './world';
 import type { Npcs } from './npcs';
@@ -157,7 +158,7 @@ export class QuestRunner {
     this.carrying = false;
     n.ch.lookAt(this.host.world.playerTarget());
     n.ch.play('nod', 1.4);
-    this.host.say(n.speaker, '谢谢！Wie aufmerksam, der Tee ist noch warm.', 3);
+    this.host.say(n.speaker, DELIVER_THANKS, 3);
     this.host.award('xiexie');
     this.event({ type: 'deliver', to });
   }
