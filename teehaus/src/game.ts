@@ -3,6 +3,9 @@ import { PLACES } from './world/map';
 import { Villagers } from './world/villagers';
 import { VILLAGE_CATS } from './three/critters';
 import { Shop } from './ui/shop';
+import { OrderPanel } from './ui/order';
+import { QuizPanel } from './ui/quiz';
+import { BADGES, earnedBadges } from './content/badges';
 import { WorldMap } from './ui/worldmap';
 import type { MapMarker } from './ui/worldmap';
 import type { Place } from './world/map';
@@ -43,6 +46,7 @@ import type { Seat } from './world/layout';
 import { Vector3 } from 'three';
 import { wordById } from './content/words';
 import type { FigureId } from './content/types';
+import type { Tea } from './content/teas';
 
 const TOTAL_QUESTIONS = JACKIE.questions.length + YAO.questions.length;
 
@@ -61,6 +65,8 @@ export class Game {
   villagers!: Villagers;
   shop!: Shop;
   map!: WorldMap;
+  orderPanel!: OrderPanel;
+  quizPanel!: QuizPanel;
   readonly finds: Finds;
   readonly heroes: Heroes;
   readonly talk: TalkPanel;
@@ -104,13 +110,30 @@ export class Game {
     this.hud.setSoundIcon(store.settings.muted);
     world.onInsideChange = (inside) => this.audio.setInside(inside);
     this.bubbles = new Bubbles((v) => world.toScreenLoose(v));
+    // Fenster, in denen das Spiel nicht auf Tasten reagieren soll
+    const block = {
+      onOpen: () => {
+        world.input.enabled = false;
+        world.player.stopPath();
+      },
+      onClose: () => {
+        if (world.mode === 'free') world.input.enabled = true;
+      },
+    };
+    this.orderPanel = new OrderPanel({ ...block, serve: (tea, polite) => this.serveTea(tea, polite) });
+    this.quizPanel = new QuizPanel({ ...block, badge: (id) => this.badgeToast(id) });
+    this.dict.onQuiz = () => {
+      this.dict.modal.close();
+      window.setTimeout(() => this.quizPanel.show(), 260);
+    };
     this.npcs = new Npcs({
       world,
       say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
       icon: (sp, sym) => this.bubbles.icon(sp, sym),
       award: (id) => this.award(id),
-      busy: () => this.talking || this.tea.open || this.xq.open,
+      busy: () => this.talking || this.tea.open || this.xq.open || this.orderPanel.open,
       brew: () => this.startBrew(),
+      orderMenu: () => this.orderPanel.show(),
       onTalk: (id) => this.quests?.onTalk(id) ?? false,
       onCat: () => this.quests?.onCat(),
     });
@@ -165,7 +188,10 @@ export class Game {
       busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
       night: () => world.pal.stars > 0.55,
       openShop: () => window.setTimeout(() => this.shop.show(), 400),
-      onTalk: (id) => void this.quests?.onTalk(id),
+      onTalk: (id) => {
+        store.setGame(`vt-${id}`, 1);
+        void this.quests?.onTalk(id);
+      },
       addSpeaker: (sp) => scape.add(sp),
     });
     (window as unknown as { __villagers: Villagers }).__villagers = this.villagers;
@@ -305,6 +331,8 @@ export class Game {
             p.id !== 'teehaus'
           )
             this.toast.show(`Neuer Ort: <span lang="zh">${p.zh}</span> ${p.de} · auf der Karte (M)`);
+        // Abzeichen, die sich aus dem Spielstand ergeben
+        for (const b of earnedBadges(store.progress)) if (store.addBadge(b.id)) this.badgeToast(b.id);
       }
       if (world.input.lookDX) this.tutorial.looked(world.input.lookDX);
       this.tutorial.update(dt);
@@ -589,6 +617,32 @@ export class Game {
   }
 
   /** Lernwort vergeben: beim ersten Mal erscheint die Wortkarte */
+  /** Neues Abzeichen melden */
+  badgeToast(id: string): void {
+    const b = BADGES.find((x) => x.id === id);
+    if (!b) return;
+    this.toast.show(`Abzeichen: <span lang="zh">${b.zh}</span> ${b.de} · ${b.how}`, 5200);
+    bus.emit('ui:unlock');
+  }
+
+  /** Tee aus dem Bestellfenster: der Meister schenkt ein, die Satzwörter wandern ins Wörterbuch */
+  private serveTea(tea: Tea | null, polite: boolean): void {
+    this.npcs.master.order(tea, polite);
+    if (!tea) return;
+    const main = polite ? 'qing' : 'yao4';
+    const rest = (polite ? ['gei', 'wo', 'yibei'] : ['wo', 'yibei']).filter((id) => store.addWord(id));
+    if (store.addWord(tea.id)) rest.push(tea.id);
+    this.award(main);
+    if (rest.length)
+      window.setTimeout(
+        () =>
+          this.toast.show(
+            `Ins Wörterbuch: ${rest.map((id) => `<span lang="zh">${wordById(id)?.zh ?? id}</span>`).join(' ')}`,
+          ),
+        900,
+      );
+  }
+
   award(id: string): void {
     const w = wordById(id);
     if (!w) return;
@@ -663,6 +717,8 @@ export class Game {
       },
       { id: 'settings', label: 'Einstellungen', zh: '设置', onClick: () => this.settings.open() },
       { id: 'quests', label: 'Aufgaben', zh: '任务', onClick: () => this.quests.openJournal() },
+      { id: 'words', label: 'Wörterbuch', zh: '词典', onClick: () => this.dict.open() },
+      { id: 'quiz', label: 'Quiz und Abzeichen', zh: '测验', onClick: () => this.quizPanel.show() },
       { id: 'wardrobe', label: 'Garderobe', zh: '衣柜', onClick: () => this.quests.openWardrobe() },
       { id: 'help', label: 'Hilfe', zh: '帮助', onClick: () => this.info.open() },
       {

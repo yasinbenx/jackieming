@@ -243,6 +243,8 @@ export class World {
     this.renderer.shadowMap.enabled = spec.shadow > 0;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
+    // erstes Bild: Schattenkarte sofort anlegen (sonst liest der Shader eine leere Textur)
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.info.autoReset = false;
     this.renderer.toneMapping = NoToneMapping;
     host.appendChild(this.renderer.domElement);
@@ -586,6 +588,7 @@ export class World {
     const spec = QUALITY[q];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
     this.renderer.shadowMap.enabled = spec.shadow > 0;
+    this.renderer.shadowMap.needsUpdate = true;
     this.sun.castShadow = spec.shadow > 0;
     if (spec.shadow > 0 && this.sun.shadow.map && this.sun.shadow.mapSize.x !== spec.shadow) {
       this.sun.shadow.mapSize.set(spec.shadow, spec.shadow);
@@ -1005,7 +1008,8 @@ export class World {
     }
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
-    if (this.frameNo % 2 === 0 || this.cam.locked) this.renderer.shadowMap.needsUpdate = true;
+    if (this.frameNo % 2 === 0 || this.frameNo < 4 || this.cam.locked)
+      this.renderer.shadowMap.needsUpdate = true;
     const info = this.renderer.info;
     info.reset();
     this.composer.render(dt);

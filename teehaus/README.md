@@ -51,14 +51,17 @@ Fehler und ihr Stand stehen in [`BUGS.md`](./BUGS.md).
 | Gespräch schließen      | ×                                            | Esc                           |
 | Pause                   | ☰ oben rechts                               | Esc oder P                    |
 | Ton an/aus              | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | T                             |
-| Karte                   | –                                            | M (kommt mit der Welt)        |
+| Karte                   | –                                            | M                             |
+| Tee bestellen (Fenster) | Bausteine anklicken                          | 1–9, Rücktaste, Enter         |
+| Quiz                    | Antwort anklicken                            | 1–3, Enter                    |
+| Debug-Anzeige           | –                                            | F3                            |
 
 ## Menü, Spielstand und Einstellungen
 
 - **Hauptmenü** über der echten 3D-Szene (das Teehaus von der anderen Teichseite): Weiter, Neues Spiel, Einstellungen, Credits, Info und Hinweis. „Neues Spiel“ fragt nach, wenn schon ein Spielstand da ist.
 - **Spielstand** wird automatisch gespeichert (gebündelt, alle paar Sekunden und beim Verlassen der Seite) in `localStorage` unter `teehaus.save` mit Versionsnummer: gestellte Fragen, Wörter, Quiz, Outfit, Tageszeit, Position, entdeckte Orte, Aufgaben, Münzen, Spielergebnisse, Tutorial. Einstellungen liegen getrennt unter `teehaus.settings`. Der alte Stand (`teehaus.v1`) wird beim ersten Start übernommen. Ist ein Spielstand unlesbar, wird er unter `teehaus.save.backup` gesichert und ein neues Spiel begonnen (Hinweis im Menü). Format und Umzug: `src/state/savefile.ts` (getestet).
-- **Pausemenü** (Esc, P oder ☰): Weiter, Einstellungen, Hilfe, Zurück zum Hauptmenü. Esc schließt immer zuerst das oberste Fenster.
-- **Einstellungen:** Musik, Stimmen, Effekte getrennt; Grafikqualität (Automatisch, Hoch, Mittel, Niedrig); Kamerageschwindigkeit; Tastenbelegung (belegte Tasten werden getauscht, Esc und Pfeile bleiben fest); Pinyin an/aus; Schriftgröße; hoher Kontrast; weniger Bewegung; Untertitel fürs Gemurmel. „Einstellungen zurücksetzen“ und „Fortschritt zurücksetzen“ jeweils mit Sicherheitsabfrage.
+- **Pausemenü** (Esc, P oder ☰): Weiter, Einstellungen, Aufgaben, Garderobe, Wörterbuch, Quiz und Abzeichen, Hilfe, Zurück zum Hauptmenü. Esc schließt immer zuerst das oberste Fenster.
+- **Einstellungen:** Musik, Stimmen, Effekte getrennt; Grafikqualität (Automatisch, Hoch, Mittel, Niedrig); Kamerageschwindigkeit; Tastenbelegung (belegte Tasten werden getauscht, Esc und Pfeile bleiben fest); Pinyin an/aus; Schriftgröße; hoher Kontrast; weniger Bewegung; Untertitel fürs Gemurmel; Wetter (wechselnd oder immer klar). „Einstellungen zurücksetzen“ und „Fortschritt zurücksetzen“ jeweils mit Sicherheitsabfrage.
 - **Tutorial** beim ersten Spiel: Gehen, Umsehen, Ansprechen, Hinsetzen. Jede Einblendung erledigt sich, sobald man es getan hat; überspringbar, in der Hilfe wiederholbar.
 
 ## Tee-Mini-Spiel (泡茶 pào chá)
@@ -140,6 +143,21 @@ Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im 
 - **Sitzen:** Auf alle Bänke und an den Spieltisch kann sich auch die Spielfigur setzen, wenn der Platz frei ist.
 - **Leistung:** Nur die nächsten Bewohner (Hoch 6, Mittel 4, Niedrig 2, bis 26 m) sind volle, animierte Figuren; nur die nächsten davon werfen Schatten. Alle anderen sind einfache instanzierte Figuren (4 Draw-Calls für alle), sehr weit weg gar nichts. Volle Figuren werden in den ersten Sekunden nach dem Start nacheinander im Hintergrund angelegt. Tiere sind instanziert.
 
+## Karte, Wetter und Zonen (W4)
+
+- **Karte** (Taste M): das Tal aus dem Höhenraster gemalt, mit Wegen, Wasser, Häusern, Orten, der Spielfigur als Pfeil und Aufgaben-Markierungen (!). Besuchte Orte tragen ihren Namen; ein Klick darauf (oder in der Liste) ist eine **Schnellreise** mit kurzer Überblendung. Neue Orte melden sich unterwegs („Neuer Ort … auf der Karte“).
+- **Wetter** (`src/world/weather.ts`): klar, wolkig, Regen und Nebel wechseln sich ab, mit weichen Übergängen. Wolken dämpfen Sonne und Himmel, Nebel rückt näher, Regen fällt als Striche um die Kamera (ein Draw-Call), drinnen nicht. Zum Ansehen: `?wetter=regen|nebel|wolkig|klar`; in den Einstellungen „Immer klar“.
+- **Tageszeit für die ganze Welt:** Laternen und Fensterlicht im Dorf abends, Glühwürmchen an Fluss und Bambushain, nachts leere Wege (Bewohner zu Hause, Hühner im Stall).
+- **Zonen:** Teehaus, Dorf samt Tieren und die Terrassen werden in der Ferne ausgeblendet (mit Abstandspuffer, damit nichts flackert); der Nebel verdeckt den Übergang.
+- **Klang je Ort** (`src/world/soundzone.ts`): Fluss, Wind im Bambus, Dorfgemurmel, Hühner, Hämmern aus der Werkstatt, Tempelglocke am Schrein, Regen; im Teehaus ruhig.
+- **Debug-Anzeige** (F3, oder `?debug`): FPS, CPU-Zeit je Bild, Draw-Calls, Dreiecke, Qualitätsstufe, geladene Zonen, Bewohner (voll/fern), Wetter.
+
+## Bestellen, Wörterbuch und Quiz (S3d)
+
+- **Auf Chinesisch bestellen** (点茶): An der Theke „Tee bestellen“ öffnet ein Fenster. Erst die Sorte wählen (Grüntee, Schwarztee, Jasmintee, Oolong, Weißer Tee), dann aus Bausteinen den Satz legen: 请给我一杯茉莉花茶 („Bitte gib mir eine Tasse Jasmintee“) oder kürzer 我要一杯… („Ich möchte …“). Zwei Ablenker liegen dabei (你, 两杯, 不, 谢谢). Falsche Sätze bekommen einen konkreten Hinweis, „Vorsprechen“ liest den Satz vor. Der Meister antwortet auf Chinesisch und schenkt genau diese Sorte aus (Farbe in der Schale). Die Satzwörter 请 给 我 一杯 要 kommen ins Wörterbuch. Wer nur Tee will: „Einfach auf Deutsch bestellen“. Logik und Prüfung: `src/content/order.ts` (getestet).
+- **Wörterbuch** (词典): Suche über Deutsch, Pinyin (mit oder ohne Töne) und Zeichen; Filter nach Thema (Jackie und Yao, Tee, Begrüßen und Bestellen, Brettspiel, Teehaus und Dorf) und nach gesammelt/offen. Noch nicht gesammelte Wörter verraten bei der Suche nichts. Themen: `src/content/wordgroups.ts`.
+- **Quiz und Abzeichen** (测验, 徽章): aus dem Wörterbuch oder dem Pausemenü. Eine Runde hat acht Fragen: Wortfragen aus den eigenen Wörtern (Zeichen → Deutsch und Deutsch → Zeichen) und Wissensfragen über Jackie und Yao, sobald die passende Frage im Gespräch gestellt wurde. Ab vier Wörtern spielbar. Abzeichen: Erster Versuch, Volle Punktzahl, 20 und 50 Wörter, Auf Chinesisch bestellt, Teekenner (fünf Sorten), Entdecker (alle Orte), Brettspieler (Xiangqi gewonnen), Gute Nachbarn (zehn Bewohner angesprochen). Sie werden laufend geprüft und mit einer Meldung vergeben (`src/content/badges.ts`, `src/content/quizgen.ts`, getestet).
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
@@ -169,7 +187,7 @@ Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/m
 
 ## Qualitätsstufen
 
-Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, Animation nur jedes zweite Bild). Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 40 fps eine Stufe tiefer). Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
+Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, kleine Gesichtsteile) und werden ab 12 m nur jedes zweite, ab 24 m jedes dritte Bild animiert, unsichtbare gar nicht. Die Schattenkarte wird jedes zweite Bild neu gezeichnet (in Kamerafahrten jedes Bild), die Teichspiegelung lässt Figuren, Gras, Tiere und Dorf weg, das Umgebungslicht wird je Tageszeit-Stufe zwischengespeichert. Hoch rendert mit Pixeldichte höchstens 1,5 und 2× MSAA, Mittel mit 1,25. Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 48 fps eine Stufe tiefer). Messwerte zeigt F3. Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
 ## Auf Vercel veröffentlichen
 

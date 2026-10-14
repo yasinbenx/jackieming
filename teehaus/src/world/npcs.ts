@@ -1,6 +1,7 @@
 // Gäste, Teemeister und Katze: einfache Zustandsmaschinen (Idle, Arbeiten, Gehen, Sitzen, Reagieren) und kleine
 // Interaktionen (Ansprechen, Tee bestellen, Katze streicheln, Hinsetzen, Winken).
-import { Group, LatheGeometry, Mesh, Vector2, Vector3 } from 'three';
+import { CircleGeometry, Group, LatheGeometry, Mesh, Vector2, Vector3 } from 'three';
+import type { MeshStandardMaterial } from 'three';
 import type { World } from './world';
 import { Agent } from './agent';
 import type { Action } from './character';
@@ -9,7 +10,8 @@ import { GUEST_LOOKS, MASTER_LOOK } from './looks';
 import { vinyl } from './materials';
 import { COUNTER, FLOOR, HALL, SEATS, seat, TABLES } from './layout';
 import { NPCS, TEA_LINES } from '../content/dialogs';
-import type { NpcProfile } from '../content/dialogs';
+import type { NpcLine, NpcProfile } from '../content/dialogs';
+import type { Tea } from '../content/teas';
 import type { Speaker } from '../ui/bubbles';
 import { bus } from '../core/bus';
 
@@ -24,6 +26,8 @@ export interface NpcContext {
   busy: () => boolean;
   /** Tee-Mini-Spiel an der Theke starten */
   brew?: () => void;
+  /** Bestellfenster öffnen (auf Chinesisch bestellen); ohne: sofort Haustee */
+  orderMenu?: () => void;
   /** Ansprechen abfangen (Aufgaben); true = erledigt, normales Gespräch entfällt */
   onTalk?: (id: string) => boolean;
   /** Katze gestreichelt */
@@ -139,6 +143,7 @@ class Master extends Npc {
   private greeted = false;
   private servedAt = 0;
   private cupOnCounter: Mesh | null = null;
+  private teaInCup: Mesh | null = null;
 
   constructor(ctx: NpcContext) {
     super(ctx, MASTER_LOOK, NPCS.master!);
@@ -215,8 +220,12 @@ class Master extends Npc {
     this.next = rand(8, 14);
   }
 
-  /** Tee bestellen: einschenken, Schale auf die Theke, der Spieler trinkt */
-  order(): void {
+  /**
+   * Tee bestellen: einschenken, Schale auf die Theke, der Spieler trinkt.
+   * @param tea auf Chinesisch bestellte Sorte (sonst Haustee)
+   * @param polite mit 请 bestellt
+   */
+  order(tea: Tea | null = null, polite = false): void {
     if (!this.available) return;
     this.state = 'order';
     const w = this.ctx.world;
@@ -230,7 +239,13 @@ class Master extends Npc {
     this.ch.play('pour', 2.6);
     window.setTimeout(() => bus.emit('scene:pour'), 500);
     const k = this.servedAt++;
-    const line = TEA_LINES[k % TEA_LINES.length]!;
+    const line: NpcLine = tea
+      ? {
+          text: polite
+            ? `好的！一杯${tea.zh}，马上来。 Hǎo de! So höflich bestellt. Ein ${tea.de} kommt sofort.`
+            : `好的，一杯${tea.zh}。 Hǎo de! Ein ${tea.de}, bitte schön.`,
+        }
+      : TEA_LINES[k % TEA_LINES.length]!;
     // Schale erscheint auf der Theke
     window.setTimeout(() => {
       if (!this.cupOnCounter) {
@@ -241,10 +256,18 @@ class Master extends Npc {
           new Vector2(0.049, 0.041),
         ];
         this.cupOnCounter = new Mesh(new LatheGeometry(pts, 14), vinyl('#e9ece6', { rough: 0.22 }));
+        // Aufguss in der Schale (Farbe je Sorte)
+        this.teaInCup = new Mesh(
+          new CircleGeometry(0.046, 14).rotateX(-Math.PI / 2),
+          vinyl('#c9c75a', { rough: 0.1, key: 'tee-in-schale' }),
+        );
+        this.teaInCup.position.y = 0.034;
+        this.cupOnCounter.add(this.teaInCup);
         this.cupOnCounter.position.set(ORDER_SPOT.x, FLOOR + 1.04, COUNTER.z1 - 0.12);
         w.scene.add(this.cupOnCounter);
       }
       this.cupOnCounter.visible = true;
+      (this.teaInCup!.material as MeshStandardMaterial).color.set(tea?.color ?? '#b8a24a');
       w.steam.burst(this.cupOnCounter.position.clone().setY(FLOOR + 1.1), 8);
       this.ch.showProp('teapot', false);
     }, 2000);
@@ -693,7 +716,7 @@ export class Npcs {
       priority: 2,
       label: () => 'Tee bestellen <span lang="zh">请喝茶</span>',
       enabled: () => this.master.available && !w.player.seated,
-      use: () => this.master.order(),
+      use: () => (this.ctx.orderMenu ? this.ctx.orderMenu() : this.master.order()),
     });
     // Tee selbst zubereiten (Mini-Spiel)
     w.addInteractable({

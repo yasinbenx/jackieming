@@ -159,6 +159,24 @@ export const WORDS: Word[] = [
   { id: 'xiayu', zh: '下雨', py: 'xia4yu3', de: 'es regnet', note: 'wörtlich: „Regen fällt herunter“' },
   { id: 'wu', zh: '雾', py: 'wu4', de: 'Nebel' },
   { id: 'duoshaoqian', zh: '多少钱', py: 'duo1shao5 qian2', de: 'Wie viel kostet das?' },
+  // Bestellen auf Chinesisch
+  {
+    id: 'qing',
+    zh: '请',
+    py: 'qing3',
+    de: 'bitte (höflich bitten)',
+    note: 'steht am Satzanfang: 请给我… = Bitte gib mir …',
+  },
+  { id: 'gei', zh: '给', py: 'gei3', de: 'geben; für', note: '给我 = gib mir' },
+  { id: 'wo', zh: '我', py: 'wo3', de: 'ich, mich, mir' },
+  {
+    id: 'yibei',
+    zh: '一杯',
+    py: 'yi4bei1',
+    de: 'eine Tasse, ein Glas',
+    note: '杯 ist das Zählwort für Tassen und Gläser',
+  },
+  { id: 'yao4', zh: '要', py: 'yao4', de: 'möchten, wollen', note: '我要… = Ich möchte …' },
 ];
 
 export const wordById = (id: string): Word | undefined => WORDS.find((w) => w.id === id);

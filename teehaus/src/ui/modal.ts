@@ -47,8 +47,8 @@ export class Modal {
     });
   }
 
-  setContent(...nodes: (Node | string)[]): void {
-    this.content.replaceChildren(...nodes);
+  setContent(...nodes: (Node | string | null)[]): void {
+    this.content.replaceChildren(...nodes.filter((n): n is Node | string => n !== null));
   }
 
   open(onClose?: () => void): void {

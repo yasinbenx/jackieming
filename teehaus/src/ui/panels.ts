@@ -1,5 +1,6 @@
 // Wörterbuch (词典 cídiǎn) und Info-Seite (关于 guānyú).
 import { WORDS } from '../content/words';
+import { plain, WORD_GROUPS, wordGroup } from '../content/wordgroups';
 import { JACKIE, YAO } from '../content/dialogs';
 import { pinyinHtml, pinyinText } from '../content/pinyin';
 import { EGGS } from '../content/extras';
@@ -24,54 +25,174 @@ const wordSource = (id: string): string => {
 
 export class Dictionary {
   readonly modal = new Modal('dict', 'Wörterbuch', '词典');
+  private query = '';
+  private group = 'alle';
+  private show: 'alle' | 'gelernt' | 'offen' = 'alle';
+  private items: { el: HTMLElement; id: string; text: string; group: string }[] = [];
+  private countEl: HTMLElement | null = null;
+  private emptyEl: HTMLElement | null = null;
+  /** Quiz öffnen (vom Spiel gesetzt) */
+  onQuiz?: () => void;
 
   render(): void {
-    const got = WORDS.filter((w) => store.words.has(w.id)).length;
+    const learned = store.words;
+    const got = WORDS.filter((w) => learned.has(w.id)).length;
     const grid = h('ul', { class: 'dict-grid', role: 'list' });
+    this.items = [];
     for (const w of WORDS) {
-      const has = store.words.has(w.id);
-      grid.append(
-        h(
-          'li',
-          { class: `dict-item${has ? '' : ' locked'}` },
-          has
-            ? h(
-                'div',
-                {},
-                h('div', { class: 'dict-zh', lang: 'zh' }, w.zh),
-                h('div', { class: 'dict-py', html: pinyinHtml(w.py), 'aria-label': pinyinText(w.py) }),
-                h('div', { class: 'dict-de' }, w.de),
-                w.note ? h('div', { class: 'dict-note' }, w.note) : null,
-                h(
-                  'button',
-                  {
-                    class: 'dict-speak',
-                    type: 'button',
-                    'aria-label': `${w.zh} anhören`,
-                    disabled: !speechAvailable(),
-                    onclick: () => speakChinese(w.zh),
-                  },
-                  h('span', { html: SPEAKER }),
-                ),
-              )
-            : h(
-                'div',
-                {},
-                h('div', { class: 'dict-zh', 'aria-hidden': 'true' }, '？'),
-                h('div', { class: 'dict-hint' }, wordSource(w.id)),
+      const has = learned.has(w.id);
+      const el = h(
+        'li',
+        { class: `dict-item${has ? '' : ' locked'}` },
+        has
+          ? h(
+              'div',
+              {},
+              h('div', { class: 'dict-zh', lang: 'zh' }, w.zh),
+              h('div', { class: 'dict-py', html: pinyinHtml(w.py), 'aria-label': pinyinText(w.py) }),
+              h('div', { class: 'dict-de' }, w.de),
+              w.note ? h('div', { class: 'dict-note' }, w.note) : null,
+              h(
+                'button',
+                {
+                  class: 'dict-speak',
+                  type: 'button',
+                  'aria-label': `${w.zh} anhören`,
+                  disabled: !speechAvailable(),
+                  onclick: () => speakChinese(w.zh),
+                },
+                h('span', { html: SPEAKER }),
               ),
-        ),
+            )
+          : h(
+              'div',
+              {},
+              h('div', { class: 'dict-zh', 'aria-hidden': 'true' }, '？'),
+              h('div', { class: 'dict-hint' }, wordSource(w.id)),
+            ),
       );
+      grid.append(el);
+      // Gesperrte Wörter verraten bei der Suche nichts (nur der Hinweistext zählt)
+      const text = has
+        ? plain(`${w.zh} ${w.py} ${pinyinText(w.py)} ${w.de} ${w.note ?? ''}`)
+        : plain(wordSource(w.id));
+      this.items.push({ el, id: w.id, text, group: wordGroup(w.id) });
     }
+    const search = h('input', {
+      type: 'search',
+      class: 'dict-search',
+      placeholder: 'Suchen: Deutsch, Pinyin oder Zeichen',
+      'aria-label': 'Wörterbuch durchsuchen',
+      value: this.query,
+      oninput: (e: Event) => {
+        this.query = (e.target as HTMLInputElement).value;
+        this.apply();
+      },
+    });
+    // Tasten im Suchfeld nicht an das Spiel weitergeben
+    search.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') e.stopPropagation();
+    });
+    const chip = (id: string, label: Node | string, sel: () => boolean, set: () => void): HTMLElement =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `dict-chip${sel() ? ' on' : ''}`,
+          'aria-pressed': sel() ? 'true' : 'false',
+          'data-chip': id,
+          onclick: (e: Event) => {
+            set();
+            const bar = (e.currentTarget as HTMLElement).parentElement!;
+            bar.querySelectorAll('.dict-chip').forEach((c) => {
+              const on = c === e.currentTarget;
+              c.classList.toggle('on', on);
+              c.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            this.apply();
+          },
+        },
+        label,
+      );
+    const groups = h(
+      'div',
+      { class: 'dict-chips', role: 'group', 'aria-label': 'Thema' },
+      chip(
+        'alle',
+        'Alle Themen',
+        () => this.group === 'alle',
+        () => (this.group = 'alle'),
+      ),
+      ...WORD_GROUPS.map((g) =>
+        chip(
+          g.id,
+          h('span', {}, h('span', { lang: 'zh' }, g.zh), ' ', g.de),
+          () => this.group === g.id,
+          () => (this.group = g.id),
+        ),
+      ),
+    );
+    const shows = h(
+      'div',
+      { class: 'dict-chips', role: 'group', 'aria-label': 'Anzeigen' },
+      ...(
+        [
+          ['alle', 'Alle'],
+          ['gelernt', 'Gesammelt'],
+          ['offen', 'Noch offen'],
+        ] as const
+      ).map(([id, label]) =>
+        chip(
+          id,
+          label,
+          () => this.show === id,
+          () => (this.show = id),
+        ),
+      ),
+    );
+    this.countEl = h('p', { class: 'dict-count', role: 'status' });
+    this.emptyEl = h('p', { class: 'dict-empty', hidden: true }, 'Nichts gefunden.');
     this.modal.setContent(
-      h('p', { class: 'dict-count' }, `${got} von ${WORDS.length} Wörtern gesammelt`),
+      h(
+        'div',
+        { class: 'dict-top' },
+        h('p', { class: 'dict-count' }, `${got} von ${WORDS.length} Wörtern gesammelt`),
+        h(
+          'button',
+          { class: 'btn primary dict-quiz', type: 'button', onclick: () => this.onQuiz?.() },
+          h('span', { lang: 'zh' }, '测验'),
+          ' Quiz und Abzeichen',
+        ),
+      ),
       h(
         'div',
         { class: 'dict-bar' },
         h('div', { style: `width:${Math.round((got / WORDS.length) * 100)}%` }),
       ),
+      h('div', { class: 'dict-filters' }, search, groups, shows),
+      this.countEl,
+      this.emptyEl,
       grid,
     );
+    this.apply();
+  }
+
+  /** Suche und Filter anwenden (nur ein-/ausblenden, nichts neu bauen) */
+  private apply(): void {
+    const q = plain(this.query);
+    const learned = store.words;
+    let n = 0;
+    for (const it of this.items) {
+      const has = learned.has(it.id);
+      const vis =
+        (this.group === 'alle' || it.group === this.group) &&
+        (this.show === 'alle' || (this.show === 'gelernt') === has) &&
+        (!q || it.text.includes(q));
+      it.el.hidden = !vis;
+      if (vis) n++;
+    }
+    if (this.countEl) this.countEl.textContent = n === this.items.length ? '' : `${n} Treffer`;
+    if (this.emptyEl) this.emptyEl.hidden = n > 0;
   }
 
   open(): void {
@@ -157,6 +278,12 @@ export class InfoPage {
           {},
           'Im Teehaus ist einiges versteckt: Probier die Teekanne, die Laternen, die Elster oder den Teich.',
         ),
+        h(
+          'li',
+          {},
+          'Bestell an der Theke auf Chinesisch: aus Bausteinen wird 请给我一杯… („Bitte gib mir eine Tasse …“).',
+        ),
+        h('li', {}, 'Im Wörterbuch kannst du suchen und filtern; dort startet auch das Quiz mit Abzeichen.'),
       ),
       h(
         'div',
