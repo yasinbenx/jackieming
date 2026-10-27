@@ -34,7 +34,7 @@ await p.addInitScript(() => {
   }).observe({ type: 'longtask', buffered: true });
   window.__marks = [];
 });
-await p.goto(`http://localhost:${port}/?q=${Q}`);
+await p.goto(`http://localhost:${port}/?q=${Q}&ladebudget=300`);
 await p.waitForSelector('#mainmenu.show', { timeout: 400000 });
 await p.click('#mainmenu [data-id=new]');
 await p.waitForSelector('.outfit');

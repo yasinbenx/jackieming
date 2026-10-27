@@ -82,7 +82,7 @@ const covered = () => {
   return res;
 };
 
-await p.goto(`http://localhost:${port}/?q=1`);
+await p.goto(`http://localhost:${port}/?q=1&ladebudget=300`);
 await p.waitForSelector('#mainmenu.show', { timeout: 240000 });
 await shot('00-start');
 // echter Klick: findet unsichtbare Ebenen, die Klicks abfangen

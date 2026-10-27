@@ -31,7 +31,33 @@ export class Input {
   taps: Tap[] = [];
   interact = false;
   wave = false;
-  enabled = true;
+  /**
+   * Eingabe an/aus. Zusammengesetzt aus dem Grundzustand (Menü, Intro: `enabled = …`) und benannten Sperren
+   * offener Fenster (`lock`/`unlock`). Vorher setzte jedes Fenster beim Schließen den Schalter nur zurück, wenn
+   * gerade freies Spiel war – über das Pausemenü geöffnet blieb die Figur danach dauerhaft gesperrt.
+   */
+  private base = true;
+  private locks = new Set<string>();
+  get enabled(): boolean {
+    return this.base && this.locks.size === 0;
+  }
+  set enabled(on: boolean) {
+    this.base = on;
+  }
+  lock(reason: string): void {
+    this.locks.add(reason);
+  }
+  unlock(reason: string): void {
+    this.locks.delete(reason);
+  }
+  /** aktuelle Sperren (Debug-Anzeige, Watchdog) */
+  get lockReasons(): string[] {
+    return [...this.locks];
+  }
+  /** Notausgang: alle Fenstersperren lösen */
+  clearLocks(): void {
+    this.locks.clear();
+  }
   /** Taste für Karte, Ton oder Pause gedrückt */
   onAction?: (a: Action) => void;
   readonly joyEl: HTMLElement;

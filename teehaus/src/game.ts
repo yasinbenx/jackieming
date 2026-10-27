@@ -113,17 +113,18 @@ export class Game {
     world.onInsideChange = (inside) => this.audio.setInside(inside);
     this.bubbles = new Bubbles((v) => world.toScreenLoose(v));
     // Fenster, in denen das Spiel nicht auf Tasten reagieren soll
-    const block = {
+    const block = (key: string) => ({
       onOpen: () => {
-        world.input.enabled = false;
+        world.input.lock(key);
         world.player.stopPath();
       },
-      onClose: () => {
-        if (world.mode === 'free') world.input.enabled = true;
-      },
-    };
-    this.orderPanel = new OrderPanel({ ...block, serve: (tea, polite) => this.serveTea(tea, polite) });
-    this.quizPanel = new QuizPanel({ ...block, badge: (id) => this.badgeToast(id) });
+      onClose: () => world.input.unlock(key),
+    });
+    this.orderPanel = new OrderPanel({
+      ...block('bestellen'),
+      serve: (tea, polite) => this.serveTea(tea, polite),
+    });
+    this.quizPanel = new QuizPanel({ ...block('quiz'), badge: (id) => this.badgeToast(id) });
     this.dict.onQuiz = () => {
       this.dict.modal.close();
       window.setTimeout(() => this.quizPanel.show(), 260);
@@ -203,12 +204,8 @@ export class Game {
       markers: () => this.mapMarkers(),
       canTravel: () => world.mode === 'free' && !this.talking && !world.player.seated,
       travel: (p) => void this.travelTo(p),
-      onOpen: () => {
-        world.input.enabled = false;
-      },
-      onClose: () => {
-        if (world.mode === 'free') world.input.enabled = true;
-      },
+      onOpen: () => world.input.lock('karte'),
+      onClose: () => world.input.unlock('karte'),
     });
     // Klang je Ort und Wetter (zweimal pro Sekunde reicht)
     let zoneT = 0;
@@ -606,7 +603,16 @@ export class Game {
   private async travelTo(p: Place): Promise<void> {
     const w = this.world;
     const f = fader();
-    w.input.enabled = false;
+    w.input.lock('reise');
+    try {
+      await this.travelInner(p, f);
+    } finally {
+      w.input.unlock('reise');
+    }
+  }
+
+  private async travelInner(p: Place, f: ReturnType<typeof fader>): Promise<void> {
+    const w = this.world;
     await f.to(1, 400);
     let x = p.x;
     let z = p.z;
@@ -624,7 +630,6 @@ export class Game {
     store.markPlace(p.id);
     await new Promise((r) => setTimeout(r, 250));
     await f.to(0, 600);
-    if (w.mode === 'free') w.input.enabled = true;
   }
 
   /** Lernwort vergeben: beim ersten Mal erscheint die Wortkarte */

@@ -1,6 +1,10 @@
-// Debug-Anzeige (F3): Bildrate, Rechenzeit pro Bild, Draw-Calls, Dreiecke, Speicher, Spielzustand, Figuren und
-// geladene Zonen.
+// Debug-Anzeige (F3, nur im Entwicklungsmodus oder mit ?debug): Bildrate, Bildzeit, Rechenzeit, Draw-Calls,
+// Dreiecke, Speicher und Texturen, Spielzustand, Ladezustand jedes Schritts, Zeitstempel des letzten Bildes,
+// letzte Fehler und Watchdog-Meldungen.
 import { h } from './dom';
+
+/** Debug-Anzeige verfügbar? (Entwicklungsserver oder ?debug in der Adresse) */
+export const DEBUG_AVAILABLE = import.meta.env.DEV || new URLSearchParams(location.search).has('debug');
 
 export class DebugOverlay {
   private el: HTMLElement;
@@ -16,6 +20,7 @@ export class DebugOverlay {
   constructor(private quality: () => number) {
     this.el = h('pre', { id: 'debug', 'aria-hidden': 'true', hidden: true });
     document.body.appendChild(this.el);
+    if (!DEBUG_AVAILABLE) return;
     window.addEventListener('keydown', (e) => {
       if (e.key !== 'F3') return;
       e.preventDefault();
@@ -57,7 +62,8 @@ export class DebugOverlay {
       const fps = this.frames / this.acc;
       const q = ['Niedrig', 'Mittel', 'Hoch'][this.quality()] ?? '?';
       this.el.textContent = [
-        `FPS        ${fps.toFixed(0)}  (langsamstes Bild ${(this.worst * 1000).toFixed(0)} ms)`,
+        `FPS        ${fps.toFixed(0)}  · Bildzeit ${((this.acc / this.frames) * 1000).toFixed(1)} ms (langsamstes ${(this.worst * 1000).toFixed(0)} ms)`,
+        `letztes Bild ${(performance.now() / 1000).toFixed(1)} s nach Seitenstart`,
         `CPU/Bild   ${(this.cpu / this.frames).toFixed(1)} ms`,
         `Draw-Calls ${Math.round(this.calls / this.frames)}  (Mittel; Schatten und Spiegelung jedes 2. Bild)`,
         `Dreiecke   ${(this.tris / this.frames / 1000).toFixed(0)} k`,

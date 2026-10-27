@@ -39,8 +39,9 @@ import type { Palette, TimePreset } from '../three/palette';
 import { POND, SHARED } from '../three/shared';
 import { clamp } from '../three/noise';
 import { bus } from '../core/bus';
-import { report } from '../core/guard';
-import { loadStep } from '../core/loadstate';
+import { report, reports } from '../core/guard';
+import { loadStep, loadSummary } from '../core/loadstate';
+import { watchdog } from '../core/watchdog';
 import { store } from '../state/store';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
@@ -372,8 +373,19 @@ export class World {
     this.debug.lines.push(() => {
       const pp = this.player.ch.root.position;
       const open = document.querySelector('.modal:not([hidden]), #worldmap:not([hidden]), .menu.show');
-      return `Zustand    ${this.mode}${this.player.seated ? ' · sitzt' : ''}${open ? ` · Fenster ${open.id || open.className}` : ''} · x ${pp.x.toFixed(1)} z ${pp.z.toFixed(1)} · Tageszeit ${this.t.toFixed(2)}`;
+      const locks = this.input.lockReasons;
+      return `Zustand    ${this.mode}${this.player.seated ? ' · sitzt' : ''}${this.player.path.length ? ` · unterwegs (${this.player.path.length})` : ''}${open ? ` · Fenster ${open.id || open.className}` : ''} · Eingabe ${this.input.enabled ? 'frei' : `gesperrt${locks.length ? ` (${locks.join(', ')})` : ''}`} · x ${pp.x.toFixed(1)} z ${pp.z.toFixed(1)} · Tageszeit ${this.t.toFixed(2)}`;
     });
+    this.debug.lines.push(() => `Laden      ${loadSummary()}`);
+    this.debug.lines.push(() => {
+      const r = reports().slice(-3);
+      return r.length
+        ? `Fehler     ${r.map((x) => `${x.where}: ${x.message.slice(0, 60)}${x.count > 1 ? ` ×${x.count}` : ''}`).join(' | ')}`
+        : 'Fehler     keine';
+    });
+    this.debug.lines.push(() =>
+      watchdog.notes.length ? `Watchdog   ${watchdog.notes.slice(-2).join(' | ')}` : 'Watchdog   ruhig',
+    );
     this.debug.lines.push(() => `Wetter     ${WEATHER_ZH[this.weather.kind]} ${this.weather.kind}`);
     this.debug.lines.push(() => {
       const pp = this.player.ch.root.position;
@@ -976,6 +988,13 @@ export class World {
   }
 
   // ───────────────────────────────────────── Bildschleife
+
+  /** Hauptschleife neu anstoßen (Watchdog: kein Bild seit Sekunden) */
+  restartLoop(): void {
+    this.renderer.setAnimationLoop(null);
+    this.last = performance.now();
+    this.renderer.setAnimationLoop(() => this.frame());
+  }
 
   /** Zeitpunkt (performance.now) des letzten gezeichneten Bildes – für Watchdog und Debug-Anzeige */
   lastFrameAt = 0;

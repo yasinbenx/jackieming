@@ -49,7 +49,8 @@ const use = (id) => ev((id) => window.__world.interactables.find((i) => i.id ===
 
 // ── Start
 const t0 = Date.now();
-await p.goto(`${URL}?q=1`);
+// ?debug: Debug-Anzeige im Produktions-Build; ladebudget: die Software-Grafik der Tests ist sehr langsam
+await p.goto(`${URL}?q=1&debug&ladebudget=300`);
 await p.waitForSelector('#mainmenu.show', { timeout: 300000 });
 ok('Ladezeit bis Hauptmenü (s)', true, ((Date.now() - t0) / 1000).toFixed(0));
 ok('Bewohner vorbereitet', await ev(() => window.__villagers.list.every((r) => !!r.rig)));
@@ -203,9 +204,15 @@ await p.keyboard.press('Escape');
 await wait(600);
 const items = await ev(() => [...document.querySelectorAll('.pause [data-id]')].map((b) => b.dataset.id));
 ok('Pausemenü mit Wörterbuch und Quiz', items.includes('words') && items.includes('quiz'), items);
-await p.click('.pause [data-id=resume]');
+// Quiz aus dem Pausemenü öffnen und schließen: danach muss die Figur wieder steuerbar sein
+// (vorher blieb die Eingabe gesperrt, weil das Fenster sie nur im freien Spiel wieder freigab)
+await p.click('.pause [data-id=quiz]');
+await wait(500);
+await p.keyboard.press('Escape');
+await wait(500);
+if (await ev(() => window.__game.pause.open)) await p.click('.pause [data-id=resume]');
 await wait(400);
-await p.keyboard.press('F3');
+ok('Eingabe nach Quiz aus dem Pausemenü frei', await ev(() => window.__world.input.enabled));
 await p
   .waitForFunction(() => (document.getElementById('debug')?.textContent ?? '').includes('Zustand'), null, {
     timeout: 60000,
@@ -213,8 +220,8 @@ await p
   .catch(() => undefined);
 const dbg = await ev(() => document.getElementById('debug')?.textContent ?? '');
 ok(
-  'F3 zeigt Speicher und Zustand',
-  dbg.includes('Speicher') && dbg.includes('Zustand'),
+  'Debug-Anzeige zeigt Speicher, Zustand, Laden, Watchdog',
+  ['Speicher', 'Zustand', 'Laden', 'Watchdog', 'Bildzeit'].every((k) => dbg.includes(k)),
   dbg.split('\n').slice(0, 7).join(' | '),
 );
 

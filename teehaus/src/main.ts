@@ -1,6 +1,7 @@
 import './style.css';
 import { installGlobalHandlers, report, setSnapshot } from './core/guard';
 import { loadStep, loadSummary, setOptionalDeadline } from './core/loadstate';
+import { watchdog } from './core/watchdog';
 
 // Ungefangene Fehler und abgelehnte Promises immer klar melden (auch während des Ladens)
 installGlobalHandlers();
@@ -30,6 +31,80 @@ async function loadFonts(): Promise<void> {
     document.fonts.load('400 1em "Noto Serif SC"', '茶馆以和为贵'),
   ]).catch(() => undefined);
   await Promise.race([load, new Promise((r) => setTimeout(r, 3000))]);
+}
+
+type WorldT = import('./world/world').World;
+type GameT = import('./game').Game;
+
+/**
+ * Watchdog an Welt und Spiel hängen: Hauptschleife, Zwischenzustände, gesperrte Eingabe, Überblendung.
+ * Jeder Eintrag meldet sich nach 10 s unverändert; manche haben einen Notausgang.
+ */
+function watchGame(world: WorldT, game: GameT): void {
+  watchdog.attach({ lastFrameAt: () => world.lastFrameAt, restartLoop: () => world.restartLoop() });
+  const body = document.body.classList;
+  /** ein Fenster oder Menü, das einen Zwischenzustand rechtfertigt */
+  const uiOpen = (): boolean =>
+    game.pause.open ||
+    game.talk.open ||
+    game.tea.open ||
+    game.xq.open ||
+    body.contains('is-picking') ||
+    body.contains('is-entering') ||
+    !!document.querySelector(
+      '.menu.show, .modal:not([hidden]), #worldmap:not([hidden]), .approach-hint, .quest-offer:not([hidden])',
+    );
+  watchdog.watch({
+    name: 'Zwischensequenz',
+    value: () => (world.mode === 'cutscene' && !uiOpen() ? 'Modus cutscene ohne offenes Fenster' : null),
+    recoverAfter: 20,
+    recover: () => {
+      world.cam.setShot(null);
+      world.hidePlayer = false;
+      world.player.stopPath();
+      world.mode = 'free';
+      world.input.enabled = true;
+    },
+  });
+  watchdog.watch({
+    name: 'Intro',
+    value: () => (world.mode === 'intro' ? 'Weg ins Teehaus' : null),
+    warnAfter: 30,
+  });
+  watchdog.watch({
+    name: 'Weg der Spielfigur',
+    value: () => {
+      const pl = world.player;
+      return pl.path.length
+        ? `${pl.path.length} Wegpunkte, bei ${pl.x.toFixed(1)}, ${pl.z.toFixed(1)}`
+        : null;
+    },
+  });
+  watchdog.watch({
+    name: 'Eingabe gesperrt',
+    value: () =>
+      world.mode === 'free' && !world.input.enabled && !uiOpen()
+        ? `ohne offenes Fenster (Sperren: ${world.input.lockReasons.join(', ') || 'Grundzustand'})`
+        : null,
+    warnAfter: 5,
+    recoverAfter: 8,
+    recover: () => {
+      world.input.clearLocks();
+      world.input.enabled = true;
+    },
+  });
+  watchdog.watch({
+    name: 'Überblendung',
+    value: () => {
+      const f = document.getElementById('fade');
+      return f && Number(f.style.opacity || 0) > 0.5 ? 'Bild schwarz' : null;
+    },
+    recoverAfter: 12,
+    recover: () => {
+      const f = document.getElementById('fade');
+      if (f) f.style.opacity = '0';
+    },
+  });
 }
 
 async function boot(): Promise<void> {
@@ -81,6 +156,7 @@ async function boot(): Promise<void> {
   const { Game } = await loadStep('Spiel-Code', () => import('./game'), { timeout: 20000 });
   const game = await loadStep('Spiel einrichten', () => new Game(world), { timeout: 10000 });
   (window as unknown as { __game: unknown }).__game = game;
+  watchGame(world, game);
   // Bewohner, Umgebungslicht, Shader und Texturen jetzt vorbereiten, damit es später im Spiel nicht ruckelt.
   // Alles hier ist optional und hat zusammen ein Budget (Standard 15 s, ?ladebudget=Sekunden): Ist es
   // aufgebraucht, startet das Spiel trotzdem – dann eben mit kleinen Rucklern beim ersten Anblick.
