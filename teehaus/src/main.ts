@@ -45,7 +45,8 @@ async function boot(): Promise<void> {
   // Bewohner und alle Shader jetzt vorbereiten, damit es später im Spiel nicht ruckelt
   const prep = '<span lang="zh">请客</span> <i>qǐngkè</i> · Gäste werden eingeladen …';
   await game.villagers.prepare((f) => set(0.85 + f * 0.1, prep));
-  await set(0.96, prep);
+  await set(0.94, prep);
+  await world.prepareEnvironment(() => set(0.96, prep));
   await world.precompile();
   const params = new URLSearchParams(location.search);
   if (params.has('galerie')) {

@@ -87,11 +87,11 @@ const WX_NIGHT = new Color('#252a33');
 
 const QUALITY: Record<Quality, QualitySpec> = {
   2: {
-    dpr: 2,
+    dpr: 1.5,
     shadow: 2048,
     bloom: true,
     dof: true,
-    msaa: 4,
+    msaa: 2,
     petals: 1,
     steam: 1,
     grass: 18000,
@@ -632,6 +632,7 @@ export class World {
   setQuality(q: Quality, forced = true): void {
     if (this.urlQuality && forced) return;
     if (q === this.quality) return;
+    const hadShadow = this.renderer.shadowMap.enabled;
     this.quality = q;
     this.qualityForced = forced;
     const spec = QUALITY[q];
@@ -644,10 +645,13 @@ export class World {
       this.sun.shadow.map.dispose();
       this.sun.shadow.map = null as unknown as typeof this.sun.shadow.map;
     }
-    this.scene.traverse((o) => {
-      const m = (o as Mesh).material as { needsUpdate?: boolean } | undefined;
-      if (m) m.needsUpdate = true;
-    });
+    // Shader nur neu übersetzen, wenn Schatten an- oder ausgehen (das ändert die Shader). Sonst würde jeder
+    // Wechsel der Automatik das Spiel für Sekunden anhalten.
+    if (hadShadow !== spec.shadow > 0)
+      this.scene.traverse((o) => {
+        const m = (o as Mesh).material as { needsUpdate?: boolean } | undefined;
+        if (m) m.needsUpdate = true;
+      });
     if (this.simpleWater) {
       this.simpleWater.visible = q === 0;
       this.land.water.visible = q > 0;
@@ -718,18 +722,39 @@ export class World {
       this.envT = this.t;
       // Umgebungslicht je Tageszeit-Stufe nur einmal berechnen und aufheben (sonst ruckelt es bei jedem
       // Wechsel kurz, weil der Himmel in eine Würfelkarte gerechnet wird)
-      const key = Math.round(this.t * 20);
-      let env = this.envCache.get(key);
-      if (!env) {
-        const envScene = new Scene();
-        envScene.add(this.sky.clone());
-        env = this.pmrem.fromScene(envScene, 0.04);
-        this.envCache.set(key, env);
-      }
+      const env = this.envFor(Math.round(this.t * 20));
       this.scene.environment = env.texture as Texture;
       this.scene.environmentIntensity = 0.5 - p.stars * 0.25;
       bus.emit('time:changed', { t: this.t });
     }
+  }
+
+  /** Umgebungslicht für eine Tageszeit-Stufe (0…20) aus dem Himmel, so wie er gerade eingestellt ist */
+  private envFor(key: number): WebGLRenderTarget {
+    let env = this.envCache.get(key);
+    if (!env) {
+      const envScene = new Scene();
+      envScene.add(this.sky.clone());
+      // 64 statt 256 Pixel je Würfelseite: für das weiche Umgebungslicht reicht das, und es kostet ein
+      // Sechzehntel der Rechenzeit
+      env = this.pmrem.fromScene(envScene, 0.04, 0.1, 100, { size: 64 });
+      this.envCache.set(key, env);
+    }
+    return env;
+  }
+
+  /**
+   * Umgebungslicht für alle Tageszeiten im Voraus berechnen (Ladebildschirm). Sonst rechnet der Tageslauf
+   * beim ersten Erreichen jeder Stufe und das Bild hakt kurz.
+   */
+  async prepareEnvironment(step?: () => Promise<void>): Promise<void> {
+    for (let k = 0; k <= 20; k++) {
+      if (this.envCache.has(k)) continue;
+      updateSky(this.sky, palette(k / 20));
+      this.envFor(k);
+      if (k % 5 === 4) await step?.();
+    }
+    this.applyTime(true);
   }
 
   // ───────────────────────────────────────── Zonen
