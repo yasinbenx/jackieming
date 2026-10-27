@@ -399,15 +399,11 @@ export class World {
     try {
       if (this.renderer.extensions.has('KHR_parallel_shader_compile'))
         await this.renderer.compileAsync(this.scene, this.camera);
-      // einmal unsichtbar in ein winziges Ziel zeichnen: lädt alle Texturen und Geometrien auf die Grafikkarte
-      // und übersetzt auch die Schatten-Shader
-      const rt = new WebGLRenderTarget(4, 4);
-      const prev = this.renderer.getRenderTarget();
+      // einmal durch die echte Bildpipeline zeichnen (der Ladebildschirm liegt darüber): lädt alle Texturen und
+      // Geometrien auf die Grafikkarte und übersetzt genau die Shader-Varianten, die das Spiel später braucht,
+      // samt Schatten, Teichspiegelung und Nachbearbeitung
       this.renderer.shadowMap.needsUpdate = true;
-      this.renderer.setRenderTarget(rt);
-      this.renderer.render(this.scene, this.camera);
-      this.renderer.setRenderTarget(prev);
-      rt.dispose();
+      this.composer.render(0);
     } finally {
       for (const o of hidden) o.visible = false;
       for (const o of culled) o.frustumCulled = true;
