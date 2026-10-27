@@ -389,6 +389,9 @@ export class World {
   async precompile(): Promise<void> {
     const hidden: Object3D[] = [];
     const culled: Object3D[] = [];
+    // auch Schattenwurf vorübergehend für alle Teile an: Bewohner werfen erst aus der Nähe Schatten, und jede
+    // Schatten-Variante (etwa mit Textur) braucht ihren eigenen Shader
+    const noShadow: Object3D[] = [];
     this.scene.traverse((o) => {
       if (!o.visible) {
         hidden.push(o);
@@ -397,6 +400,10 @@ export class World {
       if (o.frustumCulled) {
         culled.push(o);
         o.frustumCulled = false;
+      }
+      if ((o as Mesh).isMesh && !o.castShadow) {
+        noShadow.push(o);
+        o.castShadow = true;
       }
     });
     try {
@@ -407,9 +414,11 @@ export class World {
       // samt Schatten, Teichspiegelung und Nachbearbeitung
       this.renderer.shadowMap.needsUpdate = true;
       this.composer.render(0);
+      this.warmEffects();
     } finally {
       for (const o of hidden) o.visible = false;
       for (const o of culled) o.frustumCulled = true;
+      for (const o of noShadow) o.castShadow = false;
     }
   }
 
@@ -586,39 +595,63 @@ export class World {
 
   // ───────────────────────────────────────── Effekte und Qualität
 
+  /**
+   * Nachbearbeitung je Qualitätsstufe und Ruhe-Modus. Fertige Varianten bleiben erhalten (nicht freigeben!),
+   * damit ein Wechsel der Automatik keine Shader neu übersetzt; warmEffects() bereitet sie im Ladebildschirm vor.
+   */
+  private effectCache = new Map<string, { pass: EffectPass; dof: DepthOfFieldEffect | null }>();
+
   private buildEffects(): void {
     const spec = QUALITY[this.quality];
-    if (this.effectPass) {
-      this.composer.removePass(this.effectPass);
-      this.effectPass.dispose();
+    if (this.effectPass) this.composer.removePass(this.effectPass);
+    const key = `${this.quality}|${this.calm}`;
+    let fx = this.effectCache.get(key);
+    if (!fx) {
+      const effects: Effect[] = [];
+      if (spec.bloom) {
+        effects.push(
+          new BloomEffect({
+            intensity: 0.75,
+            luminanceThreshold: 0.75,
+            luminanceSmoothing: 0.25,
+            mipmapBlur: true,
+            radius: 0.7,
+          }),
+        );
+      }
+      let dof: DepthOfFieldEffect | null = null;
+      if (spec.dof && !this.calm) {
+        dof = new DepthOfFieldEffect(this.camera, {
+          focusDistance: 4,
+          focusRange: 9,
+          bokehScale: 1.0,
+          resolutionScale: 0.5,
+        });
+        effects.push(dof);
+      }
+      effects.push(new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }));
+      if (spec.msaa === 0) effects.push(new FXAAEffect());
+      fx = { pass: new EffectPass(this.camera, ...effects), dof };
+      this.effectCache.set(key, fx);
     }
-    const effects: Effect[] = [];
-    if (spec.bloom) {
-      effects.push(
-        new BloomEffect({
-          intensity: 0.75,
-          luminanceThreshold: 0.75,
-          luminanceSmoothing: 0.25,
-          mipmapBlur: true,
-          radius: 0.7,
-        }),
-      );
-    }
-    this.dof = null;
-    if (spec.dof && !this.calm) {
-      this.dof = new DepthOfFieldEffect(this.camera, {
-        focusDistance: 4,
-        focusRange: 9,
-        bokehScale: 1.0,
-        resolutionScale: 0.5,
-      });
-      effects.push(this.dof);
-    }
-    effects.push(new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }));
-    if (spec.msaa === 0) effects.push(new FXAAEffect());
-    this.effectPass = new EffectPass(this.camera, ...effects);
-    this.composer.addPass(this.effectPass);
+    this.effectPass = fx.pass;
+    this.dof = fx.dof;
+    this.composer.addPass(fx.pass);
     this.composer.multisampling = spec.msaa;
+  }
+
+  /** Nachbearbeitung der niedrigeren Stufen vorab übersetzen (die Automatik schaltet nur nach unten) */
+  private warmEffects(): void {
+    const q0 = this.quality;
+    for (let q = q0 - 1; q >= 0; q--) {
+      this.quality = q as Quality;
+      this.buildEffects();
+      this.resize();
+      this.composer.render(0);
+    }
+    this.quality = q0;
+    this.buildEffects();
+    this.resize();
   }
 
   /** Automatische Qualitätswahl nach Bildrate an/aus */
@@ -658,6 +691,7 @@ export class World {
     this.calm = on || reducedMotion();
     this.petals.setActive(Math.round(240 * QUALITY[this.quality].petals * (this.calm ? 0.4 : 1)));
     this.buildEffects();
+    this.resize();
   }
 
   private governor(rawDt: number): void {
