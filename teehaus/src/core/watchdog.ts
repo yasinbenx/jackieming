@@ -37,6 +37,10 @@ export class Watchdog {
   private lastTick = performance.now();
   private host: WatchdogHost | null = null;
   private frameWarned = false;
+  private slowWarned = false;
+  /** Bild-Probe: none → pending (angefordert) → fired (Browser hat ein Bild geliefert) */
+  private probe: 'none' | 'pending' | 'fired' = 'none';
+  private probeAt = 0;
   /** letzte Watchdog-Meldungen (für die Debug-Anzeige) */
   readonly notes: string[] = [];
 
@@ -73,15 +77,37 @@ export class Watchdog {
     if (h && h.lastFrameAt() > 0) {
       const since = now - h.lastFrameAt();
       if (since > 3000 && late < 2000) {
-        if (!this.frameWarned) {
-          this.frameWarned = true;
-          const msg = `seit ${(since / 1000).toFixed(1)} s kein Bild – Schleife wird neu angestoßen`;
-          report('Watchdog', new Error(msg));
-          console.warn('[Teehaus] letzte Fehler:', reports().slice(-5));
+        // Unterscheiden: Liefert der Browser überhaupt Bilder? Eine eigene Probe mit requestAnimationFrame:
+        //  - Probe kam an, Spiel hat trotzdem nicht gezeichnet → Schleife tot → Fehler, neu anstoßen
+        //  - Probe kam nicht an → Browser/Grafikkarte liefert gerade keine Bilder (überlastet) → nur Warnung
+        if (this.probe === 'fired' && h.lastFrameAt() < this.probeAt) {
+          if (!this.frameWarned) {
+            this.frameWarned = true;
+            const msg = `seit ${(since / 1000).toFixed(1)} s kein Bild, Browser liefert aber Bilder – Schleife tot, wird neu angestoßen`;
+            report('Watchdog', new Error(msg));
+            console.warn('[Teehaus] letzte Fehler:', reports().slice(-5));
+            this.note(msg);
+          }
+          h.restartLoop();
+          this.probe = 'none';
+        } else if (this.probe === 'pending' && now - this.probeAt > 3000 && !this.slowWarned) {
+          this.slowWarned = true;
+          const msg = `seit ${(since / 1000).toFixed(1)} s kein Bild – der Browser liefert keine (Grafik überlastet)`;
+          report('Watchdog', new Error(msg), 'warn');
           this.note(msg);
         }
-        h.restartLoop();
-      } else if (since < 1000) this.frameWarned = false;
+        if (this.probe === 'none') {
+          this.probe = 'pending';
+          this.probeAt = now;
+          requestAnimationFrame(() => {
+            if (this.probe === 'pending') this.probe = 'fired';
+          });
+        }
+      } else if (since < 1000) {
+        this.frameWarned = false;
+        this.slowWarned = false;
+        this.probe = 'none';
+      }
     }
     // ── Zustände
     for (const s of this.states) {
