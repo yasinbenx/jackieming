@@ -9,6 +9,7 @@ import type { NavGrid } from './nav';
 import type { Seat } from './layout';
 import { FLOOR } from './layout';
 import { approachPoint } from './seating';
+import { report } from '../core/guard';
 
 export const WALK = 1.45;
 export const RUN = 3.5;
@@ -35,6 +36,46 @@ export class Agent {
   private y = FLOOR;
   /** Durchsichtigkeit, wenn die Figur die Sicht verdeckt (1 = normal) */
   fade = 1;
+
+  // Notausgang beim Gehen: kein Fortschritt zum nächsten Wegpunkt → dorthin setzen; ganzer Weg dauert viel
+  // länger als erwartet → ans Ziel setzen und Ankunft melden (sonst warten Sitzplatz, Tür, Gespräch ewig)
+  private stuckT = 0;
+  private bestD = Infinity;
+  private pathT = 0;
+  private pathBudget = 0;
+  /** Zahl der Notausgänge (für Tests und Debug-Anzeige) */
+  rescues = 0;
+
+  private startPath(points: [number, number][]): void {
+    this.path = points;
+    let len = 0;
+    let px = this.x;
+    let pz = this.z;
+    for (const [x, z] of points) {
+      len += Math.hypot(x - px, z - pz);
+      px = x;
+      pz = z;
+    }
+    this.pathT = 0;
+    this.pathBudget = (len / Math.max(0.5, this.walkSpeed)) * 2.5 + 6;
+    this.stuckT = 0;
+    this.bestD = Infinity;
+  }
+
+  private rescue(why: string, x: number, z: number): void {
+    this.rescues++;
+    report(
+      `Figur ${this.ch.root.name || '?'}`,
+      new Error(
+        `${why} bei ${this.x.toFixed(1)}, ${this.z.toFixed(1)} → gesetzt auf ${x.toFixed(1)}, ${z.toFixed(1)}`,
+      ),
+      'warn',
+    );
+    const yaw = this.ch.yaw;
+    this.place(x, z, yaw);
+    this.stuckT = 0;
+    this.bestD = Infinity;
+  }
 
   /** Animation nur jedes n-te Bild (ferne Figuren); die Zeit wird aufgesammelt */
   animStride = 1;
@@ -109,7 +150,7 @@ export class Agent {
     if (this.seatPhase === 'seated') this.standUp();
     const p = this.nav.path(this.x, this.z, x, z);
     if (!p) return false;
-    this.path = p;
+    this.startPath(p);
     this.pathRun = run;
     this.onArrive = onArrive ?? null;
     return true;
@@ -117,7 +158,7 @@ export class Agent {
 
   /** Direkter Weg ohne Rasterprüfung (für kurze Skriptstrecken, z. B. hinter der Theke) */
   walkDirect(points: [number, number][], onArrive?: () => void): void {
-    this.path = points.slice();
+    this.startPath(points.slice());
     this.pathRun = false;
     this.onArrive = onArrive ?? null;
   }
@@ -205,12 +246,29 @@ export class Agent {
       dz = wish.z;
       run = wish.run;
     } else if (this.path.length) {
+      // Notausgänge (siehe startPath)
+      this.pathT += dt;
+      if (this.pathT > this.pathBudget) {
+        const [ex, ez] = this.path[this.path.length - 1]!;
+        this.rescue(`Weg dauert über ${Math.round(this.pathBudget)} s`, ex, ez);
+        this.path = [[ex, ez]];
+      }
       const [tx, tz] = this.path[0]!;
       const ddx = tx - this.x;
       const ddz = tz - this.z;
       const d = Math.hypot(ddx, ddz);
       const last = this.path.length === 1;
-      if (d < (last ? 0.08 : 0.3)) {
+      // kein Fortschritt zum Wegpunkt seit 2,5 s: dorthin setzen und als erreicht werten
+      let reached = d < (last ? 0.08 : 0.3);
+      if (d < this.bestD - 0.03) {
+        this.bestD = d;
+        this.stuckT = 0;
+      } else if ((this.stuckT += dt) > 2.5) {
+        this.rescue('hängt fest', tx, tz);
+        reached = true;
+      }
+      if (reached) {
+        this.bestD = Infinity;
         this.path.shift();
         if (!this.path.length) {
           const cb = this.onArrive;

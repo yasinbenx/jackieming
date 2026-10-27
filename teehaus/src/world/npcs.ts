@@ -15,6 +15,7 @@ import type { NpcLine, NpcProfile } from '../content/dialogs';
 import type { Tea } from '../content/teas';
 import type { Speaker } from '../ui/bubbles';
 import { bus } from '../core/bus';
+import { report } from '../core/guard';
 
 /** Was die NPCs von außen brauchen */
 export interface NpcContext {
@@ -116,8 +117,40 @@ export class Npc {
     return d;
   }
 
+  // Zeitlimit je Zustand: Bleibt eine Figur länger als erlaubt im selben Zustand (eine Rückmeldung kam nie an,
+  // ein Weg wurde nicht gefunden …), wird das gemeldet und recover() bringt sie in den Grundzustand zurück.
+  private lastState = '';
+  /** Sekunden im aktuellen Zustand */
+  stateT = 0;
+  /** Höchstdauer je Zustand in s (null = unbegrenzt) */
+  protected stateLimit(state: string): number | null {
+    void state;
+    return null;
+  }
+  /** Notausgang: zurück in den Grundzustand */
+  protected recover(): void {
+    this.agent.stopPath();
+    this.state = 'idle';
+  }
+
   update(dt: number): void {
     this.ch.talk = Math.max(0, this.ch.talk - dt * 5);
+    if (this.state !== this.lastState) {
+      this.lastState = this.state;
+      this.stateT = 0;
+    }
+    this.stateT += dt;
+    const limit = this.stateLimit(this.state);
+    if (limit !== null && this.stateT > limit) {
+      report(
+        `Figur ${this.profile.id}`,
+        new Error(`Zustand „${this.state}“ seit ${Math.round(this.stateT)} s – zurückgesetzt`),
+        'warn',
+      );
+      this.recover();
+      this.lastState = this.state;
+      this.stateT = 0;
+    }
     this.attend(dt);
     this.next -= dt;
     if (this.next <= 0) this.step();
@@ -168,6 +201,30 @@ class Master extends Npc {
     this.lastReact = this.ctx.world.clock;
     void this.ctx.say(this.speaker, NPCS.master!.lines[0]!.text, 3).then(() => this.ctx.award('huanying'));
     this.next = 6;
+  }
+
+  protected override stateLimit(state: string): number | null {
+    if (state === 'serve') return 45;
+    if (state === 'brew' || state === 'order') return 25;
+    // Mini-Spiel: nur begrenzen, wenn es gar nicht mehr offen ist (endBrew kam nie an)
+    if (state === 'game') return this.ctx.busy() ? null : 10;
+    return null;
+  }
+
+  /** Zurück hinter die Theke, Kanne weg, Schale in die Hand */
+  protected override recover(): void {
+    this.agent.stopPath();
+    this.agent.collide = false;
+    this.agent.place(HOME.x, HOME.y, 0);
+    this.agent.faceYaw(0);
+    this.ch.lookAt(null);
+    this.ch.showProp('teapot', false);
+    this.ch.hold('polish');
+    this.ch.showProp('bowl', true);
+    if (this.cupOnCounter) this.cupOnCounter.visible = false;
+    this.away = false;
+    this.state = 'idle';
+    this.next = rand(8, 14);
   }
 
   get available(): boolean {
@@ -411,8 +468,23 @@ class Seated extends Npc {
     this.outing = rand(40, 90);
   }
 
+  /** Sekunden, die der Gast schon steht, ohne unterwegs zu sein */
+  private standT = 0;
+
   override update(dt: number): void {
     super.update(dt);
+    // Notausgang: steht der Gast länger als 20 s herum (Rückweg zum Hocker nicht gefunden), setzt er sich
+    // wieder – notfalls direkt auf seinen Platz
+    if (!this.agent.seated && !this.agent.busy && !this.engaged) {
+      if ((this.standT += dt) > 20) {
+        this.standT = 0;
+        if (!this.agent.sitAt(this.home, () => this.work && this.ch.hold(this.work))) {
+          report(`Figur ${this.profile.id}`, new Error('kein Weg zurück zum Platz – direkt gesetzt'), 'warn');
+          this.agent.placeSeated(this.home);
+          if (this.work) this.ch.hold(this.work);
+        }
+      }
+    } else this.standT = 0;
     if (!this.spots.length) return;
     this.outing -= dt;
     if (this.outing > 0 || !this.agent.seated || this.ctx.busy() || this.engaged) return;

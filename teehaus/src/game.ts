@@ -17,6 +17,7 @@ import { ERRANDS, VILLAGERS } from './content/villagers';
 import { currentQuest } from './minigames/quests';
 import type { World } from './world/world';
 import { store } from './state/store';
+import { report } from './core/guard';
 import { bus } from './core/bus';
 import { JACKIE, YAO } from './content/dialogs';
 import { WORDS } from './content/words';
@@ -430,6 +431,14 @@ export class Game {
         return true;
       }
       t += dt;
+      // Notausgang: Nach 12 s wird im Stehen geredet – auch wenn die Figur noch gar nicht losgehen konnte
+      // (vorher galt das Zeitlimit erst nach dem Losgehen; blieb die Figur „beschäftigt“, hing das Spiel im
+      // Zwischenzustand ohne Steuerung fest)
+      if (t > 12) {
+        report('Gespräch: Weg zum Platz', new Error(`Zeitlimit 12 s (losgegangen: ${started})`), 'warn');
+        finish(false);
+        return true;
+      }
       if (!started) {
         if (pl.busy) return false;
         started = true;
@@ -447,10 +456,6 @@ export class Game {
         pl.faceTo(F.x, F.z);
         pl.ch.lookAt(F);
         finish(true);
-        return true;
-      }
-      if (t > 12) {
-        finish(false);
         return true;
       }
       return false;

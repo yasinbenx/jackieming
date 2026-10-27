@@ -29,6 +29,7 @@ import { ERRANDS, VILLAGERS } from '../content/villagers';
 import type { Villager, VillagerLook } from '../content/villagers';
 import type { Speaker } from '../ui/bubbles';
 import { store } from '../state/store';
+import { report } from '../core/guard';
 
 export interface VillagerContext {
   world: World;
@@ -191,7 +192,20 @@ class Resident {
     this.node = to;
     this.state = 'walk';
     this.homeBound = goHome;
+    // Zeitbudget für den ganzen Weg (Notausgang, siehe update)
+    let len = 0;
+    let [px, pz] = [this.x, this.z];
+    for (const [x, z] of r) {
+      len += Math.hypot(x - px, z - pz);
+      [px, pz] = [x, z];
+    }
+    this.walkT = 0;
+    this.walkBudget = len / 0.9 + 30;
+    this.blockedT = 0;
   }
+  private walkT = 0;
+  private walkBudget = 60;
+  private blockedT = 0;
   private homeBound = false;
 
   private arrive(): void {
@@ -309,7 +323,23 @@ class Resident {
         const px = pl.x - this.x;
         const pz = pl.z - this.z;
         const pd = Math.hypot(px, pz);
-        const blocked = pd < 0.9 && (px * dx + pz * dz) / Math.max(1e-6, d * pd) > 0.4;
+        // … aber nicht ewig: Steht der Spieler länger als 4 s im Weg, geht der Bewohner trotzdem weiter
+        let blocked = pd < 0.9 && (px * dx + pz * dz) / Math.max(1e-6, d * pd) > 0.4;
+        this.blockedT = blocked ? this.blockedT + dt : 0;
+        if (this.blockedT > 4) blocked = false;
+        // Notausgang: Weg dauert viel länger als erwartet → ans Ziel setzen
+        if ((this.walkT += dt) > this.walkBudget) {
+          const [ex, ez] = this.path[this.path.length - 1]!;
+          report(
+            `Bewohner ${this.v.id}`,
+            new Error(`Weg dauert über ${Math.round(this.walkBudget)} s – ans Ziel gesetzt`),
+            'warn',
+          );
+          this.x = ex;
+          this.z = ez;
+          this.path = [];
+          return;
+        }
         // anderen Bewohnern ausweichen
         const av =
           d > 0.01 ? avoidance(this.x, this.z, dx / d, dz / d, m.neighbors(this)) : { side: 0, slow: 0 };

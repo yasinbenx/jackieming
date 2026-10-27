@@ -1,5 +1,6 @@
 // Jackie Chan und Yao Ming am Haupttisch: Namensschilder, Verhaltensschleifen (Tee trinken, nachschenken,
 // zunicken, lachen, Symbol-Blasen), Blick zum Spieler und Yaos Auftritt durch die (für ihn zu niedrige) Tür.
+import { report } from '../core/guard';
 import { Vector3 } from 'three';
 import type { World } from './world';
 import { Agent } from './agent';
@@ -114,7 +115,16 @@ export class Heroes {
     if (this.yaoInside || this.yaoEntering) return;
     this.yaoEntering = true;
     const yao = this.yao;
-    yao.agent.goTo(0, HALL.z1 + 0.9, false, () => {
+    // Notausgang: kein Weg zur Tür oder zum Hocker → Yao sitzt einfach schon am Tisch (sonst käme er nie herein)
+    const seatDirectly = (why: string): void => {
+      report('Yao kommt herein', new Error(`${why} – direkt an den Tisch gesetzt`), 'warn');
+      yao.agent.stopPath();
+      yao.agent.placeSeated(seat('main-1'));
+      yao.ch.lookAt(this.jackie.face());
+      this.yaoInside = true;
+      this.yaoEntering = false;
+    };
+    const ok = yao.agent.goTo(0, HALL.z1 + 0.9, false, () => {
       yao.agent.faceYaw(Math.PI);
       this.ctx.icon(yao.speaker, '…');
       window.setTimeout(() => {
@@ -123,12 +133,14 @@ export class Heroes {
           this.yaoEntering = false;
           this.ctx.icon(this.jackie.speaker, '!');
           this.jackie.ch.play('laugh', 1.4);
-          yao.agent.sitAt(seat('main-1'), () => {
+          const sat = yao.agent.sitAt(seat('main-1'), () => {
             yao.ch.lookAt(this.jackie.face());
           });
+          if (!sat) seatDirectly('kein Weg zum Hocker');
         });
       }, 700);
     });
+    if (!ok) seatDirectly('kein Weg zur Tür');
   }
 
   /** Kommentar zu einem Fundstück: nur, wenn die Figur in der Nähe ist */
