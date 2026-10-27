@@ -342,7 +342,7 @@ export class World {
     // mit Zeitlimit: hängt eine Datei im Netz, startet das Spiel mit gezeichneten Figuren/Frisuren
     await Promise.all([
       loadStep('Haarmodelle', () => loadHairKit(), { timeout: 15000, optional: true }),
-      loadStep('Figurenmodelle', () => loadRig(), { timeout: 20000, optional: true, fallback: null }),
+      loadStep('Figurenmodelle', () => loadRig(), { timeout: 30000, optional: true, fallback: null }),
     ]);
     // Spielfigur
     this.outfit = Math.min(ALL_OUTFITS.length - 1, Math.max(0, store.outfit));

@@ -17,18 +17,19 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Befehl                                        | Zweck                                                                |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| `npm run dev`                                 | Entwicklungsserver                                                   |
-| `npm run build`                               | Typprüfung + Produktions-Build nach `dist/`                          |
-| `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie Vercel)   |
-| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                   |
-| `npm run facts`                               | `FAKTEN.md` aus den Inhalten erzeugen; `check:content` prüft nur     |
-| `npm test`                                    | Unit-Tests (Wegfindung, Platzwahl, Sprechblasen, Welt, Dorf, Quiz …) |
-| `npm run check`                               | alles Statische auf einmal: Typen, Lint, Format, Inhalte, Unit-Tests |
-| `npm run test:e2e`                            | Rundgang im Browser: Laufen, alle Plätze, Gespräch, Esc, Panels      |
-| `npm run test:gesamt`                         | Gesamttest im Browser: alle Spielteile, Speichern, Draw-Calls        |
-| `npm run test:haenger`                        | Hänger-Test: Blockaden über 80 ms mit Ursache (Profiler, Shader)     |
+| Befehl                                        | Zweck                                                                 |
+| --------------------------------------------- | --------------------------------------------------------------------- |
+| `npm run dev`                                 | Entwicklungsserver                                                    |
+| `npm run build`                               | Typprüfung + Produktions-Build nach `dist/`                           |
+| `npm run preview`                             | Build lokal ansehen (mit denselben Sicherheits-Headern wie Vercel)    |
+| `npm run typecheck` / `lint` / `format:check` | Qualitätsprüfungen                                                    |
+| `npm run facts`                               | `FAKTEN.md` aus den Inhalten erzeugen; `check:content` prüft nur      |
+| `npm test`                                    | Unit-Tests (Wegfindung, Platzwahl, Sprechblasen, Welt, Dorf, Quiz …)  |
+| `npm run check`                               | alles Statische auf einmal: Typen, Lint, Format, Inhalte, Unit-Tests  |
+| `npm run test:e2e`                            | Rundgang im Browser: Laufen, alle Plätze, Gespräch, Esc, Panels       |
+| `npm run test:gesamt`                         | Gesamttest im Browser: alle Spielteile, Speichern, Draw-Calls         |
+| `npm run test:haenger`                        | Hänger-Test: Blockaden über 80 ms mit Ursache (Profiler, Shader)      |
+| `npm run test:belastung`                      | Laden und Übergang bei langsamem Netz, gedrosselter CPU, Telefongröße |
 
 Test-Adressen:
 
@@ -209,6 +210,15 @@ Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefe
 - **Bewohner weichen einander aus** (rechts vorbei, abbremsen, wenn es eng wird; `src/world/avoid.ts`, getestet).
 - **Inhalte in Datendateien:** siehe „Inhalte ändern“.
 - Bedient wird am PC mit Maus und Tastatur; die Touch-Steuerung aus früheren Runden ist vorhanden, wurde in dieser Runde aber nicht weiter getestet.
+
+## Stabilität: Fehler, Watchdog, Notausgänge
+
+- **Fehler abfangen** (`src/core/guard.ts`): Spiellogik und Zeichnen jedes Bildes sind getrennt abgesichert, ebenso jeder Ticker, jede Figur und die Sprechblasen. Ein Fehler wird mit Ort, Stapel und Spielzustand gemeldet (`[Teehaus] …` in der Konsole, gebündelt), die Hauptschleife läuft weiter. `window.onerror` und `unhandledrejection` melden alles Übrige.
+- **Laden** (`src/core/loadstate.ts`): Jeder Ladeschritt hat Status, Dauer und Zeitlimit. Optionale Schritte (Schriften, Haar- und Figurenmodelle, Bewohner, Umgebungslicht, Shader und Texturen) werden nach ihrem Limit übersprungen, die Vorbereitung hat zusammen 15 s Budget (`?ladebudget=Sekunden`). Danach startet das Spiel trotzdem (notfalls mit gezeichneten Figuren). Shader werden vorab übersetzt (`compileAsync` bzw. `compile`), Texturen per `initTexture` hochgeladen, und die Szene wird einmal durch die echte Bildpipeline gezeichnet.
+- **Watchdog** (`src/core/watchdog.ts`), jede Sekunde: kein Bild seit 3 s → melden und Schleife neu anstoßen; Hauptthread blockiert → melden, wie lange; Übergangszustände über 10 s unverändert (Laden, Zwischensequenz, Intro, Weg der Spielfigur, Eingabe gesperrt, schwarze Überblendung) → melden mit Stapel und letzten Fehlern, teils mit Notausgang.
+- **Zustandsautomaten mit Zeitlimit:** Figuren, die nicht weiterkommen, werden an den Wegpunkt bzw. ans Ziel gesetzt; der Weg zum Gesprächsplatz endet nach 12 s; Teemeister, sitzende Gäste, Yao und Dorfbewohner kehren nach ihrem Zeitlimit in den Grundzustand zurück. Jeder Notausgang meldet sich in der Konsole.
+- **Debug-Anzeige** (F3) nur im Entwicklungsmodus oder mit `?debug`: FPS, Bildzeit, Draw-Calls, Dreiecke, Speicher/Texturen/Shader, Spielzustand mit Eingabesperren, Ladezustand jedes Schritts, Zeit des letzten Bildes, letzte Fehler, Watchdog.
+- **Belastungstest** `npm run test:belastung` (langsames Netz, CPU 4× gedrosselt, Telefongröße).
 
 ## Auf Vercel veröffentlichen
 
