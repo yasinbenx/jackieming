@@ -241,7 +241,9 @@ export class World {
       stencil: false,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
-    this.renderer.shadowMap.enabled = spec.shadow > 0;
+    // Schattenkarte immer an (auch auf Niedrig): Ein- und Ausschalten würde alle Shader ändern und das Spiel
+    // beim Wechsel der Qualität sekundenlang anhalten. Auf Niedrig wird sie nur nicht gezeichnet und ausgeblendet.
+    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     // erstes Bild: Schattenkarte sofort anlegen (sonst liest der Shader eine leere Textur)
@@ -257,8 +259,9 @@ export class World {
     // Licht
     this.scene.fog = new FogExp2('#e8b88a', 0.005);
     this.scene.add(this.sky, this.hemi, this.sun, this.sun.target, this.fill);
-    this.sun.castShadow = spec.shadow > 0;
+    this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(Math.max(512, spec.shadow), Math.max(512, spec.shadow));
+    this.sun.shadow.intensity = spec.shadow > 0 ? 1 : 0;
     const sc = this.sun.shadow.camera;
     sc.left = -13;
     sc.right = 13;
@@ -628,26 +631,18 @@ export class World {
   setQuality(q: Quality, forced = true): void {
     if (this.urlQuality && forced) return;
     if (q === this.quality) return;
-    const hadShadow = this.renderer.shadowMap.enabled;
     this.quality = q;
     this.qualityForced = forced;
     const spec = QUALITY[q];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
-    this.renderer.shadowMap.enabled = spec.shadow > 0;
+    // Schatten an/aus nur über ihre Stärke (siehe init): die Shader bleiben dieselben
+    this.sun.shadow.intensity = spec.shadow > 0 ? 1 : 0;
     this.renderer.shadowMap.needsUpdate = true;
-    this.sun.castShadow = spec.shadow > 0;
     if (spec.shadow > 0 && this.sun.shadow.map && this.sun.shadow.mapSize.x !== spec.shadow) {
       this.sun.shadow.mapSize.set(spec.shadow, spec.shadow);
       this.sun.shadow.map.dispose();
       this.sun.shadow.map = null as unknown as typeof this.sun.shadow.map;
     }
-    // Shader nur neu übersetzen, wenn Schatten an- oder ausgehen (das ändert die Shader). Sonst würde jeder
-    // Wechsel der Automatik das Spiel für Sekunden anhalten.
-    if (hadShadow !== spec.shadow > 0)
-      this.scene.traverse((o) => {
-        const m = (o as Mesh).material as { needsUpdate?: boolean } | undefined;
-        if (m) m.needsUpdate = true;
-      });
     if (this.simpleWater) {
       this.simpleWater.visible = q === 0;
       this.land.water.visible = q > 0;
@@ -1078,7 +1073,8 @@ export class World {
     }
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
-    if (this.frameNo % 2 === 0 || this.frameNo < 4 || this.cam.locked)
+    // auf Niedrig gar nicht (Schatten sind dort ausgeblendet)
+    if (QUALITY[this.quality].shadow > 0 && (this.frameNo % 2 === 0 || this.frameNo < 4 || this.cam.locked))
       this.renderer.shadowMap.needsUpdate = true;
     const info = this.renderer.info;
     info.reset();

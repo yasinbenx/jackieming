@@ -132,17 +132,37 @@ export class WorldMap {
     return [(x - VIEW.x0) * SCALE, (z - VIEW.z0) * SCALE];
   }
 
-  /** Kartengrund: Höhenschattierung, Wasser, Wege, Häuser (einmalig) */
-  private paintBase(): HTMLCanvasElement {
+  private img: ImageData | null = null;
+  private rows = 0;
+
+  /**
+   * Kartenbild schon vorab malen, in kleinen Stücken in Leerlaufzeiten (sonst hängt das erste Öffnen der Karte
+   * spürbar, weil jedes Pixel aus dem Höhenraster berechnet wird).
+   */
+  prepare(): void {
+    if (this.base) return;
+    const idle =
+      (window as { requestIdleCallback?: (cb: (d: { timeRemaining: () => number }) => void) => number })
+        .requestIdleCallback ?? ((cb) => window.setTimeout(() => cb({ timeRemaining: () => 8 }), 50));
+    const work = (d: { timeRemaining: () => number }): void => {
+      if (this.base) return;
+      this.paintRows(Math.max(4, Math.floor(d.timeRemaining() * 2)));
+      if (this.rows >= this.canvas.height) this.base = this.finishBase();
+      else idle(work);
+    };
+    idle(work);
+  }
+
+  /** Einige Zeilen des Kartenbilds berechnen */
+  private paintRows(n: number): void {
     const f = field();
     const sf = surface();
     const W = f.nx + 1;
-    const c = document.createElement('canvas');
-    c.width = this.canvas.width;
-    c.height = this.canvas.height;
-    const g = c.getContext('2d')!;
-    const img = g.createImageData(c.width, c.height);
-    for (let py = 0; py < c.height; py++) {
+    const c = this.canvas;
+    this.img ??= new ImageData(c.width, c.height);
+    const img = this.img;
+    const end = Math.min(c.height, this.rows + n);
+    for (let py = this.rows; py < end; py++) {
       for (let px = 0; px < c.width; px++) {
         const x = VIEW.x0 + px / SCALE;
         const z = VIEW.z0 + py / SCALE;
@@ -182,7 +202,22 @@ export class WorldMap {
         img.data[o + 3] = 255;
       }
     }
-    g.putImageData(img, 0, 0);
+    this.rows = end;
+  }
+
+  /** Kartengrund: Höhenschattierung, Wasser, Wege, Häuser (einmalig) */
+  private paintBase(): HTMLCanvasElement {
+    while (this.rows < this.canvas.height) this.paintRows(64);
+    return this.finishBase();
+  }
+
+  private finishBase(): HTMLCanvasElement {
+    const c = document.createElement('canvas');
+    c.width = this.canvas.width;
+    c.height = this.canvas.height;
+    const g = c.getContext('2d')!;
+    g.putImageData(this.img!, 0, 0);
+    this.img = null;
     // Fluss nachziehen (sauberer Rand)
     g.strokeStyle = 'rgba(70,115,128,0.9)';
     g.lineWidth = 7;

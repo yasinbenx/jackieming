@@ -578,6 +578,8 @@ export class Game {
   /** Nach dem Intro: Yao kommt herein */
   onEntered(): void {
     window.setTimeout(() => this.heroes.enterYao(), 4000);
+    // Kartenbild in Leerlaufzeiten vorbereiten, damit die Karte (M) sofort aufgeht
+    window.setTimeout(() => this.map.prepare(), 6000);
   }
 
   /** Markierungen auf der Karte: Teemeister-Aufgabe und Dorfaufträge */
