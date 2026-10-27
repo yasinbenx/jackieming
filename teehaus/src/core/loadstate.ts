@@ -101,3 +101,21 @@ export function loadSummary(): string {
     .map((i) => `${i.label}: ${i.status}${i.ms !== undefined ? ` ${Math.round(i.ms)} ms` : ''}`)
     .join(' · ');
 }
+
+/** Synchronen Teilschritt messen und protokollieren (für die Aufschlüsselung langer Blöcke) */
+export function timed<T>(label: string, fn: () => T): T {
+  const it = item(label);
+  it.status = 'lädt';
+  it.started = performance.now();
+  try {
+    const r = fn();
+    it.status = 'fertig';
+    return r;
+  } catch (e) {
+    it.status = 'Fehler';
+    it.error = e instanceof Error ? e.message : String(e);
+    throw e;
+  } finally {
+    it.ms = performance.now() - it.started;
+  }
+}

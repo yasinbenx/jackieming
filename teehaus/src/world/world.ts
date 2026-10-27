@@ -40,8 +40,9 @@ import { POND, SHARED } from '../three/shared';
 import { clamp } from '../three/noise';
 import { bus } from '../core/bus';
 import { report, reports } from '../core/guard';
-import { loadStep, loadSummary } from '../core/loadstate';
+import { loadStep, loadSummary, timed } from '../core/loadstate';
 import { watchdog } from '../core/watchdog';
+import { disposeUnshared } from '../three/dispose';
 import { store } from '../state/store';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
@@ -252,6 +253,10 @@ export class World {
     // erstes Bild: Schattenkarte sofort anlegen (sonst liest der Shader eine leere Textur)
     this.renderer.shadowMap.needsUpdate = true;
     this.renderer.info.autoReset = false;
+    // Shader-Prüfung nur im Entwicklungsmodus: Sie fragt nach jeder Übersetzung das Ergebnis ab und hält den
+    // Hauptthread an, bis die Grafikkarte fertig ist (beim Laden insgesamt viele Sekunden am Stück). Ohne sie
+    // übersetzt der Browser im Hintergrund weiter, und Seite und Ladebalken bleiben bedienbar.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     this.renderer.toneMapping = NoToneMapping;
     host.appendChild(this.renderer.domElement);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -278,15 +283,18 @@ export class World {
     this.fill.position.set(2, FLOOR + 2.6, -1);
 
     // Landschaft und Café
-    this.land = buildLandscape({
-      reflect: this.quality > 0,
-      reflectRes: this.quality === 2 ? 1024 : 512,
-      bambooLeaves: this.quality === 2 ? 9 : this.quality === 1 ? 6 : 3,
-      mist: this.quality === 0 ? 14 : 26,
-      nature: { grass: spec.grass, near: spec.near, far: spec.far },
-    });
+    this.land = timed('· Gelände und Natur', () =>
+      buildLandscape({
+        reflect: this.quality > 0,
+        reflectRes: this.quality === 2 ? 1024 : 512,
+        bambooLeaves: this.quality === 2 ? 9 : this.quality === 1 ? 6 : 3,
+        mist: this.quality === 0 ? 14 : 26,
+        nature: { grass: spec.grass, near: spec.near, far: spec.far },
+      }),
+    );
     this.scene.add(this.land.group);
-    this.village = buildVillage(VILLAGE_RANGE[this.quality]);
+    await progress(0.4);
+    this.village = timed('· Dorf', () => buildVillage(VILLAGE_RANGE[this.quality]));
     this.scene.add(this.village.group);
     this.critters = new Critters((x, z) => this.nav?.walkable(x, z) ?? true);
     this.scene.add(this.critters.group);
@@ -296,7 +304,7 @@ export class World {
       this.scene.add(this.simpleWater);
     }
     await progress(0.5);
-    this.cafe = buildCafe(this.quality === 2 ? 4 : this.quality === 1 ? 3 : 1);
+    this.cafe = timed('· Teehaus', () => buildCafe(this.quality === 2 ? 4 : this.quality === 1 ? 3 : 1));
     this.scene.add(this.cafe.group);
     this.shafts = new LightShafts(
       this.cafe.shaftWindows,
@@ -326,7 +334,8 @@ export class World {
     this.rain = new Rain(this.quality === 2 ? 4000 : this.quality === 1 ? 2200 : 900);
     this.scene.add(this.rain.mesh);
     this.scene.add(this.fireflies.points);
-    this.nav = new NavGrid();
+    await progress(0.6);
+    this.nav = timed('· Laufraster', () => new NavGrid());
     await progress(0.7);
 
     // Haarmodelle (klein, ~0,4 MB) vor den Figuren laden
@@ -486,6 +495,12 @@ export class World {
     this.scene.add(p.ch.root);
     this.agents[this.agents.indexOf(old)] = p;
     this.player = p;
+    // alte Figur freigeben (vorher blieb jede beim Durchklicken der Kleidung im Speicher)
+    try {
+      disposeUnshared(old.ch.root, this.scene);
+    } catch (e) {
+      report('Figur freigeben', e, 'warn');
+    }
     p.ch.play('hop', 0.8);
   }
 
