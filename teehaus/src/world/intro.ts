@@ -5,6 +5,7 @@ import { PLAYER_LOOKS } from './looks';
 import { BRIDGE, HALL, INSIDE, START } from './layout';
 import { bus } from '../core/bus';
 import { h } from '../ui/dom';
+import { report } from '../core/guard';
 
 const wait = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
@@ -108,8 +109,17 @@ export async function walkIn(
   const total = START.z - doorZ;
   let done = false;
   if (!skip.requested && !world.calm) {
-    pl.goTo(0, doorZ, false, () => (done = true));
-    while (!done && !skip.requested) {
+    // Notausgang: kein Weg gefunden oder die Figur kommt nicht an (hängt fest, Hintergrund-Tab …) –
+    // nach 20 s geht es trotzdem weiter, sonst bliebe der Übergang für immer stehen
+    const ok = pl.goTo(0, doorZ, false, () => (done = true));
+    if (!ok)
+      report('Intro: kein Weg zur Tür', new Error(`von ${pl.x.toFixed(1)}, ${pl.z.toFixed(1)}`), 'warn');
+    const t0 = performance.now();
+    while (ok && !done && !skip.requested) {
+      if (performance.now() - t0 > 20000) {
+        report('Intro: Weg zur Tür', new Error('Zeitlimit 20 s – Figur wird an die Tür gesetzt'), 'warn');
+        break;
+      }
       onStep(Math.min(1, (START.z - pl.z) / total));
       world.cam.follow(Math.PI, 0.05, 1.2);
       // Auf der Brücke kurz die Aussicht zeigen

@@ -1,5 +1,6 @@
 import './style.css';
 import { installGlobalHandlers, report, setSnapshot } from './core/guard';
+import { loadStep, loadSummary, setOptionalDeadline } from './core/loadstate';
 
 // Ungefangene Fehler und abgelehnte Promises immer klar melden (auch während des Ladens)
 installGlobalHandlers();
@@ -7,7 +8,18 @@ installGlobalHandlers();
 // Der Ladescreen steht in index.html (reines DOM). Hier wird die 3D-Welt nachgeladen.
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-const nextFrame = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
+/**
+ * Auf das nächste Bild warten – höchstens 100 ms. In einem Hintergrund-Tab feuert requestAnimationFrame gar
+ * nicht; ohne die Obergrenze bliebe das Laden dort einfach stehen.
+ */
+const nextFrame = (): Promise<void> =>
+  new Promise((r) => {
+    const t = window.setTimeout(r, 100);
+    requestAnimationFrame(() => {
+      window.clearTimeout(t);
+      r();
+    });
+  });
 
 /** Schriften vor dem Zeichnen laden, damit Schilder und Hängerollen nicht mit Ersatzschrift entstehen. */
 async function loadFonts(): Promise<void> {
@@ -29,18 +41,24 @@ async function boot(): Promise<void> {
     await nextFrame();
     await nextFrame();
   };
+  const t0 = performance.now();
   await set(0.08, '<span lang="zh">研墨</span> <i>yánmò</i> · Tusche wird angerieben …');
-  await loadFonts();
-  const { World } = await import('./world/world');
+  await loadStep('Schriften', loadFonts, { timeout: 4000, optional: true });
+  const { World } = await loadStep('Welt-Code', () => import('./world/world'), { timeout: 20000 });
   await set(0.25, '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …');
   const world = new World();
-  await world.init($('stage'), (f) =>
-    set(
-      0.25 + f * 0.6,
-      f < 0.7
-        ? '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …'
-        : '<span lang="zh">泡茶</span> <i>pàochá</i> · Tee zieht …',
-    ),
+  await loadStep(
+    'Welt aufbauen',
+    () =>
+      world.init($('stage'), (f) =>
+        set(
+          0.25 + f * 0.6,
+          f < 0.7
+            ? '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …'
+            : '<span lang="zh">泡茶</span> <i>pàochá</i> · Tee zieht …',
+        ),
+      ),
+    { timeout: 30000 },
   );
   (window as unknown as { __world: unknown }).__world = world;
   // Zustand, der jeder Fehlermeldung beigelegt wird
@@ -60,15 +78,26 @@ async function boot(): Promise<void> {
       ].map((e) => e.id || e.className),
     };
   });
-  const { Game } = await import('./game');
-  const game = new Game(world);
+  const { Game } = await loadStep('Spiel-Code', () => import('./game'), { timeout: 20000 });
+  const game = await loadStep('Spiel einrichten', () => new Game(world), { timeout: 10000 });
   (window as unknown as { __game: unknown }).__game = game;
-  // Bewohner und alle Shader jetzt vorbereiten, damit es später im Spiel nicht ruckelt
+  // Bewohner, Umgebungslicht, Shader und Texturen jetzt vorbereiten, damit es später im Spiel nicht ruckelt.
+  // Alles hier ist optional und hat zusammen ein Budget (Standard 15 s, ?ladebudget=Sekunden): Ist es
+  // aufgebraucht, startet das Spiel trotzdem – dann eben mit kleinen Rucklern beim ersten Anblick.
+  const budget = Number(new URLSearchParams(location.search).get('ladebudget')) || 15;
+  setOptionalDeadline(budget * 1000);
   const prep = '<span lang="zh">请客</span> <i>qǐngkè</i> · Gäste werden eingeladen …';
-  await game.villagers.prepare((f) => set(0.85 + f * 0.1, prep));
+  await loadStep('Bewohner vorbereiten', () => game.villagers.prepare((f) => set(0.85 + f * 0.1, prep)), {
+    timeout: 10000,
+    optional: true,
+  });
   await set(0.94, prep);
-  await world.prepareEnvironment(() => set(0.96, prep));
-  await world.precompile();
+  await loadStep('Umgebungslicht', () => world.prepareEnvironment(() => set(0.96, prep)), {
+    timeout: 8000,
+    optional: true,
+  });
+  await loadStep('Shader und Texturen', () => world.precompile(), { timeout: 15000, optional: true });
+  console.info(`[Teehaus] geladen in ${((performance.now() - t0) / 1000).toFixed(1)} s – ${loadSummary()}`);
   const params = new URLSearchParams(location.search);
   if (params.has('galerie')) {
     const { gallery } = await import('./world/gallery');

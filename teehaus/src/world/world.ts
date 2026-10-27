@@ -40,6 +40,7 @@ import { POND, SHARED } from '../three/shared';
 import { clamp } from '../three/noise';
 import { bus } from '../core/bus';
 import { report } from '../core/guard';
+import { loadStep } from '../core/loadstate';
 import { store } from '../state/store';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
@@ -328,7 +329,11 @@ export class World {
     await progress(0.7);
 
     // Haarmodelle (klein, ~0,4 MB) vor den Figuren laden
-    await Promise.all([loadHairKit(), loadRig()]);
+    // mit Zeitlimit: hängt eine Datei im Netz, startet das Spiel mit gezeichneten Figuren/Frisuren
+    await Promise.all([
+      loadStep('Haarmodelle', () => loadHairKit(), { timeout: 15000, optional: true }),
+      loadStep('Figurenmodelle', () => loadRig(), { timeout: 20000, optional: true, fallback: null }),
+    ]);
     // Spielfigur
     this.outfit = Math.min(ALL_OUTFITS.length - 1, Math.max(0, store.outfit));
     this.player = new Agent(this.playerLook(), this.nav);
@@ -408,8 +413,24 @@ export class World {
       }
     });
     try {
+      // alle Texturen ausdrücklich hochladen (auch die von gerade unsichtbaren Teilen)
+      const seen = new Set<Texture>();
+      this.scene.traverse((o) => {
+        const ms = (o as Mesh).material;
+        for (const m of Array.isArray(ms) ? ms : ms ? [ms] : [])
+          for (const v of Object.values(m as unknown as Record<string, unknown>))
+            if ((v as Texture | null)?.isTexture && !seen.has(v as Texture)) {
+              seen.add(v as Texture);
+              try {
+                this.renderer.initTexture(v as Texture);
+              } catch (e) {
+                report('Textur vorab laden', e, 'warn');
+              }
+            }
+      });
       if (this.renderer.extensions.has('KHR_parallel_shader_compile'))
         await this.renderer.compileAsync(this.scene, this.camera);
+      else this.renderer.compile(this.scene, this.camera);
       // einmal durch die echte Bildpipeline zeichnen (der Ladebildschirm liegt darüber): lädt alle Texturen und
       // Geometrien auf die Grafikkarte und übersetzt genau die Shader-Varianten, die das Spiel später braucht,
       // samt Schatten, Teichspiegelung und Nachbearbeitung
