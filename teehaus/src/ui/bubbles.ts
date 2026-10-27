@@ -2,6 +2,7 @@
 // letzten 2-3 Blasen rücken nach oben und verblassen. Typewriter-Effekt mit Silben-Gemurmel über den Bus.
 import type { Vector3 } from 'three';
 import { bus } from '../core/bus';
+import { report } from '../core/guard';
 import { store } from '../state/store';
 import { h, prefersReducedMotion } from './dom';
 import { Typer } from './typewriter';
@@ -175,34 +176,40 @@ export class Bubbles {
   private loop = (): void => {
     cancelAnimationFrame(this.raf);
     let any = false;
-    // Bereich rechts, den das Gesprächsfenster belegt (Desktop: Seitenleiste)
-    const panel = document.querySelector<HTMLElement>('.dlg3:not([hidden])');
-    const pr = panel?.getBoundingClientRect();
-    const side = pr && pr.left > window.innerWidth * 0.45 ? pr.left : window.innerWidth;
-    const bottomLimit = pr && pr.left <= window.innerWidth * 0.45 ? pr.top - 8 : window.innerHeight;
-    // Wer zuletzt zu sprechen begann, bekommt seinen Platz am Kopf; die anderen weichen aus oder treten zurück
-    const order = [...this.stacks.values()]
-      .filter((st) => st.length)
-      .map((st) => ({ st, s: this.project(st[0]!.speaker.anchor()) }))
-      .sort((a, b) => b.st[0]!.born - a.st[0]!.born);
-    const spots = layoutBubbles(
-      order.map(({ st, s }) => ({
-        x: s.x,
-        y: s.y,
-        visible: s.visible,
-        sizes: st.map((it) => ({ w: it.el.offsetWidth || 220, h: it.el.offsetHeight || 60 })),
-      })),
-      { width: window.innerWidth, height: window.innerHeight, right: side, bottom: bottomLimit },
-    );
-    order.forEach(({ st }, gi) => {
-      any = true;
-      st.forEach((it, i) => {
-        const sp = spots[gi]![i]!;
-        it.el.style.transform = `translate(${Math.round(sp.x)}px, ${Math.round(sp.bottom)}px) translate(-50%, -100%)`;
-        it.el.style.zIndex = String(20 - i);
-        it.el.classList.toggle('offscreen', sp.hidden);
+    try {
+      // Bereich rechts, den das Gesprächsfenster belegt (Desktop: Seitenleiste)
+      const panel = document.querySelector<HTMLElement>('.dlg3:not([hidden])');
+      const pr = panel?.getBoundingClientRect();
+      const side = pr && pr.left > window.innerWidth * 0.45 ? pr.left : window.innerWidth;
+      const bottomLimit = pr && pr.left <= window.innerWidth * 0.45 ? pr.top - 8 : window.innerHeight;
+      // Wer zuletzt zu sprechen begann, bekommt seinen Platz am Kopf; die anderen weichen aus oder treten zurück
+      const order = [...this.stacks.values()]
+        .filter((st) => st.length)
+        .map((st) => ({ st, s: this.project(st[0]!.speaker.anchor()) }))
+        .sort((a, b) => b.st[0]!.born - a.st[0]!.born);
+      const spots = layoutBubbles(
+        order.map(({ st, s }) => ({
+          x: s.x,
+          y: s.y,
+          visible: s.visible,
+          sizes: st.map((it) => ({ w: it.el.offsetWidth || 220, h: it.el.offsetHeight || 60 })),
+        })),
+        { width: window.innerWidth, height: window.innerHeight, right: side, bottom: bottomLimit },
+      );
+      order.forEach(({ st }, gi) => {
+        any = true;
+        st.forEach((it, i) => {
+          const sp = spots[gi]![i]!;
+          it.el.style.transform = `translate(${Math.round(sp.x)}px, ${Math.round(sp.bottom)}px) translate(-50%, -100%)`;
+          it.el.style.zIndex = String(20 - i);
+          it.el.classList.toggle('offscreen', sp.hidden);
+        });
       });
-    });
+    } catch (e) {
+      // Anordnung fehlgeschlagen: melden, im nächsten Bild erneut versuchen
+      report('Sprechblasen', e);
+      any = this.stacks.size > 0;
+    }
     if (any) this.raf = requestAnimationFrame(this.loop);
   };
 }

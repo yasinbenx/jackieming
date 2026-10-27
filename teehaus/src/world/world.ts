@@ -39,6 +39,7 @@ import type { Palette, TimePreset } from '../three/palette';
 import { POND, SHARED } from '../three/shared';
 import { clamp } from '../three/noise';
 import { bus } from '../core/bus';
+import { report } from '../core/guard';
 import { store } from '../state/store';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
@@ -955,11 +956,36 @@ export class World {
 
   // ───────────────────────────────────────── Bildschleife
 
+  /** Zeitpunkt (performance.now) des letzten gezeichneten Bildes – für Watchdog und Debug-Anzeige */
+  lastFrameAt = 0;
+  /** Anzahl gezeichneter Bilder */
+  frames = 0;
+
+  /**
+   * Ein Bild. Spiellogik und Zeichnen sind getrennt abgesichert: Eine Ausnahme irgendwo in der Logik wird
+   * gemeldet, das Bild trotzdem gezeichnet, und die Schleife läuft weiter. (three.js fordert das nächste Bild
+   * erst nach dem Ende dieser Funktion an – ein ungefangener Fehler hätte das Spiel dauerhaft eingefroren.)
+   */
   private frame(): void {
     const now = performance.now();
     const rawDt = (now - this.last) / 1000;
     this.last = now;
     const dt = Math.min(0.05, rawDt);
+    try {
+      this.tick(dt, rawDt);
+    } catch (e) {
+      report('Bild: Spiellogik', e);
+    }
+    try {
+      this.draw(dt, rawDt, now);
+    } catch (e) {
+      report('Bild: Zeichnen', e);
+    }
+    this.lastFrameAt = performance.now();
+    this.frames++;
+  }
+
+  private tick(dt: number, rawDt: number): void {
     this.governor(rawDt);
     this.time += dt;
     const motion = this.calm ? 0.25 : 1;
@@ -997,10 +1023,29 @@ export class World {
         this.onWave?.();
       }
     }
-    for (let i = this.tickers.length - 1; i >= 0; i--)
-      if (this.tickers[i]!(dt) === true) this.tickers.splice(i, 1);
-    this.player.update(dt, wish);
-    for (const a of this.agents) if (a !== this.player) a.update(dt, null);
+    // Jeder Ticker und jede Figur einzeln abgesichert: ein Fehler stoppt nur diesen Teil, nicht das Spiel.
+    // Ein fehlerhafter Ticker wird entfernt (sonst würde er jedes Bild erneut scheitern).
+    for (let i = this.tickers.length - 1; i >= 0; i--) {
+      let done = true;
+      try {
+        done = this.tickers[i]!(dt) === true;
+      } catch (e) {
+        report('Ticker (entfernt)', e);
+      }
+      if (done) this.tickers.splice(i, 1);
+    }
+    try {
+      this.player.update(dt, wish);
+    } catch (e) {
+      report('Spielfigur', e);
+    }
+    for (const a of this.agents)
+      if (a !== this.player)
+        try {
+          a.update(dt, null);
+        } catch (e) {
+          report('Figur', e);
+        }
     // Spieler weicht anderen Figuren aus
     const pp = this.player.ch.root.position;
     for (const a of this.agents) {
@@ -1105,6 +1150,9 @@ export class World {
       // Schärfe dort, wo die Kamera hinschaut (im Gespräch: das Gesicht des Gegenübers)
       this.dof.target = this.cam.lookPoint;
     }
+  }
+
+  private draw(dt: number, rawDt: number, now: number): void {
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
     // auf Niedrig gar nicht (Schatten sind dort ausgeblendet)

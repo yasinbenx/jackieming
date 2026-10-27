@@ -1,4 +1,8 @@
 import './style.css';
+import { installGlobalHandlers, report, setSnapshot } from './core/guard';
+
+// Ungefangene Fehler und abgelehnte Promises immer klar melden (auch während des Ladens)
+installGlobalHandlers();
 
 // Der Ladescreen steht in index.html (reines DOM). Hier wird die 3D-Welt nachgeladen.
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -39,6 +43,23 @@ async function boot(): Promise<void> {
     ),
   );
   (window as unknown as { __world: unknown }).__world = world;
+  // Zustand, der jeder Fehlermeldung beigelegt wird
+  setSnapshot(() => {
+    const pl = world.player;
+    return {
+      modus: world.mode,
+      position: [+pl.x.toFixed(2), +pl.z.toFixed(2)],
+      weg: pl.path.length,
+      beschäftigt: pl.busy,
+      sitzt: pl.seated,
+      eingabe: world.input.enabled,
+      bilder: world.frames,
+      letztesBildVor: `${Math.round(performance.now() - world.lastFrameAt)} ms`,
+      fenster: [
+        ...document.querySelectorAll('.modal:not([hidden]), #worldmap:not([hidden]), .menu.show'),
+      ].map((e) => e.id || e.className),
+    };
+  });
   const { Game } = await import('./game');
   const game = new Game(world);
   (window as unknown as { __game: unknown }).__game = game;
@@ -211,7 +232,7 @@ async function boot(): Promise<void> {
 }
 
 boot().catch((err) => {
-  console.error(err);
+  report('Start', err);
   const msg = $('loader-msg');
   const webgl =
     !!document.createElement('canvas').getContext('webgl2') ||
