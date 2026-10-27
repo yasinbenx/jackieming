@@ -28,6 +28,7 @@ npm run dev        # http://localhost:5173
 | `npm run check`                               | alles Statische auf einmal: Typen, Lint, Format, Inhalte, Unit-Tests |
 | `npm run test:e2e`                            | Rundgang im Browser: Laufen, alle Plätze, Gespräch, Esc, Panels      |
 | `npm run test:gesamt`                         | Gesamttest im Browser: alle Spielteile, Speichern, Draw-Calls        |
+| `npm run test:haenger`                        | Hänger-Test: Blockaden über 80 ms mit Ursache (Profiler, Shader)     |
 
 Test-Adressen:
 
@@ -200,6 +201,7 @@ Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefe
 ## Qualität und Technik (S4)
 
 - **Ladebildschirm mit Fortschritt:** Schriften, Welt, Figuren und Haarmodelle werden nachgeladen (die 3D-Welt, das Spiel und das Menü sind eigene, nachgeladene Teile). Am Ende werden alle Bewohner-Figuren angelegt und **die ganze Szene einmal unsichtbar gezeichnet** – auch die gerade ausgeblendeten Teile wie Dorf, Terrassen und Regen. So sind alle Shader übersetzt und alle Texturen und Geometrien auf der Grafikkarte, bevor das Spiel beginnt; vorher stand das Bild beim ersten Gang ins Dorf mehrere Sekunden.
+- **Keine Hänger beim Qualitätswechsel:** Die Schattenkarte bleibt technisch immer an (auf Niedrig wird sie nicht gezeichnet und ausgeblendet), und die Nachbearbeitung jeder niedrigeren Stufe wird im Ladebildschirm vorbereitet. Ebenso das Umgebungslicht aller Tageszeiten und das Kartenbild (nach Spielstart in Leerlaufzeiten). Im Hänger-Test (alle Spielteile, Profiler) sank die Summe der Blockaden über 80 ms von etwa 10 s auf etwa 1 s.
 - **Sichtbarkeitstest für Figuren:** Jede animierte Figur hat eine großzügige Hüllkugel; was nicht im Bild ist, wird nicht gezeichnet und wirft im Schattendurchgang nichts.
 - **Debug-Anzeige (F3):** FPS und langsamstes Bild, CPU-Zeit, Draw-Calls und Dreiecke (gemittelt), Qualitätsstufe, Speicher (Geometrien, Texturen, Shader, JS-Speicher in Chromium), Spielzustand (Modus, offenes Fenster, Position, Tageszeit), Wetter, Zone und geladene Zonen, Bewohner.
 - **Automatische Qualität** nach Bildrate (siehe Qualitätsstufen).

@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:e2e": "node scripts/test/rundgang.mjs",
     "test:gesamt": "node scripts/test/gesamt.mjs",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:content && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:content && npm run test",
+    "test:haenger": "node scripts/test/haenger.mjs"
   },
   "engines": {
     "node": ">=20.19"
