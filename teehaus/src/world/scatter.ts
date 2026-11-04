@@ -37,6 +37,22 @@ export const SHRINE = { x: 62, z: -63.2, w: 6.4, d: 4.6 };
 export const PAVILION = { x: -64, z: -42, r: 2.4 };
 /** Brunnen auf dem Dorfplatz */
 export const WELL = { x: 40, z: 60, r: 0.85 };
+/** Masten der Laternenketten über dem Dorfplatz (hinter den vier Bänken am Brunnen) */
+export const LANTERN_POLES: [number, number][] = [0, 1, 2, 3].map((i) => {
+  const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+  return [WELL.x + Math.cos(a) * 7.8, WELL.z + Math.sin(a) * 7.8];
+});
+/** Feste Dinge am Platz (P1): Dampfgarer der Bäckerei, Esse und Amboss der Schmiede, Händlerkarren, Wäscheleine */
+export const PLAZA_PROPS = {
+  steamer: { x: 46.95, z: 45.85 },
+  anvil: { x: 50.33, z: 74.25 },
+  forge: { x: 49.4, z: 74.6 },
+  cart: { x: 44.6, z: 70.4, rot: Math.atan2(WELL.x - 44.6, WELL.z - 70.4) },
+  laundry: [
+    [31.2, 74.3],
+    [34.4, 74.5],
+  ] as [number, number][],
+};
 
 export type Bench = Item;
 
@@ -325,6 +341,12 @@ export function scatter(): Scatter {
     for (const s of [-0.55, 0, 0.55]) blockers.push({ x: b.x + cx * s, z: b.z + sz * s, r: 0.22 });
   }
   blockers.push({ x: WELL.x, z: WELL.z, r: WELL.r });
+  for (const [x, z] of LANTERN_POLES) blockers.push({ x, z, r: 0.14 });
+  blockers.push({ x: PLAZA_PROPS.steamer.x, z: PLAZA_PROPS.steamer.z, r: 0.34 });
+  blockers.push({ x: PLAZA_PROPS.anvil.x, z: PLAZA_PROPS.anvil.z, r: 0.25 });
+  blockers.push({ x: PLAZA_PROPS.forge.x, z: PLAZA_PROPS.forge.z, r: 0.45 });
+  for (const s of [-0.55, 0.55]) blockers.push({ x: PLAZA_PROPS.cart.x + s, z: PLAZA_PROPS.cart.z, r: 0.45 });
+  for (const [x, z] of PLAZA_PROPS.laundry) blockers.push({ x, z, r: 0.1 });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     blockers.push({

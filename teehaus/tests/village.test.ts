@@ -3,7 +3,7 @@ import { NavGrid } from '../src/world/nav';
 import { field, surfaceAt } from '../src/world/terrain';
 import { HOUSES, HOUSE_SPECS, padOf, STALLS, toWorld, BOARD_TABLE, villageSpots } from '../src/world/village';
 import { pathAt, waterAt } from '../src/world/terrain';
-import { scatter } from '../src/world/scatter';
+import { LANTERN_POLES, PLAZA_PROPS, scatter } from '../src/world/scatter';
 
 const inPad = (h: (typeof HOUSES)[number], x: number, z: number): boolean => {
   const c = Math.cos(h.rot);
@@ -104,6 +104,37 @@ describe('Dorf', () => {
     for (const st of STALLS) {
       const k = sp[`kunde-${st.goods}`]!;
       expect(nav.walkable(k.x, k.z), `Kundenplatz ${st.goods}`).toBe(true);
+    }
+  });
+
+  it('Platzleben: neue Orte begehbar, Masten und Geräte stehen niemandem im Weg', () => {
+    const { benches } = scatter();
+    const nav = new NavGrid();
+    const sp = villageSpots(benches);
+    for (const id of [
+      'erhu-platz',
+      'haendler',
+      'baeckerei',
+      'schmiede',
+      'waschplatz',
+      'kinderplatz',
+      'drachenwiese',
+    ])
+      expect(nav.walkable(sp[id]!.x, sp[id]!.z), id).toBe(true);
+    const solid: [number, number][] = [
+      ...LANTERN_POLES,
+      [PLAZA_PROPS.steamer.x, PLAZA_PROPS.steamer.z],
+      [PLAZA_PROPS.anvil.x, PLAZA_PROPS.anvil.z],
+      [PLAZA_PROPS.forge.x, PLAZA_PROPS.forge.z],
+      [PLAZA_PROPS.cart.x, PLAZA_PROPS.cart.z],
+      ...PLAZA_PROPS.laundry,
+    ];
+    for (const [x, z] of solid) {
+      expect(nav.walkable(x, z), `Gerät bei ${x},${z} blockiert`).toBe(false);
+      for (const [name, s] of Object.entries(sp))
+        expect(Math.hypot(s.x - x, s.z - z), `${name} zu nah an ${x},${z}`).toBeGreaterThan(0.55);
+      for (const st of STALLS)
+        expect(Math.hypot(st.x - x, st.z - z), `Stand ${st.goods}`).toBeGreaterThan(1.6);
     }
   });
 });

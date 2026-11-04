@@ -291,6 +291,10 @@ export function villageSpots(benches: { x: number; z: number; rot: number }[]): 
   S['taichi-2'] = { x: 40.2, z: 52.6, yaw: 0 };
   S['taichi-3'] = { x: 37.4, z: 55.3, yaw: 0.3 };
   S['taichi-4'] = { x: 40.2, z: 55.3, yaw: 0 };
+  // abends spielt Herr Hua hier Erhu (zwischen Brunnen und Kinderplatz)
+  S['erhu-platz'] = { x: 43.4, z: 63.6, yaw: -2.4 };
+  // fahrender Händler: vor seinem Karren, Blick zum Brunnen (nur an Händlertagen)
+  S['haendler'] = { x: 44.15, z: 69.4, yaw: Math.atan2(40 - 44.15, 60 - 69.4) };
   S['kinderplatz'] = { x: 38.4, z: 66.4, yaw: 0.6 };
   S['drachenwiese'] = { x: 25.6, z: 69.6, yaw: -2.4 };
   // abends essen vor dem Gasthaus und am Platz

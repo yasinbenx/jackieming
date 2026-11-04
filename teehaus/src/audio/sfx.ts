@@ -265,4 +265,111 @@ export class Sfx {
     const e = this.e;
     e.tone({ freq: 300, glideTo: 190, dur: 0.35, gain: 0.08, type: 'triangle', bus: this.b, reverb: 0.2 });
   }
+
+  /**
+   * Geräusche vom Dorfplatz (P1), Lautstärke nach Entfernung (0–1): Amboss, Trommel des Drachentanzes, Hund,
+   * Katze, Vogelschwarm, Erhu-Ton.
+   */
+  village(kind: 'clang' | 'drum' | 'bark' | 'meow' | 'flock' | 'erhu', vol: number, midi = 69): void {
+    const e = this.e;
+    if (!e.started || vol < 0.02) return;
+    const t = e.now;
+    const b = this.b;
+    switch (kind) {
+      case 'clang':
+        e.noiseBurst({ dur: 0.05, type: 'highpass', freq: 3000, gain: 0.12 * vol, bus: b });
+        for (const [f, g] of [
+          [1180, 0.07],
+          [2470, 0.04],
+          [3720, 0.025],
+        ] as const)
+          e.tone({ freq: f, dur: 0.5, gain: g * vol, type: 'sine', bus: b, reverb: 0.15 });
+        break;
+      case 'drum':
+        e.tone({ freq: 92, glideTo: 58, dur: 0.32, gain: 0.32 * vol, type: 'sine', bus: b, reverb: 0.2 });
+        e.noiseBurst({ dur: 0.08, type: 'lowpass', freq: 600, gain: 0.12 * vol, bus: b });
+        break;
+      case 'bark':
+        for (let i = 0; i < 2; i++) {
+          e.tone({
+            freq: 420,
+            glideTo: 260,
+            dur: 0.11,
+            gain: 0.12 * vol,
+            type: 'sawtooth',
+            lowpass: 1300,
+            bus: b,
+            when: t + i * 0.18,
+          });
+          e.noiseBurst({
+            dur: 0.08,
+            type: 'bandpass',
+            freq: 900,
+            q: 2,
+            gain: 0.08 * vol,
+            bus: b,
+            when: t + i * 0.18,
+          });
+        }
+        break;
+      case 'meow':
+        e.tone({
+          freq: 620,
+          glideTo: 880,
+          dur: 0.18,
+          gain: 0.06 * vol,
+          type: 'triangle',
+          bus: b,
+          lowpass: 2200,
+        });
+        e.tone({
+          freq: 880,
+          glideTo: 520,
+          dur: 0.32,
+          gain: 0.06 * vol,
+          type: 'triangle',
+          bus: b,
+          when: t + 0.17,
+          lowpass: 2200,
+        });
+        break;
+      case 'flock':
+        e.noiseBurst({
+          dur: 0.6,
+          type: 'bandpass',
+          freq: 1400,
+          sweepTo: 700,
+          q: 0.8,
+          gain: 0.1 * vol,
+          attack: 0.05,
+          bus: b,
+        });
+        for (let i = 0; i < 3; i++) this.amb.chirp(0.04 * vol, t + 0.1 + i * 0.13);
+        break;
+      case 'erhu':
+        // gestrichener Ton mit Vibrato: Sägezahn durch Tiefpass, langsamer Einsatz
+        e.tone({
+          freq: midiToFreq(midi),
+          dur: 0.75,
+          gain: 0.07 * vol,
+          type: 'sawtooth',
+          attack: 0.12,
+          lowpass: 1600,
+          detune: 8,
+          bus: b,
+          reverb: 0.3,
+        });
+        e.tone({
+          freq: midiToFreq(midi),
+          dur: 0.75,
+          gain: 0.04 * vol,
+          type: 'sawtooth',
+          attack: 0.15,
+          lowpass: 1600,
+          detune: -10,
+          bus: b,
+        });
+        break;
+    }
+  }
 }

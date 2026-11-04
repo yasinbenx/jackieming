@@ -929,14 +929,35 @@ export class World {
    */
   private zoneList: { id: string; x: number; z: number; r: number; objs: () => Object3D[]; on: boolean }[] =
     [];
+  private zoneExtra: Record<string, Object3D[]> = {};
+  /** Weitere Objekte mit einer Zone ein- und ausblenden (Teehaus, Dorf, Terrassen) */
+  addToZone(id: string, ...objs: Object3D[]): void {
+    (this.zoneExtra[id] ??= []).push(...objs);
+    const z = this.zoneList.find((o) => o.id === id);
+    if (z) for (const o of objs) o.visible = z.on;
+  }
   private setupZones(): void {
     const byName = (n: string): Object3D[] => {
       const o = this.land.group.getObjectByName(n);
       return o ? [o] : [];
     };
     this.zoneList = [
-      { id: 'Teehaus', x: 0, z: 2, r: 150, objs: () => [this.cafe.group], on: true },
-      { id: 'Dorf', x: 38, z: 57, r: 140, objs: () => [this.village.group, this.critters.group], on: true },
+      {
+        id: 'Teehaus',
+        x: 0,
+        z: 2,
+        r: 150,
+        objs: () => [this.cafe.group, ...(this.zoneExtra.Teehaus ?? [])],
+        on: true,
+      },
+      {
+        id: 'Dorf',
+        x: 38,
+        z: 57,
+        r: 140,
+        objs: () => [this.village.group, this.critters.group, ...(this.zoneExtra.Dorf ?? [])],
+        on: true,
+      },
       { id: 'Terrassen', x: -32, z: 110, r: 120, objs: () => byName('paddies'), on: true },
     ];
   }

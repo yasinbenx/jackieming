@@ -235,7 +235,8 @@ export type Action =
   | 'wash'
   | 'eat'
   | 'kite'
-  | 'carry';
+  | 'carry'
+  | 'fiddle';
 
 interface ActionState {
   t: number;

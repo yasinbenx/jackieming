@@ -19,7 +19,11 @@ import { RIVER, RIVER_LEVEL } from '../world/map';
 import { groundY } from '../world/nav';
 
 const merge = (parts: BufferGeometry[]): BufferGeometry => mergeGeometries(parts)!;
-const MAT = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 });
+export const CRITTER_MAT = new MeshStandardMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.85,
+});
 
 function chickenGeo(body: string): BufferGeometry {
   return merge([
@@ -50,7 +54,7 @@ function duckGeo(drake: boolean): BufferGeometry {
   ]);
 }
 
-function catGeo(fur: string): BufferGeometry {
+export function catGeo(fur: string): BufferGeometry {
   // zusammengerollt schlafend
   return merge([
     colored(new SphereGeometry(0.2, 8, 6).scale(1.2, 0.55, 1).translate(0, 0.1, 0), fur, 0.08),
@@ -113,7 +117,7 @@ export class Critters {
   constructor(private walkable: (x: number, z: number) => boolean) {
     this.group.name = 'critters';
     const colors = ['#f2ece0', '#a8642e', '#3a3230'];
-    this.hens = colors.map((c) => new InstancedMesh(chickenGeo(c), MAT, 8));
+    this.hens = colors.map((c) => new InstancedMesh(chickenGeo(c), CRITTER_MAT, 8));
     let k = 0;
     for (const [cx, cz, r, n] of FLOCKS)
       for (let i = 0; i < n; i++) {
@@ -123,7 +127,10 @@ export class Critters {
         this.chickens.push({ x, z, yaw: a, tx: x, tz: z, peck: 0, wait: Math.random() * 3, cx, cz, r });
         k++;
       }
-    this.duckMesh = [new InstancedMesh(duckGeo(true), MAT, 6), new InstancedMesh(duckGeo(false), MAT, 6)];
+    this.duckMesh = [
+      new InstancedMesh(duckGeo(true), CRITTER_MAT, 6),
+      new InstancedMesh(duckGeo(false), CRITTER_MAT, 6),
+    ];
     for (let i = 0; i < 5; i++)
       this.ducks.push({ a: i * 1.3, speed: 0.08 + i * 0.015, ring: 0.45 + (i % 3) * 0.15, pond: true });
     for (let i = 0; i < 4; i++)
@@ -133,7 +140,7 @@ export class Critters {
         ring: (i % 2 ? 1 : -1) * 1.6,
         pond: false,
       });
-    this.cats = VILLAGE_CATS.map(([, , , fur]) => new InstancedMesh(catGeo(fur), MAT, 1));
+    this.cats = VILLAGE_CATS.map(([, , , fur]) => new InstancedMesh(catGeo(fur), CRITTER_MAT, 1));
     for (const im of [...this.hens, ...this.duckMesh, ...this.cats]) {
       im.castShadow = true;
       im.frustumCulled = false;

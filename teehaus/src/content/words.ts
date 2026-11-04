@@ -197,6 +197,20 @@ export const WORDS: Word[] = [
   { id: 'pianyi', zh: '便宜', py: 'pian2yi5', de: 'billig, preiswert' },
   { id: 'pingguo', zh: '苹果', py: 'ping2guo3', de: 'Apfel' },
   { id: 'duibuqi', zh: '对不起', py: 'dui4bu5qi3', de: 'Entschuldigung!' },
+  { id: 'meiguanxi', zh: '没关系', py: 'mei2 guan1xi5', de: 'Macht nichts!', note: 'die Antwort auf 对不起' },
+  { id: 'wanshang', zh: '晚上', py: 'wan3shang5', de: 'am Abend', note: '晚上好 = Guten Abend' },
+  { id: 'erhu', zh: '二胡', py: 'er4hu2', de: 'Erhu (zweisaitige Geige)', note: '二 = zwei' },
+  { id: 'gou', zh: '狗', py: 'gou3', de: 'Hund' },
+  { id: 'niao', zh: '鸟', py: 'niao3', de: 'Vogel' },
+  { id: 'wulong', zh: '舞龙', py: 'wu3long2', de: 'Drachentanz', note: '舞 = tanzen, 龙 = Drache' },
+  {
+    id: 'yuanxiao',
+    zh: '元宵节',
+    py: 'yuan2xiao1jie2',
+    de: 'Laternenfest',
+    note: 'am 15. Tag des neuen Jahres',
+  },
+  { id: 'shangren', zh: '商人', py: 'shang1ren2', de: 'Händler, Kaufmann' },
 ];
 
 export const wordById = (id: string): Word | undefined => WORDS.find((w) => w.id === id);

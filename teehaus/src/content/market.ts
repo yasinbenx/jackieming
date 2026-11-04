@@ -501,4 +501,61 @@ export const MARKET: Villager[] = [
     word: 'pingguo',
     extra: 2,
   },
+  // ── Abends am Brunnen: Erhu-Spieler (P1-Ereignis)
+  {
+    id: 'ahua',
+    name: 'Herr Hua',
+    zh: '华师傅',
+    role: 'Erhu-Spieler',
+    look: look({
+      height: 1.64,
+      build: 0.92,
+      skin: SKIN[4]!,
+      hair: '#c8c2b8',
+      hairStyle: 'elder',
+      top: top('changshan', '#3a3a52', '#b8a27a'),
+      pants: '#22201e',
+    }),
+    home: 'tuer-wohnhaus7',
+    schedule: [
+      { spot: 'bank-2', act: 'sit', dur: 20, when: ['morgen', 'mittag'] },
+      { spot: 'kunde-tee', act: 'nod', dur: 8, when: ['mittag'] },
+      { spot: 'erhu-platz', act: 'fiddle', dur: 60, when: ['abend', 'nacht'], tool: 'erhu' },
+    ],
+    lines: [
+      '二胡 èrhú – zwei Saiten, und doch klingt sie wie eine Stimme.',
+      'Abends spiele ich am Brunnen. Das Wasser singt mit.',
+    ],
+    word: 'erhu',
+    greets: true,
+  },
+  // ── Fahrender Händler: kommt jeden zweiten Tag mit seinem Karren
+  {
+    id: 'qiao',
+    name: 'Händler Qiao',
+    zh: '乔老板',
+    role: 'fahrender Händler',
+    look: look({
+      height: 1.72,
+      build: 1.06,
+      skin: SKIN[2]!,
+      hairStyle: 'straw',
+      top: top('tang', '#5a4a2a', '#e3b450', { vest: '#2a3a4a' }),
+      pants: '#3a3226',
+    }),
+    home: 'tuer-lagerhaus',
+    visit: true,
+    shop: true,
+    schedule: [
+      { spot: 'haendler', act: 'point', dur: 14, when: ['morgen', 'mittag', 'abend'] },
+      { spot: 'haendler', act: 'fan', dur: 10, when: ['morgen', 'mittag', 'abend'], tool: 'fan' },
+      { spot: 'haendler', act: 'laugh', dur: 8, when: ['mittag', 'abend'] },
+    ],
+    lines: [
+      '商人 shāngrén – ein Händler. Heute hier, morgen über dem Pass!',
+      'Gewürze aus dem Westen, Tee aus dem Süden – schau nur!',
+    ],
+    word: 'shangren',
+    greets: true,
+  },
 ];

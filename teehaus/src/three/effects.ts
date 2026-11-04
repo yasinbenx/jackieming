@@ -212,7 +212,12 @@ export class Steam {
   private next = 0;
   private emitters: Emitter[] = [];
 
-  constructor(private max: number) {
+  /** color: Dampf hell, Rauch grau; rise: Steiggeschwindigkeit (Rauch steigt höher) */
+  constructor(
+    private max: number,
+    color = '#f6efe6',
+    private rise = 1,
+  ) {
     const p = pointsGeo(max);
     this.pos = p.pos;
     this.size = p.size;
@@ -222,7 +227,7 @@ export class Steam {
     this.life = new Float32Array(max);
     this.maxLife = new Float32Array(max).fill(1);
     this.base = new Float32Array(max);
-    this.points = new Points(p.geo, particleMaterial('#f6efe6', NormalBlending, 0.1));
+    this.points = new Points(p.geo, particleMaterial(color, NormalBlending, 0.1));
     this.points.frustumCulled = false;
     this.points.renderOrder = 6;
   }
@@ -236,11 +241,15 @@ export class Steam {
     this.next = (this.next + 1) % this.max;
     this.pos.set([p.x + (Math.random() - 0.5) * spread, p.y, p.z + (Math.random() - 0.5) * spread], i * 3);
     this.vel.set(
-      [(Math.random() - 0.5) * 0.04, (0.12 + Math.random() * 0.1) * speed, (Math.random() - 0.5) * 0.04],
+      [
+        (Math.random() - 0.5) * 0.04,
+        (0.12 + Math.random() * 0.1) * speed * this.rise,
+        (Math.random() - 0.5) * 0.04,
+      ],
       i * 3,
     );
     this.life[i] = 0;
-    this.maxLife[i] = 1.8 + Math.random() * 1.6;
+    this.maxLife[i] = (1.8 + Math.random() * 1.6) * this.rise;
     this.base[i] = size * (0.6 + Math.random() * 0.5);
   }
 
@@ -276,6 +285,68 @@ export class Steam {
     (a.position as BufferAttribute).needsUpdate = true;
     (a.size as BufferAttribute).needsUpdate = true;
     (a.alpha as BufferAttribute).needsUpdate = true;
+  }
+}
+
+// ───────────────────────────────────────── Funken (Schmiede)
+
+/** Funkenregen: kurze, helle Punkte mit Schwerkraft (additiv, wenige Dutzend) */
+export class Sparks {
+  readonly points: Points;
+  private pos: Float32Array;
+  private size: Float32Array;
+  private alpha: Float32Array;
+  private vel: Float32Array;
+  private life: Float32Array;
+  private next = 0;
+
+  constructor(private max = 48) {
+    const p = pointsGeo(max);
+    this.pos = p.pos;
+    this.size = p.size;
+    this.alpha = p.alpha;
+    this.alpha.fill(0);
+    this.vel = new Float32Array(max * 3);
+    this.life = new Float32Array(max).fill(1);
+    this.points = new Points(p.geo, particleMaterial('#ffb050', AdditiveBlending, 0.05));
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 7;
+  }
+
+  burst(x: number, y: number, z: number, n: number): void {
+    for (let k = 0; k < n; k++) {
+      const i = this.next;
+      this.next = (this.next + 1) % this.max;
+      this.pos.set([x, y, z], i * 3);
+      const a = Math.random() * Math.PI * 2;
+      const sp = 0.8 + Math.random() * 1.6;
+      this.vel.set([Math.cos(a) * sp, 1 + Math.random() * 1.8, Math.sin(a) * sp], i * 3);
+      this.life[i] = 0;
+      this.size[i] = 0.5 + Math.random() * 0.6;
+    }
+  }
+
+  update(dt: number): void {
+    let any = false;
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i]! >= 1) {
+        this.alpha[i] = 0;
+        continue;
+      }
+      any = true;
+      this.life[i]! += dt * 1.8;
+      const j = i * 3;
+      this.vel[j + 1]! -= 9 * dt;
+      this.pos[j]! += this.vel[j]! * dt;
+      this.pos[j + 1]! += this.vel[j + 1]! * dt;
+      this.pos[j + 2]! += this.vel[j + 2]! * dt;
+      this.alpha[i] = Math.max(0, 1 - this.life[i]!);
+    }
+    this.points.visible = any;
+    const a = this.points.geometry.attributes;
+    (a.position as BufferAttribute).needsUpdate = true;
+    (a.alpha as BufferAttribute).needsUpdate = true;
+    (a.size as BufferAttribute).needsUpdate = true;
   }
 }
 

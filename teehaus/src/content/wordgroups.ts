@@ -50,6 +50,8 @@ const LISTS: Record<string, string[]> = {
     'mai',
     'pianyi',
     'duibuqi',
+    'meiguanxi',
+    'wanshang',
   ],
   spiele: ['xiangqi', 'jiangjun', 'ju', 'ma', 'pao', 'bing', 'xiaqi', 'qipan'],
 };

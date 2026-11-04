@@ -2160,6 +2160,19 @@ export class RigCharacter {
       this.rot('Head', X, -0.35 * k);
       this.rot('Chest', X, -0.08 * k);
     }
+    if ((k = w('fiddle'))) {
+      // Erhu: Linke hält den Hals senkrecht vor der Brust, Rechte zieht den Bogen waagrecht hin und her
+      const bow = Math.sin(t * 1.6) + 0.3 * Math.sin(t * 4.1);
+      this.rot('UpperArmL', X, -0.55 * k);
+      this.rot('UpperArmL', Z, 0.25 * k);
+      this.rot('LowerArmL', X, -1.35 * k);
+      this.rot('UpperArmR', X, -0.35 * k);
+      this.rot('UpperArmR', Y, (0.25 + bow * 0.3) * k);
+      this.rot('LowerArmR', X, (-1.1 + bow * 0.25) * k);
+      this.rot('Head', Z, (0.1 + Math.sin(t * 0.8) * 0.06) * k);
+      this.rot('Head', X, 0.12 * k);
+      this.rot('Torso', Z, Math.sin(t * 0.8) * 0.04 * k);
+    }
     if ((k = w('carry'))) {
       // Hände an der Tragestange
       for (const s of ['L', 'R']) {

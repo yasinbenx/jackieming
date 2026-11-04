@@ -33,7 +33,8 @@ export type Activity =
   | 'sweep'
   | 'wash'
   | 'kite'
-  | 'carry';
+  | 'carry'
+  | 'fiddle';
 
 /** Tageszeit für Tagespläne: morgens Tai-Chi und Markt, mittags Betrieb, abends Laternen und Essen, nachts wenige */
 export type DayPhase = 'morgen' | 'mittag' | 'abend' | 'nacht';
@@ -101,6 +102,8 @@ export interface Villager {
   extra?: 1 | 2;
   /** spricht den Spieler beim Vorbeigehen an (Händler, Kinder) */
   greets?: boolean;
+  /** nur an Händlertagen im Dorf (fahrender Händler) */
+  visit?: boolean;
 }
 
 const SKIN = ['#e8b894', '#d9a27a', '#c98f68', '#f0c8a8', '#b97f5a'];

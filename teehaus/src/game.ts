@@ -1,6 +1,7 @@
 // Verdrahtet Welt, Oberfläche, Ton und Spielstand. NPCs, Dialog und Fundstücke hängen sich hier an.
 import { SHOP_THANKS, WEATHER_TOASTS } from './content/lines';
 import { PLACES } from './world/map';
+import { PlazaLife } from './world/plaza';
 import { Villagers } from './world/villagers';
 import { VILLAGE_CATS } from './three/critters';
 import { Shop } from './ui/shop';
@@ -66,6 +67,7 @@ export class Game {
   readonly bubbles: Bubbles;
   readonly npcs: Npcs;
   villagers!: Villagers;
+  plaza?: PlazaLife;
   shop!: Shop;
   map!: WorldMap;
   orderPanel!: OrderPanel;
@@ -198,8 +200,25 @@ export class Game {
         void this.quests?.onTalk(id);
       },
       addSpeaker: (sp) => scape.add(sp),
+      visiting: () => this.plaza?.visiting() ?? (store.progress.games['plaza-tag'] ?? 0) % 2 === 0,
     });
     (window as unknown as { __villagers: Villagers }).__villagers = this.villagers;
+    // Leben auf dem Dorfplatz: Gespräche, Tiere, Zwischenfälle, Feste
+    this.plaza = new PlazaLife({
+      world,
+      villagers: this.villagers,
+      say: (sp, text, hold) => this.bubbles.say(sp, text, { hold }),
+      icon: (sp, sym) => this.bubbles.icon(sp, sym),
+      award: (id) => this.award(id),
+      toast: (html) => this.toast.show(html, 5200),
+      busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
+      sound: (kind, vol, midi) => this.audio.sfx.village(kind, vol, midi),
+    });
+    world.scene.add(this.plaza.group, this.plaza.pondGroup);
+    world.addToZone('Dorf', this.plaza.group);
+    world.addToZone('Teehaus', this.plaza.pondGroup);
+    world.noReflect.push(() => [this.plaza!.group]);
+    (window as unknown as { __plaza: PlazaLife }).__plaza = this.plaza;
     // Karte mit Schnellreise
     this.map = new WorldMap({
       player: () => ({ x: world.player.x, z: world.player.z, yaw: world.player.ch.yaw }),

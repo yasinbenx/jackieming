@@ -29,7 +29,7 @@ import { ERRANDS, VILLAGERS } from '../content/villagers';
 import type { DayPhase, Step, Tool, Villager, VillagerLook } from '../content/villagers';
 
 /** Tätigkeiten, die am Ort ohne Unterbrechung laufen */
-const CONTINUOUS = new Set(['taichi', 'sweep', 'chop', 'hammer', 'wash', 'eat', 'kite', 'polish']);
+const CONTINUOUS = new Set(['taichi', 'sweep', 'chop', 'hammer', 'wash', 'eat', 'kite', 'polish', 'fiddle']);
 
 /** Tageszeiten ohne ausdrückliche Angabe im Plan */
 const DAY: DayPhase[] = ['morgen', 'mittag', 'abend'];
@@ -55,6 +55,8 @@ export interface VillagerContext {
   onTalk?: (id: string) => void;
   /** Für Raumklang und Untertitel */
   addSpeaker?: (sp: Speaker) => void;
+  /** Ist heute Händlertag? (fahrender Händler, siehe Villager.visit) */
+  visiting?: () => boolean;
 }
 
 /** Volle Figuren gleichzeitig, je Qualitätsstufe */
@@ -112,7 +114,7 @@ export function villagerLook(v: Villager): Look {
 
 type State = 'walk' | 'act' | 'settle' | 'seated' | 'rise' | 'talk' | 'home';
 
-class Resident {
+export class Resident {
   x: number;
   z: number;
   yaw = 0;
@@ -325,7 +327,10 @@ class Resident {
   update(dt: number): void {
     const m = this.m;
     // Dichte nach Qualitätsstufe: zusätzliche Bewohner bleiben auf niedrigen Stufen zu Hause
-    if (this.v.extra && m.ctx.world.quality < this.v.extra) {
+    if (
+      (this.v.extra && m.ctx.world.quality < this.v.extra) ||
+      (this.v.visit && !(m.ctx.visiting?.() ?? false))
+    ) {
       if (this.state !== 'home') {
         this.state = 'home';
         this.visible = false;
