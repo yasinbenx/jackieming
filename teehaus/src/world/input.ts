@@ -1,6 +1,6 @@
-// Eingabe: Tastatur (Belegung aus den Einstellungen, Pfeiltasten immer zusätzlich), Maus (ziehen = Kamera,
-// Klick = hinlaufen, Rad = Zoom) und Touch (virtueller Joystick, Wischen = Kamera, Tippen = hinlaufen, zwei Finger
-// = Zoom). Tasten für Karte, Ton und Pause melden sich über onAction.
+// Eingabe, nur Desktop: Tastatur (Belegung aus den Einstellungen, Pfeiltasten immer zusätzlich) und Maus
+// (ziehen = Kamera, Klick = hinlaufen, Rad = Zoom). Tasten für Karte, Ton, Pause und Vollbild melden sich über
+// onAction.
 import { store } from '../state/store';
 import type { Action } from '../state/store';
 
@@ -11,8 +11,6 @@ export interface Tap {
 
 export class Input {
   private keys = new Set<string>();
-  /** Joystick-Vektor (-1..1), y nach oben = vorwärts */
-  private joy = { x: 0, y: 0, id: -1, cx: 0, cy: 0 };
   private drag: {
     id: number;
     x: number;
@@ -22,8 +20,6 @@ export class Input {
     t: number;
     moved: boolean;
   } | null = null;
-  private pinch = new Map<number, { x: number; y: number }>();
-  private pinchDist = 0;
   /** Kameradrehung seit dem letzten Frame (Pixel) */
   lookDX = 0;
   lookDY = 0;
@@ -60,21 +56,8 @@ export class Input {
   }
   /** Taste für Karte, Ton oder Pause gedrückt */
   onAction?: (a: Action) => void;
-  readonly joyEl: HTMLElement;
-  private knob: HTMLElement;
-  private touchMode = false;
 
   constructor(canvas: HTMLElement) {
-    this.joyEl = document.createElement('div');
-    this.joyEl.className = 'joystick';
-    this.joyEl.setAttribute('aria-hidden', 'true');
-    this.knob = document.createElement('div');
-    this.knob.className = 'joystick-knob';
-    this.joyEl.appendChild(this.knob);
-    document.body.appendChild(this.joyEl);
-    const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-    this.setTouchMode(coarse);
-
     window.addEventListener('keydown', (e) => {
       if (this.isTyping(e)) return;
       this.keys.add(e.code);
@@ -84,7 +67,8 @@ export class Input {
       }
       if (e.code === k.wave) this.wave = true;
       if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey)
-        for (const a of ['map', 'sound', 'pause'] as const) if (e.code === k[a]) this.onAction?.(a);
+        for (const a of ['map', 'sound', 'pause', 'fullscreen'] as const)
+          if (e.code === k[a]) this.onAction?.(a);
       if (
         e.code.startsWith('Arrow') &&
         this.enabled &&
@@ -95,38 +79,9 @@ export class Input {
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
 
-    // Joystick
-    this.joyEl.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      this.joy.id = e.pointerId;
-      const r = this.joyEl.getBoundingClientRect();
-      this.joy.cx = r.left + r.width / 2;
-      this.joy.cy = r.top + r.height / 2;
-      this.joyEl.setPointerCapture(e.pointerId);
-      this.updateJoy(e.clientX, e.clientY);
-    });
-    this.joyEl.addEventListener('pointermove', (e) => {
-      if (e.pointerId === this.joy.id) this.updateJoy(e.clientX, e.clientY);
-    });
-    const endJoy = (e: PointerEvent): void => {
-      if (e.pointerId !== this.joy.id) return;
-      this.joy.id = -1;
-      this.joy.x = this.joy.y = 0;
-      this.knob.style.transform = '';
-    };
-    this.joyEl.addEventListener('pointerup', endJoy);
-    this.joyEl.addEventListener('pointercancel', endJoy);
-
-    // Kamera ziehen / tippen / zoomen
+    // Kamera ziehen / klicken
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'touch') this.setTouchMode(true);
-      this.pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.pinch.size === 2) {
-        const [a, b] = [...this.pinch.values()];
-        this.pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-        this.drag = null;
-        return;
-      }
+      if (e.button !== 0 && e.button !== 2) return;
       this.drag = {
         id: e.pointerId,
         x: e.clientX,
@@ -139,14 +94,6 @@ export class Input {
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (this.pinch.has(e.pointerId)) this.pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.pinch.size === 2) {
-        const [a, b] = [...this.pinch.values()];
-        const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-        this.zoom += (this.pinchDist - d) * 0.01;
-        this.pinchDist = d;
-        return;
-      }
       const d = this.drag;
       if (!d || d.id !== e.pointerId) return;
       const dx = e.clientX - d.x;
@@ -160,7 +107,6 @@ export class Input {
       }
     });
     const end = (e: PointerEvent): void => {
-      this.pinch.delete(e.pointerId);
       const d = this.drag;
       if (!d || d.id !== e.pointerId) return;
       this.drag = null;
@@ -185,29 +131,6 @@ export class Input {
     return !!t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable);
   }
 
-  setTouchMode(on: boolean): void {
-    this.touchMode = on;
-    document.body.classList.toggle('touch', on);
-  }
-
-  get touch(): boolean {
-    return this.touchMode;
-  }
-
-  private updateJoy(x: number, y: number): void {
-    const R = 46;
-    let dx = x - this.joy.cx;
-    let dy = y - this.joy.cy;
-    const d = Math.hypot(dx, dy);
-    if (d > R) {
-      dx = (dx / d) * R;
-      dy = (dy / d) * R;
-    }
-    this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    this.joy.x = dx / R;
-    this.joy.y = -dy / R;
-  }
-
   /** Bewegungswunsch: x = rechts, y = vorwärts (Länge 0..1), run = Laufen */
   axis(): { x: number; y: number; run: boolean } {
     if (!this.enabled) return { x: 0, y: 0, run: false };
@@ -215,12 +138,7 @@ export class Input {
     const b = store.settings.keys;
     let x = (k.has(b.right) || k.has('ArrowRight') ? 1 : 0) - (k.has(b.left) || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has(b.forward) || k.has('ArrowUp') ? 1 : 0) - (k.has(b.back) || k.has('ArrowDown') ? 1 : 0);
-    let run = k.has(b.run) || (b.run === 'ShiftLeft' && k.has('ShiftRight'));
-    if (this.joy.id >= 0) {
-      x = this.joy.x;
-      y = this.joy.y;
-      run = Math.hypot(x, y) > 0.92;
-    }
+    const run = k.has(b.run) || (b.run === 'ShiftLeft' && k.has('ShiftRight'));
     const len = Math.hypot(x, y);
     if (len > 1) {
       x /= len;

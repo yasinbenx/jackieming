@@ -12,7 +12,7 @@ export const LEGACY_KEY = 'teehaus.v1';
 
 /** Tastenbelegung: Aktion → KeyboardEvent.code */
 export type Action =
-  'forward' | 'back' | 'left' | 'right' | 'run' | 'use' | 'wave' | 'map' | 'sound' | 'pause';
+  'forward' | 'back' | 'left' | 'right' | 'run' | 'use' | 'wave' | 'map' | 'sound' | 'pause' | 'fullscreen';
 
 export const ACTIONS: { id: Action; label: string }[] = [
   { id: 'forward', label: 'Vorwärts' },
@@ -25,6 +25,7 @@ export const ACTIONS: { id: Action; label: string }[] = [
   { id: 'map', label: 'Karte' },
   { id: 'sound', label: 'Ton an/aus' },
   { id: 'pause', label: 'Pause' },
+  { id: 'fullscreen', label: 'Vollbild' },
 ];
 
 export const DEFAULT_KEYS: Record<Action, string> = {
@@ -38,6 +39,7 @@ export const DEFAULT_KEYS: Record<Action, string> = {
   map: 'KeyM',
   sound: 'KeyT',
   pause: 'KeyP',
+  fullscreen: 'KeyF',
 };
 
 export interface Settings {

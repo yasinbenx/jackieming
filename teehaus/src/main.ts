@@ -192,6 +192,14 @@ async function boot(): Promise<void> {
   document.body.classList.add('is-loaded');
   // Vorschaubild (scripts/make-og.mjs): beim Startbild bleiben
   if (params.has('og')) return;
+  // Benchmark: direkt in die Welt, fünf Orte messen, Ergebnis zeigen
+  if (params.has('bench')) {
+    const { runBench, showBench } = await import('./world/bench');
+    await intro.enterDirect(world, null);
+    document.body.classList.add('is-inside');
+    showBench(world, await runBench(world));
+    return;
+  }
 
   const menu = new MainMenu();
   // Ton darf erst nach einer Geste starten (Klick, Taste, Tippen)

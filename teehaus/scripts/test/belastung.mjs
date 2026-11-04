@@ -1,13 +1,13 @@
 // Belastungstest: Laden und Übergang ins Spiel unter erschwerten Bedingungen (Chrome-DevTools-Drosselung über
-// CDP) und auf Telefongröße. Prüft je Szenario: Hauptmenü erscheint, Übergang ins Spiel endet im freien Spiel,
+// CDP). Prüft je Szenario: Hauptmenü erscheint, Übergang ins Spiel endet im freien Spiel,
 // die Hauptschleife läuft weiter, die Figur lässt sich bewegen, keine Konsolenfehler (Warnungen über
 // Zeitlimits sind erlaubt und werden ausgegeben). Exit-Code 1 bei Fehlern.
 // Aufruf (Build muss laufen): node scripts/test/belastung.mjs [port] [szenario …]
-//   Szenarien: netz (langsames Netz), cpu (CPU 4× gedrosselt), telefon (390×844, Touch), alle (Standard)
+//   Szenarien: netz (langsames Netz), cpu (CPU 4× gedrosselt), alle (Standard). Nur Desktop.
 // Benötigt Playwright oder PLAYWRIGHT_MODULE/CHROMIUM_PATH (wie rundgang.mjs).
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const [, , port = '4173', ...wanted] = process.argv;
-const all = ['netz', 'cpu', 'telefon'];
+const all = ['netz', 'cpu'];
 const run = wanted.length && !wanted.includes('alle') ? wanted : all;
 const URL = `http://localhost:${port}/?q=0&debug`;
 let failed = 0;
@@ -30,13 +30,7 @@ const b = await chromium.launch({
 
 async function scenario(name) {
   console.log(`\n── ${name}`);
-  const phone = name === 'telefon';
-  const ctx = await b.newContext({
-    viewport: phone ? { width: 390, height: 844 } : { width: 1024, height: 600 },
-    hasTouch: phone,
-    isMobile: phone,
-    deviceScaleFactor: phone ? 3 : 1,
-  });
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } });
   const p = await ctx.newPage();
   const errors = [];
   const warns = [];
@@ -66,13 +60,6 @@ async function scenario(name) {
   const t1 = Date.now();
   await p.click('#mainmenu [data-id=new]');
   await p.waitForSelector('.outfit');
-  if (phone) {
-    const box = await p.evaluate(() => {
-      const r = document.querySelector('.outfit').getBoundingClientRect();
-      return { l: r.left, r: r.right, w: innerWidth };
-    });
-    ok('Kleiderwahl passt auf den Bildschirm', box.l >= -1 && box.r <= box.w + 1, box);
-  }
   await p.click('.outfit .btn.primary');
   const inGame = await p
     .waitForFunction(
@@ -88,16 +75,7 @@ async function scenario(name) {
   await p.evaluate(() => document.querySelector('.tutorial .btn.ghost')?.click());
   // läuft die Schleife, reagiert die Figur?
   const f0 = await p.evaluate(() => window.__world.frames);
-  const x0 = await p.evaluate(() => [window.__world.player.x, window.__world.player.z]);
-  if (phone) {
-    // Ziehen am Joystick
-    const joy = await p.evaluate(() => {
-      const r = window.__world.input.joyEl.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
-    });
-    ok('Joystick sichtbar', joy.w > 0, joy);
-    await p.evaluate(() => window.__world.player.goTo(1.5, -2));
-  } else {
+  {
     // Bei sehr wenigen Bildern pro Sekunde (Software-Grafik + Drosselung) bewegt sich die Figur in 4 s kaum;
     // geprüft wird darum, dass die Taste ankommt und die Figur Fahrt aufnimmt
     await p.keyboard.down('KeyW');
@@ -112,18 +90,7 @@ async function scenario(name) {
   }
   await p.waitForTimeout(5000);
   const f1 = await p.evaluate(() => window.__world.frames);
-  const x1 = await p.evaluate(() => [window.__world.player.x, window.__world.player.z]);
   ok('Hauptschleife läuft', f1 > f0, `${f1 - f0} Bilder in ~9 s`);
-  if (phone)
-    ok('Figur bewegt sich', Math.hypot(x1[0] - x0[0], x1[1] - x0[1]) > 0.3, {
-      von: x0.map((v) => +v.toFixed(1)),
-      nach: x1.map((v) => +v.toFixed(1)),
-    });
-  if (phone) {
-    const overflow = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-    ok('kein waagrechtes Scrollen', overflow <= 1, overflow);
-    await p.screenshot({ path: `belastung-${name}.png`, timeout: 120000 });
-  }
   const load = await p.evaluate(() => {
     const d = document.getElementById('debug');
     return d?.textContent?.split('\n').find((l) => l.startsWith('Laden')) ?? '';

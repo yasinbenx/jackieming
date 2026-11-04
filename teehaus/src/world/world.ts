@@ -44,6 +44,7 @@ import { loadStep, loadSummary, timed } from '../core/loadstate';
 import { watchdog } from '../core/watchdog';
 import { disposeUnshared } from '../three/dispose';
 import { store } from '../state/store';
+import { keyLabel } from '../state/savefile';
 import { buildCafe } from './cafe';
 import type { Cafe } from './cafe';
 import { loadHairKit } from './hairkit';
@@ -80,6 +81,10 @@ interface QualitySpec {
   msaa: number;
   petals: number;
   steam: number;
+  /** Untergrenze der dynamischen Auflösung (Anteil der Pixeldichte) */
+  minScale: number;
+  /** Budget: Draw-Calls, Dreiecke und voll animierte Figuren je Bild */
+  budget: { calls: number; tris: number; figures: number };
 }
 
 /** Bis zu diesem Abstand (m) zeigt das Dorf volle Häuser, je Qualitätsstufe */
@@ -101,6 +106,8 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 18000,
     near: 70,
     far: 420,
+    budget: { calls: 900, tris: 1_500_000, figures: 14 },
+    minScale: 0.75,
   },
   1: {
     dpr: 1.5,
@@ -113,6 +120,8 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 9000,
     near: 45,
     far: 260,
+    budget: { calls: 600, tris: 900_000, figures: 9 },
+    minScale: 0.7,
   },
   0: {
     dpr: 1,
@@ -125,6 +134,8 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 0,
     near: 25,
     far: 160,
+    budget: { calls: 350, tris: 450_000, figures: 5 },
+    minScale: 0.6,
   },
 };
 
@@ -144,6 +155,26 @@ export interface Interactable {
 }
 
 const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/**
+ * Startstufe für „Automatisch“: integrierte Grafik (Intel, AMD-APU, Software) beginnt auf Mittel, eigene
+ * Grafikkarten auf Hoch. Die Automatik passt danach Auflösung und Stufe an die gemessene Bildrate an.
+ */
+function guessQuality(): Quality {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return 1;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    if (/swiftshader|llvmpipe|software/i.test(name)) return 0;
+    if (/intel|uhd|iris|radeon\(tm\) graphics|radeon graphics|vega \d+ graphics|mali|adreno/i.test(name))
+      return 1;
+    return 2;
+  } catch {
+    return 1;
+  }
+}
 
 export class World {
   readonly scene = new Scene();
@@ -194,7 +225,7 @@ export class World {
   pal: Palette = palette(0.5);
   quality: Quality = 2;
   private qualityForced = false;
-  private fps = { acc: 0, frames: 0, windows: 0 };
+  private fps = { acc: 0, frames: 0, windows: 0, good: 0 };
   calm = false;
   mode: Mode = 'intro';
   private focus: Interactable | null = null;
@@ -231,9 +262,7 @@ export class World {
       this.quality = store.settings.quality;
       this.qualityForced = true;
     } else {
-      const small = Math.max(screen.width, screen.height) < 1100;
-      const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-      this.quality = small || coarse ? 1 : 2;
+      this.quality = guessQuality();
     }
     this.calm = store.settings.calm || reducedMotion();
     void this.base;
@@ -371,6 +400,13 @@ export class World {
     this.resize();
     this.slimReflection();
     this.debug = new DebugOverlay(() => this.quality);
+    this.debug.budget = () => {
+      const b = QUALITY[this.quality].budget;
+      let now = 0;
+      for (const a of this.agents) if (a.ch.root.visible) now++;
+      now += this.fullFigures?.() ?? 0;
+      return { calls: b.calls, tris: b.tris, figures: { now, max: b.figures }, scale: this.resScale };
+    };
     this.debug.memoryInfo = () => {
       const i = this.renderer.info;
       return {
@@ -505,11 +541,14 @@ export class World {
   }
 
   /** Brustpunkt der Spielfigur (Kameraziel) */
-  playerTarget(): Vector3 {
+  playerTarget(out = new Vector3()): Vector3 {
     const p = this.player.ch.root.position;
     const sit = this.player.ch.sitAmount;
-    return new Vector3(p.x, p.y + this.player.ch.H * (0.86 - sit * 0.3), p.z);
+    return out.set(p.x, p.y + this.player.ch.H * (0.86 - sit * 0.3), p.z);
   }
+  /** Hilfsvektoren für die Bildschleife (keine Speicheranforderung je Bild) */
+  private _v = new Vector3();
+  private _pt = new Vector3();
 
   // ───────────────────────────────────────── Interaktionen
 
@@ -568,7 +607,7 @@ export class World {
     const el = this.promptEl;
     if (best) {
       const label = best.label();
-      const key = this.input.touch ? '' : '<kbd>E</kbd> ';
+      const key = `<kbd>${keyLabel(store.settings.keys.use)}</kbd> `;
       const html = `${key}${label}`;
       if (el.innerHTML !== html) el.innerHTML = html;
       el.hidden = false;
@@ -716,7 +755,7 @@ export class World {
     this.quality = q;
     this.qualityForced = forced;
     const spec = QUALITY[q];
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr) * this.resScale);
     // Schatten an/aus nur über ihre Stärke (siehe init): die Shader bleiben dieselben
     this.sun.shadow.intensity = spec.shadow > 0 ? 1 : 0;
     this.renderer.shadowMap.needsUpdate = true;
@@ -743,18 +782,55 @@ export class World {
     this.resize();
   }
 
+  /** Zahl voll animierter Figuren außerhalb von agents (Dorfbewohner), vom Spiel gesetzt */
+  fullFigures?: () => number;
+
+  /** Auflösungsfaktor der dynamischen Auflösung (1 = volle Pixeldichte der Stufe) */
+  resScale = 1;
+
+  /** Pixeldichte aus Stufe und dynamischer Auflösung setzen */
+  private applyPixelRatio(): void {
+    const spec = QUALITY[this.quality];
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr) * this.resScale);
+    this.resize();
+  }
+
+  /**
+   * Automatische Anpassung an die Bildrate (alle 2 s gemessen):
+   *  1. zuerst die Auflösung in kleinen Schritten senken (bis zur Untergrenze der Stufe) – das kostet am wenigsten
+   *     Bildqualität und ändert keine Shader;
+   *  2. reicht das nicht, eine Qualitätsstufe tiefer (Sichtweite, Gras, Figuren, Schatten, Effekte);
+   *  3. bei deutlicher Reserve die Auflösung langsam wieder anheben.
+   */
   private governor(rawDt: number): void {
     if (this.qualityForced || this.mode === 'intro' || rawDt > 0.5 || document.hidden) return;
     const f = this.fps;
     f.acc += rawDt;
     f.frames++;
-    if (f.acc < 4) return;
+    if (f.acc < 2) return;
     const fps = f.frames / f.acc;
     f.acc = 0;
     f.frames = 0;
     f.windows++;
-    if (f.windows < 2) return;
-    if (fps < 48 && this.quality > 0) this.setQuality((this.quality - 1) as Quality, false);
+    if (f.windows < 3) return;
+    const min = QUALITY[this.quality].minScale;
+    if (fps < 55 && this.resScale > min + 0.001) {
+      this.resScale = Math.max(min, +(this.resScale - 0.1).toFixed(2));
+      this.applyPixelRatio();
+      f.good = 0;
+    } else if (fps < 48 && this.quality > 0) {
+      this.resScale = 1;
+      this.setQuality((this.quality - 1) as Quality, false);
+      f.good = 0;
+      f.windows = 0;
+    } else if (fps > 58.5 && this.resScale < 1) {
+      // erst nach 6 s stabiler Reserve wieder schärfer
+      if (++f.good >= 3) {
+        this.resScale = Math.min(1, +(this.resScale + 0.05).toFixed(2));
+        this.applyPixelRatio();
+        f.good = 0;
+      }
+    } else f.good = 0;
   }
 
   // ───────────────────────────────────────── Tageszeit
@@ -904,7 +980,12 @@ export class World {
     const water = this.land.water;
     const orig = water.onBeforeRender;
     const hidden: Object3D[] = [];
+    let lastFrame = -1;
     water.onBeforeRender = (...args: Parameters<typeof orig>) => {
+      // nur jedes zweite Bild neu spiegeln (die Textur behält das letzte Bild; die Wellen verdecken den
+      // Unterschied) – die Spiegelung zeichnet sonst jedes Bild die halbe Szene ein zweites Mal
+      if (this.frameNo === lastFrame + 1 && this.frameNo % 2 === 1 && !this.cam.locked) return;
+      lastFrame = this.frameNo;
       const list: Object3D[] = [
         ...this.agents.map((a) => a.ch.root),
         this.village.group,
@@ -940,6 +1021,43 @@ export class World {
    * Schattenausschnitt folgt der Spielfigur (in 1-m-Schritten, damit die Schattenkanten nicht flimmern).
    * Am Teehaus eng und scharf, draußen etwas weiter.
    */
+  private shadowKey = '';
+  private shadowAge = 0;
+  private shadowPrev = new WeakMap<Object3D, number>();
+
+  /**
+   * Muss die Schattenkarte neu gezeichnet werden? Nur wenn sich etwas Sichtbares am Schatten ändert: Sonne oder
+   * Schattenausschnitt verschoben, oder eine Figur in der Nähe bewegt sich (dann höchstens jedes zweite Bild).
+   * Sitzen und Stehen ändern die Schatten kaum; spätestens alle 0,5 s wird trotzdem aufgefrischt (Gesten).
+   * Vorher wurde die Karte mit allen Schattenwerfern jedes zweite Bild neu gezeichnet.
+   */
+  private shadowDirty(dt: number): boolean {
+    this.shadowAge += dt;
+    const t = this.sun.target.position;
+    const d = this.pal.sunDir;
+    const key = `${t.x},${t.y},${t.z},${d.x.toFixed(3)},${d.y.toFixed(3)},${d.z.toFixed(3)},${this.sun.shadow.camera.right}`;
+    let dirty = this.frameNo < 4 || this.cam.locked || key !== this.shadowKey || this.shadowAge > 0.5;
+    if (!dirty && this.frameNo % 2 === 0) {
+      // bewegte Figuren im Schattenausschnitt (Spieler, Gäste, volle Dorfbewohner)
+      const half = this.sun.shadow.camera.right + 2;
+      for (const o of this.scene.children) {
+        if (!o.visible || !o.name.startsWith('rig-')) continue;
+        const p = o.position;
+        if (Math.abs(p.x - t.x) > half || Math.abs(p.z - t.z) > half) continue;
+        const h = p.x * 31.7 + p.z * 17.3 + p.y * 7.1 + o.rotation.y * 3.3;
+        if (this.shadowPrev.get(o) !== h) {
+          this.shadowPrev.set(o, h);
+          dirty = true;
+        }
+      }
+    }
+    if (dirty) {
+      this.shadowKey = key;
+      this.shadowAge = 0;
+    }
+    return dirty;
+  }
+
   private followShadow(): void {
     const pp = this.player.ch.root.position;
     const t = this.sun.target.position;
@@ -1119,7 +1237,7 @@ export class World {
     if (this.mode === 'free' && wish && !inp.lookDX && Math.abs(inp.axis().y) > 0.2 && inp.axis().y > 0) {
       this.cam.follow(this.player.ch.yaw, dt, 0.8);
     }
-    this.cam.update(dt, this.playerTarget(), this.camBlockers);
+    this.cam.update(dt, this.playerTarget(this._pt), this.camBlockers);
     // Kamera klebt an der Figur (enge Ecke): Figur ausblenden statt den Kopf groß ins Bild zu schieben
     this.player.ch.root.visible = !this.hidePlayer && (this.cam.locked || this.cam.close > 0.6);
     this.updateFocus();
@@ -1145,7 +1263,7 @@ export class World {
       const d = a.ch.root.position.distanceTo(c);
       a.ch.setDetail(d < 11);
       // ferne Figuren seltener animieren (Spieler immer voll)
-      a.animStride = a === this.player || d < 12 ? 1 : d < 24 ? 2 : 3;
+      a.animStride = a === this.player || d < 12 ? 1 : d < 24 ? 2 : 4;
     }
     this.fadeOccluders(dt);
 
@@ -1167,7 +1285,7 @@ export class World {
     }
     const sunUp = Math.max(0, p.sunDir.y);
     const shaftK = (1 - p.stars) * (0.2 + 0.5 * clamp(1 - sunUp * 1.6, 0, 1));
-    this.shafts.update(p.sunDir.clone().negate(), shaftK, p.sun, this.time, motion);
+    this.shafts.update(this._v.copy(p.sunDir).negate(), shaftK, p.sun, this.time, motion);
     this.steam.update(dt, this.time, QUALITY[this.quality].steam);
     this.petals.update(dt, this.time, motion);
     const dark = p.stars * (1 - this.weather.rain);
@@ -1211,8 +1329,7 @@ export class World {
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
     // auf Niedrig gar nicht (Schatten sind dort ausgeblendet)
-    if (QUALITY[this.quality].shadow > 0 && (this.frameNo % 2 === 0 || this.frameNo < 4 || this.cam.locked))
-      this.renderer.shadowMap.needsUpdate = true;
+    if (QUALITY[this.quality].shadow > 0 && this.shadowDirty(dt)) this.renderer.shadowMap.needsUpdate = true;
     const info = this.renderer.info;
     info.reset();
     this.composer.render(dt);

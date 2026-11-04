@@ -18,6 +18,7 @@ import { currentQuest } from './minigames/quests';
 import type { World } from './world/world';
 import { store } from './state/store';
 import { report } from './core/guard';
+import { toggleFullscreen } from './ui/fullscreen';
 import { bus } from './core/bus';
 import { JACKIE, YAO } from './content/dialogs';
 import { WORDS } from './content/words';
@@ -289,6 +290,7 @@ export class Game {
       else if (a === 'map') {
         if (world.mode === 'free' || this.map.open) this.map.toggle();
       } else if (a === 'pause') this.togglePause();
+      else if (a === 'fullscreen') toggleFullscreen();
     };
     // Esc öffnet die Pause, wenn nichts anderes offen ist (vor allen anderen Esc-Handlern prüfen)
     window.addEventListener(
@@ -311,7 +313,6 @@ export class Game {
     // Tutorial, Untertitel, Autospeichern, entdeckte Orte
     this.tutorial = new Tutorial({
       player: () => ({ x: world.player.x, z: world.player.z, seated: world.player.seated }),
-      touch: () => world.input.touch,
     });
     world.onUse = (id) => this.tutorial.used(id);
     this.captions = new Captions();
@@ -746,6 +747,7 @@ export class Game {
       { id: 'words', label: 'Wörterbuch', zh: '词典', onClick: () => this.dict.open() },
       { id: 'quiz', label: 'Quiz und Abzeichen', zh: '测验', onClick: () => this.quizPanel.show() },
       { id: 'wardrobe', label: 'Garderobe', zh: '衣柜', onClick: () => this.quests.openWardrobe() },
+      { id: 'fullscreen', label: 'Vollbild an/aus', zh: '全屏', onClick: () => toggleFullscreen() },
       { id: 'help', label: 'Hilfe', zh: '帮助', onClick: () => this.info.open() },
       {
         id: 'menu',

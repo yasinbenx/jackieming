@@ -7,8 +7,6 @@ import { keyLabel } from '../state/savefile';
 export interface TutorialHost {
   /** Position der Spielfigur */
   player: () => { x: number; z: number; seated: boolean };
-  /** Touch-Steuerung aktiv? */
-  touch: () => boolean;
 }
 
 interface Step {
@@ -23,32 +21,33 @@ const STEPS: Step[] = [
     title: 'Gehen',
     text: () => {
       const k = store.settings.keys;
-      return document.body.classList.contains('touch')
-        ? 'Zieh den Joystick links unten. Weit ziehen heißt laufen. Oder tippe auf den Boden.'
-        : `Geh mit ${keyLabel(k.forward)} ${keyLabel(k.left)} ${keyLabel(k.back)} ${keyLabel(k.right)} oder den Pfeiltasten. ${keyLabel(k.run)} halten zum Laufen. Ein Klick auf den Boden geht auch.`;
+      return `Geh mit ${keyLabel(k.forward)} ${keyLabel(k.left)} ${keyLabel(k.back)} ${keyLabel(k.right)} oder den Pfeiltasten. ${keyLabel(k.run)} halten zum Laufen. Ein Klick auf den Boden geht auch.`;
     },
   },
   {
     id: 'look',
     title: 'Umsehen',
-    text: () =>
-      document.body.classList.contains('touch')
-        ? 'Wisch über das Bild, um die Kamera zu drehen. Zwei Finger zoomen.'
-        : 'Zieh mit der Maus, um die Kamera zu drehen. Das Mausrad zoomt.',
+    text: () => 'Zieh mit der Maus, um die Kamera zu drehen. Das Mausrad zoomt.',
   },
   {
     id: 'talk',
     title: 'Ansprechen',
     text: () =>
-      document.body.classList.contains('touch')
-        ? 'Geh zu einer Figur, zum Beispiel zum Teemeister an der Theke. Tipp auf den Knopf, der unten erscheint.'
-        : `Geh zu einer Figur, zum Beispiel zum Teemeister an der Theke. Wenn unten ein Hinweis erscheint, drück ${keyLabel(store.settings.keys.use)}.`,
+      `Geh zu einer Figur, zum Beispiel zum Teemeister an der Theke. Wenn unten ein Hinweis erscheint, drück ${keyLabel(store.settings.keys.use)}.`,
   },
   {
     id: 'sit',
     title: 'Hinsetzen',
     text: () =>
-      'Geh an einen freien Hocker und wähle „Hinsetzen“. Zum Aufstehen einfach loslaufen. Jackie und Yao sitzen hinten rechts am großen Tisch.',
+      `Geh an einen freien Hocker und drück ${keyLabel(store.settings.keys.use)} („Hinsetzen“). Zum Aufstehen einfach loslaufen. Jackie und Yao sitzen hinten rechts am großen Tisch.`,
+  },
+  {
+    id: 'keys',
+    title: 'Weitere Tasten',
+    text: () => {
+      const k = store.settings.keys;
+      return `${keyLabel(k.map)} Karte · Esc oder ${keyLabel(k.pause)} Pause · ${keyLabel(k.fullscreen)} Vollbild · ${keyLabel(k.wave)} Winken · ${keyLabel(k.sound)} Ton · F3 Messwerte. Alle Tasten lassen sich in den Einstellungen ändern.`;
+    },
   },
 ];
 

@@ -15,6 +15,7 @@ import {
   Group,
   LoopOnce,
   LoopRepeat,
+  Matrix3,
   Matrix4,
   Mesh,
   Object3D,
@@ -28,6 +29,7 @@ import {
 } from 'three';
 import type { AnimationAction, Bone, Material, MeshStandardMaterial } from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Action, Face, HairFit, Look, Prop } from './character';
 import { embroidery, fabricNormals, vinyl } from './materials';
 import type { Front } from './materials';
@@ -466,6 +468,181 @@ export class RigCharacter {
       m.boundingSphere = new Sphere(c.clone().applyMatrix4(m.matrixWorld.clone().invert()), r / s);
       m.frustumCulled = true;
     });
+    this.fuseRigid();
+  }
+
+  /** Zahl der Teile vor und nach dem Zusammenfassen (Debug, Tests) */
+  fused = { before: 0, after: 0 };
+
+  /**
+   * Starre, einfarbige Teile (Kopf, Ohren, Nase, Knöpfe, Hände …) je Knochen zu einem Mesh mit Vertexfarben
+   * zusammenfassen: eine Figur bestand aus 32–43 Einzelteilen mit 22–26 Materialien, also ebenso vielen
+   * Draw-Calls. Ausgenommen bleibt alles, was einzeln bewegt, verformt oder ein-/ausgeblendet wird: Augen und
+   * Brauen (Blinzeln), Mund, Requisiten, nachschwingende Quasten und Haare, Schattenfleck sowie Teile mit
+   * Textur oder Durchsichtigkeit. Die kleinen Gesichtsteile, die aus der Ferne verschwinden, werden getrennt
+   * zusammengefasst, damit setDetail sie weiter als Ganzes ausblenden kann.
+   */
+  private fuseRigid(): void {
+    const keep = new Set<Object3D>([...this.eyes, ...this.brows, this.blob]);
+    if (this.mouth) keep.add(this.mouth);
+    if (this.mouthOpen) keep.add(this.mouthOpen);
+    for (const d of this.dangles) d.obj.traverse((o) => keep.add(o));
+    // Requisiten werden nur als Ganzes ein-/ausgeblendet: ihre Teile innerhalb des Requisits zusammenfassen
+    const propOf = new Map<Object3D, Object3D>();
+    for (const pr of Object.values(this.props)) pr?.traverse((o) => propOf.set(o, pr));
+    this.root.updateMatrixWorld(true);
+    // Gruppen: Anker (Knochen oder Requisit) × fein/grob × Leuchten (Haut leuchtet leicht von innen)
+    const groups = new Map<string, { anchor: Object3D; fine: boolean; parts: Mesh[] }>();
+    let before = 0;
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const prop = propOf.get(m);
+      if (!m.visible && !prop) return;
+      before++;
+      if ((m as SkinnedMesh).isSkinnedMesh || keep.has(m) || Array.isArray(m.material)) return;
+      const mat = m.material as MeshStandardMaterial;
+      if (!mat.isMeshStandardMaterial || mat.map || mat.transparent || mat.alphaMap || mat.normalMap) return;
+      if (m.morphTargetInfluences) return;
+      const glow =
+        mat.emissive && mat.emissiveIntensity > 0
+          ? `${mat.emissive.getHexString()}*${mat.emissiveIntensity}`
+          : '';
+      // Anker: das Requisit selbst oder der nächste Knochen darüber (oder die Wurzel)
+      let a: Object3D | null = prop ?? m.parent;
+      if (!prop) while (a && !(a as Bone).isBone && a !== this.root) a = a.parent;
+      if (!a) return;
+      const geo = m.geometry;
+      const tris = (geo.index ? geo.index.count : geo.attributes.position!.count) / 3;
+      const fine = !prop && tris <= 136;
+      const key = `${a.uuid}|${fine}|${glow}`;
+      const g = groups.get(key) ?? { anchor: a, fine, parts: [] };
+      g.parts.push(m);
+      groups.set(key, g);
+    });
+    const fineFused: Mesh[] = [];
+    const inv = new Matrix4();
+    const rel = new Matrix4();
+    const nm = new Matrix3();
+    const make = (anchor: Object3D, parts: Mesh[], fine: boolean): void => {
+      if (parts.length < 2) {
+        if (fine) fineFused.push(...parts);
+        return;
+      }
+      inv.copy(anchor.matrixWorld).invert();
+      const geos: BufferGeometry[] = [];
+      let rough = 0;
+      let metal = 0;
+      for (const m of parts) {
+        const src = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+        const g = new BufferGeometry();
+        rel.multiplyMatrices(inv, m.matrixWorld);
+        const pos = (src.attributes.position as BufferAttribute).clone().applyMatrix4(rel);
+        g.setAttribute('position', pos);
+        if (src.attributes.normal) {
+          nm.getNormalMatrix(rel);
+          g.setAttribute('normal', (src.attributes.normal as BufferAttribute).clone().applyNormalMatrix(nm));
+        }
+        const mat = m.material as MeshStandardMaterial;
+        const col = new Float32Array(pos.count * 3);
+        for (let i = 0; i < pos.count; i++) col.set([mat.color.r, mat.color.g, mat.color.b], i * 3);
+        g.setAttribute('color', new BufferAttribute(col, 3));
+        geos.push(g);
+        src.dispose();
+        rough += mat.roughness;
+        metal += mat.metalness;
+      }
+      const merged = mergeGeometries(geos);
+      geos.forEach((g) => g.dispose());
+      if (!merged) {
+        if (fine) fineFused.push(...parts);
+        return;
+      }
+      merged.computeBoundingSphere();
+      const base = parts[0]!.material as MeshStandardMaterial;
+      const mat = base.clone();
+      mat.onBeforeCompile = base.onBeforeCompile;
+      mat.customProgramCacheKey = base.customProgramCacheKey;
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
+      mat.roughness = rough / parts.length;
+      mat.metalness = metal / parts.length;
+      this.mats.push(mat);
+      const out = new Mesh(merged, mat);
+      out.name = `fused-${fine ? 'fein' : 'grob'}`;
+      out.castShadow = false;
+      out.receiveShadow = parts[0]!.receiveShadow;
+      anchor.add(out);
+      for (const m of parts) {
+        m.parent?.remove(m);
+        m.geometry.dispose();
+      }
+      if (fine) fineFused.push(out);
+    };
+    for (const g of groups.values()) make(g.anchor, g.parts, g.fine);
+    this.mergeSkinned();
+    // feine Teile für setDetail: zusammengefasste plus übrige kleine (Augen, Brauen …)
+    let after = 0;
+    this.root.traverse((o) => {
+      if ((o as Mesh).isMesh && o.visible) after++;
+    });
+    this.fused = { before, after };
+    this.fineExtra = fineFused;
+  }
+  /** zusammengefasste feine Teile (setDetail blendet sie mit aus) */
+  private fineExtra: Mesh[] = [];
+
+  /**
+   * Geskinnte Kleidungsteile mit demselben Material (linker/rechter Ärmel, beide Hosenbeine …) zu einem Mesh
+   * zusammenfassen – nur, wenn sie dasselbe Skelett in derselben Bindung benutzen.
+   */
+  private mergeSkinned(): void {
+    const groups = new Map<Material, SkinnedMesh[]>();
+    this.root.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh || !m.visible || Array.isArray(m.material) || m.morphTargetInfluences) return;
+      const l = groups.get(m.material) ?? [];
+      l.push(m);
+      groups.set(m.material, l);
+    });
+    const same = (a: SkinnedMesh, b: SkinnedMesh): boolean => {
+      const A = a.skeleton;
+      const B = b.skeleton;
+      if (a.parent !== b.parent || A.bones.length !== B.bones.length) return false;
+      if (!a.bindMatrix.equals(b.bindMatrix)) return false;
+      for (let i = 0; i < A.bones.length; i++) {
+        if (A.bones[i] !== B.bones[i]) return false;
+        if (!A.boneInverses[i]!.equals(B.boneInverses[i]!)) return false;
+      }
+      return true;
+    };
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      const first = list[0]!;
+      const parts = list.filter((m) => same(first, m));
+      if (parts.length < 2) continue;
+      const names = Object.keys(first.geometry.attributes).sort().join();
+      if (parts.some((m) => Object.keys(m.geometry.attributes).sort().join() !== names)) continue;
+      const geos = parts.map((m) => (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()));
+      const merged = mergeGeometries(geos);
+      geos.forEach((g) => g.dispose());
+      if (!merged) continue;
+      const out = new SkinnedMesh(merged, first.material);
+      out.name = 'fused-haut';
+      out.castShadow = first.castShadow;
+      out.receiveShadow = first.receiveShadow;
+      out.position.copy(first.position);
+      out.quaternion.copy(first.quaternion);
+      out.scale.copy(first.scale);
+      first.parent!.add(out);
+      out.bind(first.skeleton, first.bindMatrix);
+      out.boundingSphere = first.boundingSphere?.clone() ?? null;
+      out.frustumCulled = first.frustumCulled;
+      for (const m of parts) {
+        m.parent?.remove(m);
+        m.geometry.dispose();
+      }
+    }
   }
 
   // ───────────────────────────────────────── Aufbau
@@ -1438,7 +1615,7 @@ export class RigCharacter {
         if (!m.isMesh || (m as SkinnedMesh).isSkinnedMesh || skip.has(m) || !m.visible) return;
         const g = m.geometry;
         const tris = (g.index ? g.index.count : g.attributes.position!.count) / 3;
-        if (tris <= 136) fine.push(m);
+        if (tris <= 136 || this.fineExtra.includes(m)) fine.push(m);
       });
       this.fine = fine;
     }

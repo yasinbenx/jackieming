@@ -1,4 +1,4 @@
-// Debug-Anzeige (F3, nur im Entwicklungsmodus oder mit ?debug): Bildrate, Bildzeit, Rechenzeit, Draw-Calls,
+// Debug-Anzeige (F3; ?debug zeigt sie gleich beim Start): Bildrate, Bildzeit, Rechenzeit, Draw-Calls,
 // Dreiecke, Speicher und Texturen, Spielzustand, Ladezustand jedes Schritts, Zeitstempel des letzten Bildes,
 // letzte Fehler und Watchdog-Meldungen.
 import { h } from './dom';
@@ -33,6 +33,9 @@ export class DebugOverlay {
     return !this.el.hidden;
   }
 
+  /** Budget der aktuellen Stufe (Draw-Calls, Dreiecke, voll animierte Figuren) und Auflösungsfaktor */
+  budget?: () => { calls: number; tris: number; figures?: { now: number; max: number }; scale?: number };
+
   /** Grafik- und JS-Speicher (JS-Speicher nur in Chromium-Browsern) */
   memoryInfo?: () => { geometries: number; textures: number; programs: number };
 
@@ -61,16 +64,29 @@ export class DebugOverlay {
     if (!this.el.hidden) {
       const fps = this.frames / this.acc;
       const q = ['Niedrig', 'Mittel', 'Hoch'][this.quality()] ?? '?';
-      this.el.textContent = [
-        `FPS        ${fps.toFixed(0)}  · Bildzeit ${((this.acc / this.frames) * 1000).toFixed(1)} ms (langsamstes ${(this.worst * 1000).toFixed(0)} ms)`,
+      const calls = Math.round(this.calls / this.frames);
+      const tris = this.tris / this.frames;
+      const b = this.budget?.();
+      const esc = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      // Wert gegen Budget: grün im Rahmen, rot darüber
+      const vs = (v: number, max: number | undefined, unit = ''): string =>
+        max === undefined
+          ? `${v}${unit}`
+          : `<span class="${v > max ? 'over' : 'ok'}">${v}${unit}</span> / ${max}${unit}`;
+      const fpsTxt = `<span class="${fps < 55 ? 'over' : 'ok'}">${fps.toFixed(0)}</span>`;
+      this.el.innerHTML = [
+        `FPS        ${fpsTxt} / 60  · Bildzeit ${((this.acc / this.frames) * 1000).toFixed(1)} ms (langsamstes ${(this.worst * 1000).toFixed(0)} ms)`,
         `letztes Bild ${(performance.now() / 1000).toFixed(1)} s nach Seitenstart`,
         `CPU/Bild   ${(this.cpu / this.frames).toFixed(1)} ms`,
-        `Draw-Calls ${Math.round(this.calls / this.frames)}  (Mittel; Schatten und Spiegelung jedes 2. Bild)`,
-        `Dreiecke   ${(this.tris / this.frames / 1000).toFixed(0)} k`,
-        `Qualität   ${q}`,
-        this.memory(),
-        ...this.lines.map((f) => f()),
-      ].join('\n');
+        `Draw-Calls ${vs(calls, b?.calls)}  (Mittel; Schatten und Spiegelung jedes 2. Bild)`,
+        `Dreiecke   ${vs(Math.round(tris / 1000), b ? Math.round(b.tris / 1000) : undefined, ' k')}`,
+        b?.figures ? `Figuren    ${vs(b.figures.now, b.figures.max)} voll animiert` : '',
+        `Qualität   ${q}${b?.scale !== undefined ? ` · Auflösung ${Math.round(b.scale * 100)} %` : ''}`,
+        esc(this.memory()),
+        ...this.lines.map((f) => esc(f())),
+      ]
+        .filter(Boolean)
+        .join('\n');
     }
     this.frames = 0;
     this.acc = 0;

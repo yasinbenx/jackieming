@@ -415,14 +415,25 @@ class Resident {
   }
 
   /** Volle Figur an Position und Haltung bringen */
-  pose(dt: number): void {
+  private animAcc = 0;
+  private animN = 0;
+
+  /**
+   * Volle Figur an Position und Haltung bringen. Die Skelett-Animation läuft nach Entfernung seltener: bis 12 m
+   * jedes Bild, bis 24 m jedes zweite, darüber jedes vierte (bei 60 fps also 15 Hz); die Zeit wird aufgesammelt.
+   */
+  pose(dt: number, dist = 0): void {
     const ch = this.rig;
     if (!ch) return;
     ch.root.position.set(this.x, this.y, this.z);
     ch.yaw = this.yaw;
     ch.speed = this.speed;
     ch.talk = Math.max(0, ch.talk - dt * 5);
-    ch.update(dt);
+    this.animAcc += dt;
+    const stride = dist < 12 ? 1 : dist < 24 ? 2 : 4;
+    if (++this.animN % stride !== 0) return;
+    ch.update(Math.min(0.15, this.animAcc));
+    this.animAcc = 0;
   }
 
   /** Volle Figur anlegen (einmalig) */
@@ -602,6 +613,7 @@ export class Villagers {
       this.crowd.hat,
       ...this.list.flatMap((r) => (r.rig ? [r.rig.root] : [])),
     ]);
+    w.fullFigures = () => this.list.filter((r) => r.full && r.rig?.root.visible).length;
     w.debug?.lines.push(() => {
       const vis = this.list.filter((r) => r.visible);
       return `Bewohner   ${vis.filter((r) => r.full).length} voll · ${this.crowd.body.count} einfach · ${this.list.length - vis.length} zu Hause`;
@@ -684,7 +696,7 @@ export class Villagers {
         r.setFull(true);
         full++;
         shown.add(r);
-        r.pose(dt);
+        r.pose(dt, d);
         r.rig!.setDetail(d < 11);
         r.setShadow(d < SHADOW_R);
       } else {

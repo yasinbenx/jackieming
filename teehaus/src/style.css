@@ -487,15 +487,6 @@ body.is-inside #hud {
   background: linear-gradient(180deg, var(--red) 0%, var(--red-d) 100%);
   box-shadow: inset 0 0 0 1px var(--gold);
 }
-@media (max-width: 560px) {
-  .hud-brand i {
-    display: none;
-  }
-  .seg button {
-    min-width: 44px;
-    padding: 4px 6px;
-  }
-}
 
 /* ───────── HUD (erweitert) ───────── */
 .hud-left {
@@ -1383,111 +1374,7 @@ body.dialog-open #pick,
 }
 
 /* ───────── Mobil ───────── */
-@media (max-width: 700px) {
-  .dialog {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    transform: none;
-    max-height: 54vh;
-    border-radius: 14px 14px 0 0;
-    border-bottom: 0;
-    padding-bottom: var(--safe-b);
-    animation: dlg-in-m 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  @keyframes dlg-in-m {
-    from {
-      transform: translateY(100%);
-    }
-    to {
-      transform: none;
-    }
-  }
-  .dlg-head {
-    padding: 10px 12px 8px;
-    gap: 10px;
-  }
-  .dlg-other {
-    font-size: 12px;
-    padding: 6px 8px;
-  }
-  .dlg-body {
-    padding: 8px 12px 12px;
-  }
-  .q {
-    font-size: 16px;
-    padding: 10px 12px;
-  }
-  .wordcard {
-    top: auto;
-    bottom: calc(var(--dlg-h, 50vh) + 10px);
-    left: 0;
-    right: 0;
-    margin-inline: auto;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: 14px;
-    align-items: center;
-    text-align: left;
-    padding: 10px 12px;
-  }
-  .wc-head,
-  .wc-foot {
-    grid-column: 1 / -1;
-  }
-  .wc-zh {
-    grid-row: 2 / 5;
-    font-size: 58px;
-  }
-  .wc-py,
-  .wc-de,
-  .wc-note {
-    grid-column: 2;
-    margin-top: 0;
-  }
-  .wc-py {
-    font-size: 22px;
-  }
-  .wc-de {
-    font-size: 18px;
-  }
-  .wc-foot {
-    margin-top: 6px;
-  }
-  .hud-progress-label {
-    display: none;
-  }
-  .hud-tools {
-    gap: 5px;
-  }
-  .pick-hint {
-    font-size: 14px;
-  }
-}
-@media (max-width: 480px) {
-  .hud-progress {
-    display: none;
-  }
-  #hud {
-    left: 8px;
-    right: 8px;
-  }
-  .hud-words small,
-  .hud-toast small,
-  .seg button small {
-    display: none;
-  }
-  .hud-words,
-  .hud-icon,
-  .hud-toast {
-    min-width: 40px;
-    padding: 4px 6px;
-  }
-  .dlg-other {
-    display: none;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .dialog,
   .wordcard.in,
@@ -1987,73 +1874,6 @@ body.glow-flash::after {
 }
 
 /* ───────── Querformat auf dem Handy (wenig Höhe) ───────── */
-@media (max-height: 520px) {
-  .dialog {
-    max-height: 66vh;
-    width: min(760px, calc(100vw - 24px));
-  }
-  .dlg-head {
-    padding: 6px 12px;
-  }
-  .dlg-seal {
-    width: 34px;
-    height: 34px;
-    font-size: 22px;
-  }
-  .dlg-name {
-    font-size: 16px;
-  }
-  .dlg-count {
-    display: none;
-  }
-  .dlg-body {
-    padding: 6px 12px 10px;
-  }
-  .tab {
-    padding: 3px 10px 2px;
-    min-width: 70px;
-  }
-  .tab-n {
-    display: none;
-  }
-  .q {
-    padding: 8px 12px;
-    font-size: 16px;
-  }
-  .ans-text {
-    font-size: 17px;
-    min-height: 0;
-  }
-  .pick-hint {
-    display: none;
-  }
-  .wordcard {
-    top: calc(56px + var(--safe-t));
-    width: 250px;
-  }
-  .wc-zh {
-    font-size: 46px;
-  }
-  .hud-brand i,
-  .hud-progress {
-    display: none;
-  }
-  .quiz,
-  .result {
-    max-height: 90vh;
-  }
-  .quiz-q {
-    font-size: 20px;
-    margin: 4px 0 8px;
-  }
-  .quiz-opt {
-    padding: 8px 12px;
-    font-size: 17px;
-  }
-  #toast {
-    top: calc(56px + var(--safe-t));
-  }
-}
 
 /* ───── Freie Frage (optionaler KI-Chat) */
 .chat {
@@ -2111,17 +1931,7 @@ body.is-finale .cam-seg {
   opacity: 0;
   pointer-events: none;
 }
-@media (max-width: 760px) {
-  .cam-seg {
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(118px + var(--safe-b));
-  }
-  .cam-seg button {
-    min-width: 64px;
-    padding: 4px 8px;
-  }
-}
+
 .bubble.offscreen {
   opacity: 0 !important;
 }
@@ -2357,12 +2167,6 @@ body.is-finale .cam-seg {
 #toast {
   white-space: nowrap;
 }
-@media (max-width: 420px) {
-  #toast {
-    white-space: normal;
-    font-size: 14px;
-  }
-}
 
 /* ═════════ Spiel: Kleiderwahl, Blende, Interaktions-Hinweis, Joystick, Zielmarke ═════════ */
 body.is-picking #loader {
@@ -2454,18 +2258,6 @@ body.is-picking #loader {
   font-size: 22px;
   margin-right: 6px;
 }
-@media (max-width: 640px) {
-  .outfit {
-    top: auto;
-    bottom: calc(16px + var(--safe-b));
-    left: 16px;
-    right: 16px;
-    width: auto;
-    max-width: 340px;
-    margin-inline: auto;
-    translate: none;
-  }
-}
 
 /* Interaktions-Hinweis (E-Taste / Antippen) */
 .act-prompt {
@@ -2510,37 +2302,6 @@ body.modal-open .act-prompt {
 }
 
 /* Virtueller Joystick (nur Touch) */
-.joystick {
-  position: fixed;
-  z-index: 13;
-  left: calc(22px + env(safe-area-inset-left, 0px));
-  bottom: calc(26px + var(--safe-b));
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 245, 225, 0.18), rgba(255, 245, 225, 0.06));
-  border: 2px solid rgba(255, 235, 200, 0.45);
-  display: none;
-  touch-action: none;
-}
-body.touch.is-inside:not(.dialog-open):not(.modal-open) .joystick {
-  display: block;
-}
-.joystick-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 54px;
-  height: 54px;
-  margin: -27px 0 0 -27px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #fbf0d8, #c9a46a);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-body.touch .act-prompt {
-  bottom: auto;
-  top: calc(80px + var(--safe-t));
-}
 
 /* Zielmarke beim Hinlaufen */
 .walk-marker {
@@ -2845,94 +2606,19 @@ body:not(.is-inside) .nametag {
   flex: 1 1 100%;
   justify-content: flex-end;
 }
-@media (max-width: 760px) {
-  .dlg3 {
-    top: auto;
-    left: 8px;
-    right: 8px;
-    bottom: calc(8px + var(--safe-b));
-    width: auto;
-    max-height: 36vh;
-  }
-  .dlg3-head {
-    gap: 4px 8px;
-    padding: 6px 10px 4px;
-  }
-  .dlg3-name i,
-  .dlg3-de {
-    display: none;
-  }
-  .dlg3-name > span[lang='zh'] {
-    font-size: 22px;
-  }
-  .dlg3-tools .btn.small {
-    padding: 5px 7px;
-    font-size: 12px;
-  }
-  .dlg3-card {
-    padding: 4px 10px;
-  }
-  .card-seal {
-    font-size: 18px;
-  }
-  .card-fields {
-    font-size: 11.5px;
-  }
-  .card-parts {
-    display: none;
-  }
-  body.dialog-open .wordcard {
-    top: auto;
-    left: 8px;
-    right: auto;
-    bottom: calc(36vh + 16px);
-    width: min(250px, 66vw);
-    padding: 8px 10px 6px;
-  }
-  body.dialog-open .wordcard :is(.wc-note, .wc-foot, .wc-kicker) {
-    display: none;
-  }
-  .bubble.answer {
-    max-width: 92vw;
-    font-size: 14px;
-    line-height: 1.35;
-  }
-}
 
 /* Lernkarte während des Gesprächs (Desktop): unten links, damit sie weder Fragen noch Gesichter verdeckt */
-@media (min-width: 761px) {
-  body.dialog-open .wordcard {
-    top: auto;
-    right: auto;
-    left: 16px;
-    bottom: calc(16px + var(--safe-b));
-    width: min(260px, 30vw);
-  }
+
+body.dialog-open .wordcard {
+  top: auto;
+  right: auto;
+  left: 16px;
+  bottom: calc(16px + var(--safe-b));
+  width: min(260px, 30vw);
 }
+
 /* Querformat auf dem Telefon: Leiste rechts, ganz niedrig */
-@media (min-width: 761px) and (max-height: 520px) {
-  .dlg3 {
-    top: calc(56px + var(--safe-t, 0px));
-    bottom: 8px;
-    right: 8px;
-  }
-  /* Lernkarte im Gespräch: klein über der Leiste statt über den Figuren */
-  body.dialog-open .wordcard {
-    top: calc(60px + var(--safe-t, 0px));
-    right: 16px;
-    left: auto;
-    bottom: auto;
-    width: min(240px, 29vw);
-    padding: 8px 10px 6px;
-    z-index: 23;
-  }
-  body.dialog-open .wordcard :is(.wc-note, .wc-foot, .wc-kicker) {
-    display: none;
-  }
-  .dlg3-head {
-    padding: 6px 10px 4px;
-  }
-}
+
 /* Weg zum Platz am Tisch */
 .approach-hint {
   position: fixed;
@@ -3099,35 +2785,7 @@ body.is-menu #loader {
   color: #fff4ea;
   background: linear-gradient(180deg, #b5402c, #7d1f14);
 }
-@media (max-width: 640px) {
-  #mainmenu {
-    align-items: end;
-    background: linear-gradient(0deg, rgba(20, 11, 8, 0.9) 0%, rgba(20, 11, 8, 0.6) 55%, transparent 85%);
-  }
-  #mainmenu .menu-panel {
-    margin: 0 auto;
-    gap: 14px;
-  }
-  .menu-title {
-    align-items: center;
-    width: 100%;
-  }
-  .menu-btn {
-    padding: 10px 14px;
-  }
-}
-@media (max-height: 520px) and (min-width: 641px) {
-  #mainmenu .menu-panel {
-    gap: 10px;
-  }
-  .menu-title .zh {
-    font-size: 64px;
-  }
-  .menu-btn {
-    padding: 7px 14px;
-    font-size: 15px;
-  }
-}
+
 /* Pause */
 #pausemenu {
   z-index: 38;
@@ -3162,8 +2820,6 @@ body.is-menu #loader {
   color: var(--paper-d);
 }
 body.paused .act-prompt,
-body.paused .joystick,
-body.in-menu .joystick,
 body.in-menu .act-prompt {
   display: none !important;
 }
@@ -3330,13 +2986,7 @@ body.in-menu .tutorial,
 body:not(.is-inside) .tutorial {
   display: none;
 }
-@media (max-width: 640px) {
-  /* oben liegt am Telefon die Wortkarte: Tutorial unten über dem Joystick */
-  .tutorial {
-    top: auto;
-    bottom: calc(150px + var(--safe-b));
-  }
-}
+
 /* Untertitel fürs Gemurmel */
 .captions {
   position: fixed;
@@ -3416,11 +3066,7 @@ body.high-contrast :focus-visible {
 .bubble.answer {
   font-size: calc(17px * var(--ui-scale, 1));
 }
-@media (max-width: 760px) {
-  .bubble.answer {
-    font-size: calc(14px * var(--ui-scale, 1));
-  }
-}
+
 .confirm .btn {
   color: var(--paper);
 }
@@ -4387,6 +4033,13 @@ body.xq-open .act-prompt {
   pointer-events: none;
   white-space: pre;
 }
+#debug .ok {
+  color: #9fe39a;
+}
+#debug .over {
+  color: #ff8a7a;
+  font-weight: 700;
+}
 #debug[hidden] {
   display: none !important;
 }
@@ -4764,4 +4417,60 @@ body.xq-open .act-prompt {
 .badge-how {
   font-size: 12px;
   color: rgba(42, 26, 16, 0.62);
+}
+
+/* ───────── Benchmark (?bench) */
+.bench {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 70;
+  width: min(820px, 94vw);
+  padding: 18px 22px;
+  background: #f1e6cf;
+  color: #2a1a10;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.bench h2 {
+  margin: 0 0 6px;
+}
+.bench-meta {
+  font-size: 12px;
+  color: rgba(42, 26, 16, 0.7);
+  word-break: break-word;
+}
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-variant-numeric: tabular-nums;
+}
+.bench-table th,
+.bench-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(90, 58, 34, 0.25);
+  text-align: right;
+}
+.bench-table th:first-child,
+.bench-table td:first-child {
+  text-align: left;
+}
+.bench-table .ok {
+  color: #1f6b3a;
+  font-weight: 700;
+}
+.bench-table .mid {
+  color: #8a5a10;
+  font-weight: 700;
+}
+.bench-table .bad {
+  color: #9b2a1a;
+  font-weight: 700;
+}
+.bench-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
