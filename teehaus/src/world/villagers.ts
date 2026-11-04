@@ -26,7 +26,13 @@ import { avoidance } from './avoid';
 import { buildWayGraph, nearestNode, route } from './waygraph';
 import type { WayGraph } from './waygraph';
 import { ERRANDS, VILLAGERS } from '../content/villagers';
-import type { Villager, VillagerLook } from '../content/villagers';
+import type { DayPhase, Step, Tool, Villager, VillagerLook } from '../content/villagers';
+
+/** Tätigkeiten, die am Ort ohne Unterbrechung laufen */
+const CONTINUOUS = new Set(['taichi', 'sweep', 'chop', 'hammer', 'wash', 'eat', 'kite', 'polish']);
+
+/** Tageszeiten ohne ausdrückliche Angabe im Plan */
+const DAY: DayPhase[] = ['morgen', 'mittag', 'abend'];
 import type { Speaker } from '../ui/bubbles';
 import { store } from '../state/store';
 import { report } from '../core/guard';
@@ -41,6 +47,8 @@ export interface VillagerContext {
   busy: () => boolean;
   /** Ist es Nacht? */
   night: () => boolean;
+  /** Tageszeit für die Tagespläne */
+  phase?: () => DayPhase;
   /** Laden öffnen */
   openShop: (who: Speaker) => void;
   /** Aufgaben des Teemeisters mitzählen lassen (z. B. „Sprich mit drei Leuten“) */
@@ -50,9 +58,9 @@ export interface VillagerContext {
 }
 
 /** Volle Figuren gleichzeitig, je Qualitätsstufe */
-const MAX_FULL: Record<number, number> = { 2: 6, 1: 4, 0: 2 };
+const MAX_FULL: Record<number, number> = { 2: 10, 1: 7, 0: 4 };
 /** Bis hier volle Figur (m) */
-const FULL_R = 26;
+const FULL_R = 30;
 /** Volle Figuren werfen nur in der Nähe Schatten (m) */
 const SHADOW_R = 14;
 /** Bis hier einfache Figur (m), je Qualitätsstufe */
@@ -92,6 +100,13 @@ export function villagerLook(v: Villager): Look {
     pants: { color: l.pants, wide: true },
     shoes: { color: l.shoes, sole: '#d9cdb5', kind: 'cloth' },
     prop: null,
+    // alle Werkzeuge aus dem Tagesplan und das dauernd Getragene vorbereiten
+    tools: [
+      ...new Set([
+        ...v.schedule.flatMap((st) => (st.tool ? [st.tool] : [])),
+        ...(v.carry ? [v.carry.tool] : []),
+      ]),
+    ],
   };
 }
 
@@ -171,13 +186,28 @@ class Resident {
   /** Nächster Programmpunkt (abends: nach Hause) */
   private next(): void {
     const v = this.v;
-    const goHome = this.m.ctx.night();
-    let name: string;
-    if (goHome) name = v.home;
-    else {
-      this.step = (this.step + 1) % v.schedule.length;
-      name = v.schedule[this.step]!.spot;
+    const phase = this.m.ctx.phase?.() ?? 'mittag';
+    const fits = (st: Step): boolean => (st.when ?? DAY).includes(phase);
+    // nachts nach Hause, außer wer auch nachts etwas vorhat (wenige: Laternenmacher …)
+    let goHome = this.m.ctx.night() && !v.schedule.some((st) => st.when?.includes('nacht'));
+    let name = v.home;
+    if (!goHome) {
+      // nächster Schritt, der zur Tageszeit passt
+      let found = false;
+      for (let i = 1; i <= v.schedule.length; i++) {
+        const k = (this.step + i) % v.schedule.length;
+        if (fits(v.schedule[k]!)) {
+          this.step = k;
+          found = true;
+          break;
+        }
+      }
+      if (found) name = v.schedule[this.step]!.spot;
+      else goHome = true;
     }
+    this.useTool(null);
+    if (this.held && this.rig) this.rig.stop(this.held as Action);
+    this.held = null;
     const to = this.m.graph.spotNode[name];
     if (to === undefined) {
       this.timer = 5;
@@ -215,6 +245,7 @@ class Resident {
       return;
     }
     const s = this.v.schedule[this.step]!;
+    this.useTool(s.tool ?? null);
     const sp = this.m.spot(s.spot);
     this.timer = s.dur * (0.8 + hash(this.v.id + this.step) * 0.5);
     this.actT = 0;
@@ -235,6 +266,9 @@ class Resident {
     const m = this.m;
     const w = m.ctx.world;
     if (this.state === 'home') return;
+    // Tätigkeit unterbrechen, solange gesprochen wird (danach wieder aufnehmen)
+    if (this.held && this.rig) this.rig.stop(this.held as Action);
+    this.held = null;
     if (this.state !== 'talk') this.resume = this.state === 'walk' ? 'walk' : this.state;
     this.state = 'talk';
     this.timer = 7;
@@ -290,6 +324,16 @@ class Resident {
 
   update(dt: number): void {
     const m = this.m;
+    // Dichte nach Qualitätsstufe: zusätzliche Bewohner bleiben auf niedrigen Stufen zu Hause
+    if (this.v.extra && m.ctx.world.quality < this.v.extra) {
+      if (this.state !== 'home') {
+        this.state = 'home';
+        this.visible = false;
+        this.useTool(null);
+        this.path = [];
+      }
+      return;
+    }
     switch (this.state) {
       case 'home':
         if (!m.ctx.night()) {
@@ -381,7 +425,14 @@ class Resident {
         this.timer -= dt;
         this.actT -= dt;
         const s = this.v.schedule[this.step];
-        if (
+        // durchgehende Tätigkeiten (Tai-Chi, Fegen, Hacken …) ohne Pausen halten
+        if (this.state === 'act' && s && CONTINUOUS.has(s.act) && this.rig && this.full) {
+          if (this.held !== s.act) {
+            if (this.held) this.rig.stop(this.held as Action);
+            this.held = s.act;
+            this.rig.hold(s.act as Action);
+          }
+        } else if (
           this.state === 'act' &&
           s &&
           s.act !== 'stand' &&
@@ -436,10 +487,28 @@ class Resident {
     this.animAcc = 0;
   }
 
+  /** gerade gehaltene durchgehende Tätigkeit */
+  private held: string | null = null;
+
+  /** Werkzeug in der Hand (Besen, Axt, Schale …); null = keins */
+  private tool: Tool | null = null;
+  private useTool(t: Tool | null): void {
+    if (this.tool === t) return;
+    if (this.rig && this.tool && this.tool !== this.v.carry?.tool) this.rig.showProp(this.tool, false);
+    this.tool = t;
+    if (this.rig && t) this.rig.showProp(t, true);
+  }
+
   /** Volle Figur anlegen (einmalig) */
   ensureRig(): Figure {
     if (this.rig) return this.rig;
     const ch = makeFigure(villagerLook(this.v));
+    // dauernd Getragenes (Tragestange) und das Werkzeug des aktuellen Schritts
+    if (this.v.carry) {
+      ch.showProp(this.v.carry.tool, true);
+      ch.hold(this.v.carry.act as Action);
+    }
+    if (this.tool) ch.showProp(this.tool, true);
     ch.root.visible = false;
     this.rig = ch;
     this.hit.push(ch.root);

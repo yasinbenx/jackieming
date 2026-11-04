@@ -16,9 +16,9 @@ const graph = buildWayGraph(
 );
 
 describe('Dorfbewohner', () => {
-  it('15–25 Bewohner mit eindeutigen Namen, Sprüchen und gültigem Lernwort', () => {
-    expect(VILLAGERS.length).toBeGreaterThanOrEqual(15);
-    expect(VILLAGERS.length).toBeLessThanOrEqual(25);
+  it('30–40 Bewohner mit eindeutigen Namen, Sprüchen und gültigem Lernwort', () => {
+    expect(VILLAGERS.length).toBeGreaterThanOrEqual(30);
+    expect(VILLAGERS.length).toBeLessThanOrEqual(40);
     expect(new Set(VILLAGERS.map((v) => v.id)).size).toBe(VILLAGERS.length);
     for (const v of VILLAGERS) {
       expect(v.lines.length, v.id).toBeGreaterThan(0);

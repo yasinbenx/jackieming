@@ -1,5 +1,6 @@
 // Das Dorf als reine Daten: Hausarten, Lage und Drehung jedes Hauses, Grundflächen für Gelände und Kollision,
 // Mäuerchen, Zäune und Marktstände. Ohne three.js (Gelände, Laufraster und Tests lesen es mit).
+import type { Goods } from '../three/houses';
 import { place } from './map';
 
 export type RoofKind = 'hip' | 'gable' | 'xieshan';
@@ -175,11 +176,19 @@ export const FENCES: [number, number, number, number][] = [
 ];
 
 /** Marktstände auf dem Platz (Front zum Brunnen) */
-export const STALLS: { x: number; z: number; rot: number; goods: 'gemuese' | 'obst' | 'tee' }[] = [
-  { x: 32.2, z: 62.5, rot: facing(32.2, 62.5, D.x, D.z), goods: 'gemuese' },
-  { x: 47.6, z: 56.2, rot: facing(47.6, 56.2, D.x, D.z), goods: 'obst' },
-  { x: 44.5, z: 50.2, rot: facing(44.5, 50.2, D.x, D.z), goods: 'tee' },
-];
+export const STALLS: { x: number; z: number; rot: number; goods: Goods }[] = (
+  [
+    [32.2, 62.5, 'gemuese'],
+    [47.6, 56.2, 'obst'],
+    [44.5, 50.2, 'tee'],
+    // Markt (P1): rund um den Brunnen, frei von Wegen, Türen und Bänken
+    [50.8, 61.4, 'stoffe'],
+    [33.6, 68.2, 'fisch'],
+    [33.9, 50.6, 'keramik'],
+    [26.8, 59.5, 'suesses'],
+    [52.2, 66, 'laternen'],
+  ] as const
+).map(([x, z, goods]) => ({ x, z, rot: facing(x, z, D.x, D.z), goods }));
 
 /** Bambusbüsche zwischen den Häusern (Mitte, Radius) */
 export const VILLAGE_BAMBOO: [number, number, number][] = [
@@ -262,6 +271,8 @@ export function villageSpots(benches: { x: number; z: number; rot: number }[]): 
     const s = Math.sin(st.rot);
     // hinter dem Stand, Blick nach vorn
     S[`stand-${st.goods}`] = { x: st.x - s * 1.05, z: st.z - c * 1.05, yaw: st.rot, inside: true };
+    // Kundenplatz vor dem Stand, Blick zur Ware
+    S[`kunde-${st.goods}`] = { x: st.x + s * 1.35, z: st.z + c * 1.35, yaw: st.rot + Math.PI };
   }
   const D = place('dorf');
   S['brunnen'] = { x: D.x + 1.5, z: D.z + 0.3, yaw: -Math.PI / 2 };
@@ -270,6 +281,22 @@ export function villageSpots(benches: { x: number; z: number; rot: number }[]): 
   S['brett-a'] = { x: BOARD_TABLE.x - 0.85, z: BOARD_TABLE.z, yaw: Math.PI / 2, seat: 0.42 };
   S['brett-b'] = { x: BOARD_TABLE.x + 0.85, z: BOARD_TABLE.z, yaw: -Math.PI / 2, seat: 0.42 };
   S['brett-zuschauer'] = { x: BOARD_TABLE.x, z: BOARD_TABLE.z - 1.4, yaw: 0 };
+  // Markt und Dorfleben (P1)
+  S['baeckerei'] = { x: 46.4, z: 46.6, yaw: Math.PI * 0.8 };
+  S['schmiede'] = { x: 50.6, z: 73.6, yaw: -0.4 };
+  S['holzplatz'] = { x: 58.6, z: 68.6, yaw: -2.0 };
+  S['waschplatz'] = { x: 35.2, z: 75.9, yaw: 0 };
+  // Tai-Chi am Morgen: vier Plätze im Raster zwischen Gasthaus und Brunnen, Blick zum Brunnen
+  S['taichi-1'] = { x: 37.4, z: 52.6, yaw: 0.3 };
+  S['taichi-2'] = { x: 40.2, z: 52.6, yaw: 0 };
+  S['taichi-3'] = { x: 37.4, z: 55.3, yaw: 0.3 };
+  S['taichi-4'] = { x: 40.2, z: 55.3, yaw: 0 };
+  S['kinderplatz'] = { x: 38.4, z: 66.4, yaw: 0.6 };
+  S['drachenwiese'] = { x: 25.6, z: 69.6, yaw: -2.4 };
+  // abends essen vor dem Gasthaus und am Platz
+  S['essen-1'] = { x: 37.2, z: 47.6, yaw: 0.2 };
+  S['essen-2'] = { x: 43.6, z: 47.8, yaw: -0.3 };
+  S['essen-3'] = { x: 36.4, z: 61.8, yaw: 1.1 };
   benches.forEach((b, i) => {
     S[`bank-${i}`] = { x: b.x, z: b.z, yaw: b.rot, seat: 0.45 };
   });

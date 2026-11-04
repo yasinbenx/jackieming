@@ -412,6 +412,7 @@ export class RigCharacter {
     // Requisiten in der Ruhepose anhängen (später nur ein-/ausblenden)
     for (const p of ['cup', 'teapot', 'brush', 'fan', 'bowl'] as const) this.makeProp(p);
     if (look.prop === 'ball') this.makeProp('ball');
+    for (const t of look.tools ?? []) if (!this.props[t]) this.makeProp(t);
     if (look.prop) this.showProp(look.prop, true);
     this.shapeBody(shape);
     // erst jetzt skalieren: alle Bindungen oben wurden in der Ruhepose bei Maßstab 1 berechnet
@@ -1470,8 +1471,15 @@ export class RigCharacter {
           m,
           new Matrix4().makeTranslation(R.shoulderX + 0.12, R.armY - 0.33, R.chestZ - 0.01),
         );
+      } else if (p === 'pole') {
+        // Tragestange quer über den Schultern, etwas hinter dem Nacken
+        attachRigid(
+          this.bones.get('Chest')!,
+          m,
+          new Matrix4().makeTranslation(0, R.armY + 0.08, R.chestZ - 0.1),
+        );
       } else {
-        const left = p === 'bowl';
+        const left = p === 'bowl' || p === 'erhu';
         const s = left ? 'L' : 'R';
         const wrist = this.bones.get(`Wrist${s}`)!;
         // Griffpunkt in der Ruhepose: ein Stück über das Handgelenk hinaus in Armrichtung, leicht unter der
@@ -2075,6 +2083,91 @@ export class RigCharacter {
       this.model.position.y -= 0.18 * k;
     }
     if ((k = w('hop'))) this.model.position.y += Math.abs(Math.sin(t * 10)) * 0.08 * k;
+    // ── Dorfleben
+    if ((k = w('taichi'))) {
+      // langsame Kreise beider Arme, Gewicht von einem Bein aufs andere, Knie leicht gebeugt
+      const a = t * 0.9;
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        const ph = a + (dir > 0 ? 0 : Math.PI * 0.5);
+        this.rot(`UpperArm${s}`, X, (-0.7 - 0.45 * Math.sin(ph)) * k);
+        this.rot(`UpperArm${s}`, Y, -dir * (0.25 + 0.3 * Math.cos(ph)) * k);
+        this.rot(`LowerArm${s}`, X, (-0.6 - 0.3 * Math.cos(ph)) * k);
+        this.rot(`UpperLeg${s}`, X, -0.18 * k);
+        this.rot(`LowerLeg${s}`, X, 0.32 * k);
+      }
+      this.rot('Torso', Y, Math.sin(a * 0.5) * 0.25 * k);
+      this.model.position.y -= 0.05 * k;
+    }
+    if ((k = w('chop'))) {
+      // Axt über den Kopf heben und herunterschlagen
+      const c = Math.max(0, Math.sin(t * 3.2));
+      const down = Math.pow(c, 3);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, (-2.4 + 1.9 * down) * k);
+        this.rot(`LowerArm${s}`, X, (-0.3 - 0.4 * down) * k);
+      }
+      this.rot('Torso', X, (0.1 + 0.35 * down) * k);
+    }
+    if ((k = w('hammer'))) {
+      const c = Math.pow(Math.max(0, Math.sin(t * 6)), 2);
+      this.rot('UpperArmR', X, (-1.5 + 0.9 * c) * k);
+      this.rot('LowerArmR', X, (-1.2 + 0.7 * c) * k);
+      this.rot('UpperArmL', X, -0.6 * k);
+      this.rot('LowerArmL', X, -1.0 * k);
+      this.rot('Torso', X, 0.2 * k);
+    }
+    if ((k = w('sweep'))) {
+      const c = Math.sin(t * 3);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, -0.45 * k);
+        this.rot(`LowerArm${s}`, X, -0.5 * k);
+      }
+      this.rot('UpperArmR', Y, c * 0.35 * k);
+      this.rot('Torso', Y, c * 0.25 * k);
+      this.rot('Torso', X, 0.25 * k);
+    }
+    if ((k = w('wash'))) {
+      // gebückt am Wasser, Hände reiben
+      this.rot('Torso', X, 0.75 * k);
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        this.rot(`UpperArm${s}`, X, -0.9 * k);
+        this.rot(`LowerArm${s}`, X, (-0.4 + Math.sin(t * 7 + (dir > 0 ? 0 : 1.5)) * 0.25) * k);
+        this.rot(`UpperLeg${s}`, X, -0.6 * k);
+        this.rot(`LowerLeg${s}`, X, 1.1 * k);
+      }
+      this.model.position.y -= 0.25 * k;
+    }
+    if ((k = w('eat'))) {
+      // Schale in der Linken vor der Brust, Stäbchen in der Rechten zum Mund
+      const c = 0.5 + 0.5 * Math.sin(t * 2.4);
+      this.rot('UpperArmL', X, -0.55 * k);
+      this.rot('LowerArmL', X, -1.5 * k);
+      this.rot('UpperArmR', X, (-0.6 - 0.2 * c) * k);
+      this.rot('LowerArmR', X, (-1.4 - 0.5 * c) * k);
+      this.rot('Head', X, 0.1 * k * c);
+    }
+    if ((k = w('kite'))) {
+      // Arm hoch, Schnur straff, kleine Zupfer
+      const tug = Math.max(0, Math.sin(t * 1.7)) ** 4;
+      this.rot('UpperArmR', X, (-1.9 + 0.3 * tug) * k);
+      this.rot('LowerArmR', X, -0.3 * k);
+      this.rot('Head', X, -0.35 * k);
+      this.rot('Chest', X, -0.08 * k);
+    }
+    if ((k = w('carry'))) {
+      // Hände an der Tragestange
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, -2.2 * k);
+        this.rot(`UpperArm${s}`, Z, (s === 'L' ? 0.5 : -0.5) * k);
+        this.rot(`LowerArm${s}`, X, -0.9 * k);
+      }
+    }
     // Ball unter dem Arm: linken Arm leicht abspreizen
     if (this.hasBall && !w('spin')) {
       this.rot('UpperArmL', Z, 0.42);
@@ -2104,14 +2197,15 @@ export class RigCharacter {
     if (sitK < 0.05 && this.detail && RigCharacter.groundIK) this.footIK();
     if (this.detail) this.swing(dt);
     // Füße folgen den gebeugten Beinen (die Fußknochen hängen am Wurzelknochen)
-    if (sitK > 0.001 || duck > 0.001 || w('pet') > 0.001) {
+    const bend = Math.max(w('pet'), w('wash'), w('taichi'));
+    if (sitK > 0.001 || duck > 0.001 || bend > 0.001) {
       for (const s of ['L', 'R']) {
         const foot = this.bones.get(`Foot${s}`);
         const end = this.bones.get(`LowerLeg${s}_end`);
         if (!foot || !end || !foot.parent) continue;
         end.getWorldPosition(_v1);
         foot.getWorldPosition(_v2);
-        const k2 = Math.max(sitK, duck, w('pet'));
+        const k2 = Math.max(sitK, duck, bend);
         _v2.lerp(_v1, k2);
         this.touch(foot);
         foot.position.copy(foot.parent.worldToLocal(_v2));

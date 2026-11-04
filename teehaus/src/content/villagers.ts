@@ -3,6 +3,8 @@
 // Orte im Ablauf: siehe SPOT-Namen in src/world/village.ts (villageSpots).
 
 /** Was ein Bewohner an einem Ort tut */
+import { MARKET } from './market';
+
 export type Activity =
   /** stehen und schauen */
   | 'stand'
@@ -19,13 +21,35 @@ export type Activity =
   | 'hop'
   | 'bow'
   | 'fan'
-  | 'laugh';
+  | 'laugh'
+  | 'drink'
+  | 'nod'
+  | 'clap'
+  | 'wave'
+  | 'eat'
+  | 'taichi'
+  | 'chop'
+  | 'hammer'
+  | 'sweep'
+  | 'wash'
+  | 'kite'
+  | 'carry';
+
+/** Tageszeit für Tagespläne: morgens Tai-Chi und Markt, mittags Betrieb, abends Laternen und Essen, nachts wenige */
+export type DayPhase = 'morgen' | 'mittag' | 'abend' | 'nacht';
+
+/** Werkzeug in der Hand (siehe Prop in world/character.ts) */
+export type Tool = 'broom' | 'hammer' | 'axe' | 'pole' | 'erhu' | 'spool' | 'basket' | 'fan' | 'cup' | 'bowl';
 
 export interface Step {
   spot: string;
   act: Activity;
   /** Dauer in Sekunden (wird leicht zufällig gestreckt) */
   dur: number;
+  /** nur zu diesen Tageszeiten (ohne Angabe: morgens, mittags, abends) */
+  when?: DayPhase[];
+  /** Werkzeug, das bei diesem Schritt in der Hand ist */
+  tool?: Tool;
 }
 
 export interface VillagerLook {
@@ -49,6 +73,8 @@ export interface VillagerLook {
   shoes: string;
   apron?: string;
   face?: { laughLines?: number; foreheadLines?: number; smileEyes?: number };
+  /** Hut (Strohhut, Kappe) */
+  hat?: 'straw' | 'cap';
 }
 
 export interface Villager {
@@ -69,11 +95,17 @@ export interface Villager {
   errand?: string;
   /** langsam oder flink */
   speed?: number;
+  /** trägt dauernd etwas (z. B. Wasserträger mit Tragestange) */
+  carry?: { tool: Tool; act: Activity };
+  /** nur auf hoher Qualitätsstufe (Dichte nach Stufe) */
+  extra?: 1 | 2;
+  /** spricht den Spieler beim Vorbeigehen an (Händler, Kinder) */
+  greets?: boolean;
 }
 
 const SKIN = ['#e8b894', '#d9a27a', '#c98f68', '#f0c8a8', '#b97f5a'];
 
-export const VILLAGERS: Villager[] = [
+const BASE: Villager[] = [
   {
     id: 'wang',
     name: 'Frau Wang',
@@ -586,6 +618,9 @@ export const VILLAGERS: Villager[] = [
     speed: 1.3,
   },
 ];
+
+/** Alle Bewohner: die ursprünglichen 18 und die Marktleute (P1) */
+export const VILLAGERS: Villager[] = [...BASE, ...MARKET];
 
 /** Aufträge von Dorfbewohnern (ein Schritt: etwas zu jemandem bringen) */
 export interface Errand {

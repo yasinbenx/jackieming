@@ -47,6 +47,9 @@ const LISTS: Record<string, string[]> = {
     'wo',
     'yibei',
     'yao4',
+    'mai',
+    'pianyi',
+    'duibuqi',
   ],
   spiele: ['xiangqi', 'jiangjun', 'ju', 'ma', 'pao', 'bing', 'xiaqi', 'qipan'],
 };

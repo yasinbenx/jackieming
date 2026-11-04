@@ -106,7 +106,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 18000,
     near: 70,
     far: 420,
-    budget: { calls: 900, tris: 1_500_000, figures: 14 },
+    budget: { calls: 900, tris: 1_500_000, figures: 16 },
     minScale: 0.75,
   },
   1: {
@@ -120,7 +120,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 9000,
     near: 45,
     far: 260,
-    budget: { calls: 600, tris: 900_000, figures: 9 },
+    budget: { calls: 750, tris: 900_000, figures: 12 },
     minScale: 0.7,
   },
   0: {
@@ -134,7 +134,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
     grass: 0,
     near: 25,
     far: 160,
-    budget: { calls: 350, tris: 450_000, figures: 5 },
+    budget: { calls: 350, tris: 450_000, figures: 8 },
     minScale: 0.6,
   },
 };
@@ -782,6 +782,20 @@ export class World {
     this.resize();
   }
 
+  /**
+   * Tageszeit für die Tagespläne der Bewohner. Im automatischen Tageslauf aus dem Verlauf (Mittag → Abend →
+   * Nacht → Morgen); bei fester Tageszeit wechseln Morgen und Mittag alle vier Minuten Spielzeit.
+   */
+  dayPhase(): 'morgen' | 'mittag' | 'abend' | 'nacht' {
+    if (this.auto) {
+      const u = ((((this.autoPhase + Math.PI / 2) / (Math.PI * 2)) % 1) + 1) % 1;
+      return u < 0.2 || u >= 0.95 ? 'mittag' : u < 0.4 ? 'abend' : u < 0.7 ? 'nacht' : 'morgen';
+    }
+    if (this.tTarget >= 0.8) return 'nacht';
+    if (this.tTarget >= 0.35) return 'abend';
+    return Math.floor(this.time / 240) % 2 === 0 ? 'morgen' : 'mittag';
+  }
+
   /** Zahl voll animierter Figuren außerhalb von agents (Dorfbewohner), vom Spiel gesetzt */
   fullFigures?: () => number;
 
@@ -984,7 +998,9 @@ export class World {
     water.onBeforeRender = (...args: Parameters<typeof orig>) => {
       // nur jedes zweite Bild neu spiegeln (die Textur behält das letzte Bild; die Wellen verdecken den
       // Unterschied) – die Spiegelung zeichnet sonst jedes Bild die halbe Szene ein zweites Mal
-      if (this.frameNo === lastFrame + 1 && this.frameNo % 2 === 1 && !this.cam.locked) return;
+      // Hoch: jedes zweite Bild, Mittel: jedes dritte
+      const every = this.quality === 2 ? 2 : 3;
+      if (this.frameNo - lastFrame < every && !this.cam.locked) return;
       lastFrame = this.frameNo;
       const list: Object3D[] = [
         ...this.agents.map((a) => a.ch.root),

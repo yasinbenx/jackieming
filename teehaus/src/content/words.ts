@@ -177,6 +177,26 @@ export const WORDS: Word[] = [
     note: '杯 ist das Zählwort für Tassen und Gläser',
   },
   { id: 'yao4', zh: '要', py: 'yao4', de: 'möchten, wollen', note: '我要… = Ich möchte …' },
+  // Markt und Dorfleben (P1)
+  { id: 'bu', zh: '布', py: 'bu4', de: 'Stoff, Tuch' },
+  { id: 'xian', zh: '鲜', py: 'xian1', de: 'frisch', note: '鲜鱼 = frischer Fisch' },
+  { id: 'ciqi', zh: '瓷器', py: 'ci2qi4', de: 'Porzellan', note: 'im Englischen „china“' },
+  { id: 'tanghulu', zh: '糖葫芦', py: 'tang2hu2lu5', de: 'kandierte Früchte am Spieß', note: '糖 = Zucker' },
+  { id: 'hongse', zh: '红色', py: 'hong2se4', de: 'rot', note: 'die Farbe des Glücks' },
+  { id: 'tiaoshui', zh: '挑水', py: 'tiao1 shui3', de: 'Wasser tragen (an der Stange)' },
+  { id: 'saodi', zh: '扫地', py: 'sao3 di4', de: 'den Boden fegen' },
+  { id: 'kanchai', zh: '砍柴', py: 'kan3 chai2', de: 'Holz hacken' },
+  { id: 'mantou', zh: '馒头', py: 'man2tou5', de: 'gedämpftes Brötchen' },
+  { id: 'tie', zh: '铁', py: 'tie3', de: 'Eisen' },
+  { id: 'taiji', zh: '太极', py: 'tai4ji2', de: 'Tai-Chi', note: 'langsame Bewegungskunst' },
+  { id: 'zaoshang', zh: '早上', py: 'zao3shang5', de: 'am Morgen' },
+  { id: 'jiankang', zh: '健康', py: 'jian4kang1', de: 'gesund, Gesundheit' },
+  { id: 'fengzheng', zh: '风筝', py: 'feng1zheng5', de: 'Drachen (zum Steigenlassen)', note: '风 = Wind' },
+  { id: 'wan', zh: '玩', py: 'wan2', de: 'spielen' },
+  { id: 'mai', zh: '买', py: 'mai3', de: 'kaufen', note: 'mit dem 3. Ton; 卖 mài (4. Ton) heißt verkaufen' },
+  { id: 'pianyi', zh: '便宜', py: 'pian2yi5', de: 'billig, preiswert' },
+  { id: 'pingguo', zh: '苹果', py: 'ping2guo3', de: 'Apfel' },
+  { id: 'duibuqi', zh: '对不起', py: 'dui4bu5qi3', de: 'Entschuldigung!' },
 ];
 
 export const wordById = (id: string): Word | undefined => WORDS.find((w) => w.id === id);

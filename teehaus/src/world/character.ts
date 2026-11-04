@@ -1,6 +1,7 @@
 // Stilisierte Figur (alle Personen im Spiel): Gelenkhierarchie aus weichen Grundformen, Gesicht aus Parametern
 // (Kopfform, Augen, Nase, Mund, Ohren), Kleidung mit Stickerei und prozedurale Animationen. Frisuren entweder
 // gezeichnet oder aus den CC0-Haarmodellen (hairkit.ts).
+import { makeProp } from './props';
 import {
   BufferGeometry,
   CircleGeometry,
@@ -26,7 +27,22 @@ import type { Front } from './materials';
 export type HairStyle =
   'fringe' | 'crop' | 'elder' | 'bun' | 'kidBuns' | 'cap' | 'straw' | 'ponytail' | 'side' | 'sweep' | 'none';
 export type Motif = 'dragon' | 'cloud' | 'hem' | 'plain';
-export type Prop = 'ball' | 'fan' | 'brush' | 'teapot' | 'cup' | 'bowl' | null;
+export type Prop =
+  | 'ball'
+  | 'fan'
+  | 'brush'
+  | 'teapot'
+  | 'cup'
+  | 'bowl'
+  /** Werkzeuge der Dorfbewohner (nur gebaut, wenn look.tools sie nennt) */
+  | 'broom'
+  | 'hammer'
+  | 'axe'
+  | 'pole'
+  | 'erhu'
+  | 'spool'
+  | 'basket'
+  | null;
 
 /** Gesichtsform. Alle Werte relativ; die Vorgaben ergeben das bisherige freundliche Standardgesicht. */
 export interface Face {
@@ -187,6 +203,8 @@ export interface Look {
   shoes: { color: string; sole?: string; stripe?: string; kind?: 'cloth' | 'sneaker' };
   apron?: string;
   prop?: Prop;
+  /** zusätzliche Werkzeuge, die die Figur zeigen kann (werden beim Bau vorbereitet) */
+  tools?: Exclude<Prop, null>[];
 }
 
 export type Action =
@@ -208,7 +226,16 @@ export type Action =
   | 'duck'
   | 'pet'
   | 'hop'
-  | 'clap';
+  | 'clap'
+  /** Dorfleben (P1) */
+  | 'taichi'
+  | 'chop'
+  | 'hammer'
+  | 'sweep'
+  | 'wash'
+  | 'eat'
+  | 'kite'
+  | 'carry';
 
 interface ActionState {
   t: number;
@@ -1048,6 +1075,11 @@ export class Character {
         m.position.set(0, -0.06, 0.03);
         this.armL.hand.add(m);
         break;
+      }
+      default: {
+        // Werkzeuge der Dorfbewohner: gemeinsame Requisiten, in der rechten Hand
+        m = makeProp(p, 1) as unknown as Mesh;
+        this.armR.hand.add(m);
       }
     }
     m.visible = visible;

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { NavGrid } from '../src/world/nav';
 import { field, surfaceAt } from '../src/world/terrain';
-import { HOUSES, HOUSE_SPECS, padOf, toWorld } from '../src/world/village';
+import { HOUSES, HOUSE_SPECS, padOf, STALLS, toWorld, BOARD_TABLE, villageSpots } from '../src/world/village';
+import { pathAt, waterAt } from '../src/world/terrain';
+import { scatter } from '../src/world/scatter';
 
 const inPad = (h: (typeof HOUSES)[number], x: number, z: number): boolean => {
   const c = Math.cos(h.rot);
@@ -68,5 +70,40 @@ describe('Dorf', () => {
     expect(p).not.toBeNull();
     const end = p![p!.length - 1]!;
     expect(Math.hypot(end[0] - cx, end[1] - cz)).toBeLessThan(0.5);
+  });
+
+  it('Marktstände: 8 Sorten, frei von Wegen, Wasser, Häusern, Bänken und einander', () => {
+    expect(STALLS.length).toBe(8);
+    expect(new Set(STALLS.map((s) => s.goods)).size).toBe(8);
+    const benches = scatter().benches;
+    for (const st of STALLS) {
+      // Ecken und Mitte des Stands (2,4 × 1,2 m)
+      const c = Math.cos(st.rot);
+      const s = Math.sin(st.rot);
+      for (const [lx, lz] of [
+        [0, 0],
+        [-1.2, -0.6],
+        [1.2, -0.6],
+        [-1.2, 0.6],
+        [1.2, 0.6],
+      ] as const) {
+        const x = st.x + lx * c + lz * s;
+        const z = st.z - lx * s + lz * c;
+        expect(pathAt(x, z).d, `${st.goods} auf Weg`).toBeGreaterThan(0.3);
+        expect(waterAt(x, z), `${st.goods} im Wasser`).toBeNull();
+        for (const h of HOUSES) expect(inPad(h, x, z), `${st.goods} auf Haus ${h.kind}`).toBe(false);
+      }
+      for (const b of benches)
+        expect(Math.hypot(b.x - st.x, b.z - st.z), `${st.goods} an Bank`).toBeGreaterThan(2.2);
+      expect(Math.hypot(BOARD_TABLE.x - st.x, BOARD_TABLE.z - st.z)).toBeGreaterThan(2.5);
+      for (const o of STALLS) if (o !== st) expect(Math.hypot(o.x - st.x, o.z - st.z)).toBeGreaterThan(3.2);
+    }
+    // Händler- und Kundenplatz begehbar
+    const nav = new NavGrid();
+    const sp = villageSpots(benches);
+    for (const st of STALLS) {
+      const k = sp[`kunde-${st.goods}`]!;
+      expect(nav.walkable(k.x, k.z), `Kundenplatz ${st.goods}`).toBe(true);
+    }
   });
 });

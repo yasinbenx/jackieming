@@ -889,7 +889,7 @@ const COUPLETS: [string, string][] = [
   ['花好', '月圆'],
 ];
 
-export type Goods = 'gemuese' | 'obst' | 'tee';
+export type Goods = 'gemuese' | 'obst' | 'tee' | 'stoffe' | 'fisch' | 'keramik' | 'suesses' | 'laternen';
 
 /** Marktstand: Tisch mit Stoffdach, Kisten mit Ware (Ursprung Mitte, Front nach +z) */
 export function buildStall(goods: Goods, seed = 0): Group {
@@ -902,30 +902,150 @@ export function buildStall(goods: Goods, seed = 0): Group {
     B.add(new CylinderGeometry(0.035, 0.035, 2.3, 5), mt.dw!, [x, 1.15, -0.45]);
     B.add(new CylinderGeometry(0.035, 0.035, 2.0, 5), mt.dw!, [x, 1.0, 0.55]);
   }
-  const roofCol = goods === 'tee' ? mt.indigo! : goods === 'obst' ? mt.redCloth! : mt.cloth!;
+  const roofCol =
+    goods === 'tee' || goods === 'keramik' || goods === 'fisch'
+      ? mt.indigo!
+      : goods === 'obst' || goods === 'suesses' || goods === 'laternen'
+        ? mt.redCloth!
+        : mt.cloth!;
   // Stoffdach, nach vorn geneigt
   B.add(new BoxGeometry(2.4, 0.03, 1.3), roofCol, [0, 2.12, 0.05], [0.28, 0, 0]);
-  const fruit: Record<Goods, string[]> = {
+  const fruit: Partial<Record<Goods, string[]>> = {
     gemuese: ['#6f9a3c', '#e0e0c8', '#b54a2a', '#7aa04a'],
     obst: ['#e08a3c', '#d43a2a', '#f0c84a', '#9a3a5a'],
     tee: ['#5a7a3a', '#3e4e2a', '#8a6a3a', '#6a7a4a'],
   };
-  for (let k = 0; k < 4; k++) {
-    const x = -0.78 + k * 0.52;
-    B.box(0.46, 0.14, 0.42, mt.straw!, x, 0.92, 0.05);
-    const col = vinyl(fruit[goods][k]!, { rough: 0.6 });
-    for (let i = 0; i < 6; i++)
+  const plain = (c: string, rough = 0.7): Material => vinyl(c, { rough });
+  if (fruit[goods]) {
+    for (let k = 0; k < 4; k++) {
+      const x = -0.78 + k * 0.52;
+      B.box(0.46, 0.14, 0.42, mt.straw!, x, 0.92, 0.05);
+      const col = vinyl(fruit[goods]![k]!, { rough: 0.6 });
+      for (let i = 0; i < 6; i++)
+        B.add(
+          new SphereGeometry(goods === 'tee' ? 0.05 : 0.07, 6, 4),
+          col,
+          [x + (r() - 0.5) * 0.3, 1.02 + r() * 0.04, 0.05 + (r() - 0.5) * 0.26],
+          [0, 0, 0],
+          goods === 'tee' ? [1.6, 0.7, 1.6] : [1, 1, 1],
+        );
+    }
+  } else if (goods === 'stoffe') {
+    // Stoffballen in Seide- und Baumwollfarben, liegend und aufgestellt
+    const cols = ['#b3261a', '#2f4a74', '#c9a227', '#2e7d6b', '#8a3a6a', '#e6dcc4'];
+    for (let k = 0; k < 6; k++)
       B.add(
-        new SphereGeometry(goods === 'tee' ? 0.05 : 0.07, 6, 4),
-        col,
-        [x + (r() - 0.5) * 0.3, 1.02 + r() * 0.04, 0.05 + (r() - 0.5) * 0.26],
-        [0, 0, 0],
-        goods === 'tee' ? [1.6, 0.7, 1.6] : [1, 1, 1],
+        new CylinderGeometry(0.11, 0.11, 0.62, 10),
+        plain(cols[k]!, 0.95),
+        [-0.85 + k * 0.34, 0.97, 0.05],
+        [Math.PI / 2, 0, 0],
       );
+    // ein aufgerollter Streifen hängt über die Tischkante
+    B.box(0.3, 0.5, 0.01, plain('#b3261a', 0.95), -0.2, 0.62, 0.52);
+    for (let k = 0; k < 3; k++)
+      B.add(
+        new CylinderGeometry(0.1, 0.1, 0.9, 10),
+        plain(cols[k + 2]!, 0.95),
+        [0.75 + k * 0.08, 1.3, -0.35],
+        [0, 0, 0.1],
+      );
+  } else if (goods === 'fisch') {
+    // Fische auf Eis in flachen Körben und an einer Stange hängend
+    const ice = plain('#dfe9ec', 0.2);
+    const fish = vinyl('#9aa8ad', { rough: 0.35, metal: 0.3 });
+    const red = vinyl('#c8584a', { rough: 0.4 });
+    for (let k = 0; k < 3; k++) {
+      const x = -0.7 + k * 0.7;
+      B.box(0.6, 0.08, 0.5, mt.straw!, x, 0.88, 0.05);
+      B.box(0.55, 0.04, 0.45, ice, x, 0.94, 0.05);
+      for (let i = 0; i < 4; i++)
+        B.add(
+          new SphereGeometry(0.06, 7, 5),
+          k === 1 ? red : fish,
+          [x + (r() - 0.5) * 0.3, 0.98, 0.05 + (i - 1.5) * 0.1],
+          [0, 0.3 * (r() - 0.5), 0],
+          [2.6, 0.55, 0.9],
+        );
+    }
+    B.add(new CylinderGeometry(0.02, 0.02, 2.0, 5), mt.dw!, [0, 1.75, 0.5], [0, 0, Math.PI / 2]);
+    for (let i = 0; i < 4; i++)
+      B.add(
+        new SphereGeometry(0.05, 6, 4),
+        fish,
+        [-0.6 + i * 0.4, 1.55, 0.5],
+        [0, 0, Math.PI / 2],
+        [3, 0.6, 0.8],
+      );
+  } else if (goods === 'keramik') {
+    // Blau-weißes Porzellan: Vasen, Schalen, Teekannen
+    const white = vinyl('#eef0f2', { rough: 0.2 });
+    const blue = vinyl('#2f4f9a', { rough: 0.25 });
+    const celadon = vinyl('#9fc3a8', { rough: 0.25 });
+    const vase = new LatheGeometry(
+      Array.from({ length: 9 }, (_, i) => {
+        const t = i / 8;
+        return new Vector2(0.04 + Math.sin(t * Math.PI) * 0.09 + (t > 0.85 ? 0.02 : 0), t * 0.36);
+      }),
+      10,
+    );
+    for (let k = 0; k < 5; k++)
+      B.add(
+        vase,
+        k % 2 ? blue : white,
+        [-0.85 + k * 0.42, 0.85, -0.1],
+        [0, 0, 0],
+        [1, 1 + (k % 3) * 0.25, 1],
+      );
+    for (let k = 0; k < 6; k++)
+      B.add(
+        new SphereGeometry(0.09, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        k % 3 === 1 ? celadon : white,
+        [-0.8 + k * 0.32, 0.95, 0.28],
+        [Math.PI, 0, 0],
+        [1, 0.5, 1],
+      );
+  } else if (goods === 'suesses') {
+    // Kandierte Weißdornfrüchte am Spieß (糖葫芦) in einem Strohbündel, dazu Kuchen
+    const haw = vinyl('#d8261c', { rough: 0.15, metal: 0.05 });
+    B.add(new CylinderGeometry(0.12, 0.14, 0.7, 8), mt.straw!, [0.7, 1.2, -0.1]);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x = 0.7 + Math.cos(a) * 0.1;
+      const z = -0.1 + Math.sin(a) * 0.1;
+      const lean: [number, number, number] = [Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35];
+      B.add(new CylinderGeometry(0.006, 0.006, 0.5, 3), mt.mw!, [x, 1.7, z], lean);
+      for (let k = 0; k < 4; k++)
+        B.add(new SphereGeometry(0.035, 6, 4), haw, [
+          x + lean[0] * 0.1 * k,
+          1.62 + k * 0.08,
+          z - lean[2] * 0.1 * k,
+        ]);
+    }
+    const cake = vinyl('#e2b46a', { rough: 0.8 });
+    const pink = vinyl('#e89aa8', { rough: 0.7 });
+    for (let k = 0; k < 8; k++)
+      B.add(new CylinderGeometry(0.07, 0.07, 0.04, 8), k % 3 ? cake : pink, [
+        -0.9 + (k % 4) * 0.22,
+        0.88 + Math.floor(k / 4) * 0.045,
+        0.1 + Math.floor(k / 4) * 0.04,
+      ]);
+  } else if (goods === 'laternen') {
+    // Laternen in Rot und Gold hängen unter dem Dach, kleinere liegen auf dem Tisch
+    for (let k = 0; k < 4; k++) lantern(B, mt, -0.75 + k * 0.5, 1.62, 0.42, 0.7);
+    for (let k = 0; k < 3; k++) lantern(B, mt, -0.5 + k * 0.5, 1.02, -0.05, 0.5);
   }
   basket(B, mt, -1.4, 0.4, 0, 0.8);
   basket(B, mt, 1.45, 0.3, 0, 0.9);
-  if (goods === 'tee') sign(B, '新茶', 'cloth', 0, 1.7, 0.56, 0.5, 0.36);
+  const signs: Partial<Record<Goods, string>> = {
+    tee: '新茶',
+    stoffe: '布',
+    fisch: '鲜鱼',
+    keramik: '瓷器',
+    suesses: '糖葫芦',
+  };
+  const txt = signs[goods];
+  if (txt) sign(B, txt, 'cloth', 0, 1.7, 0.56, 0.32 + txt.length * 0.12, 0.36);
+  if (goods === 'laternen') B.shadowless(LANTERN_MAT);
   return B.build(`stand-${goods}`);
 }
 

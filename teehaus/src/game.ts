@@ -191,6 +191,7 @@ export class Game {
       toast: (html) => this.toast.show(html, 5200),
       busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
       night: () => world.pal.stars > 0.55,
+      phase: () => world.dayPhase(),
       openShop: () => window.setTimeout(() => this.shop.show(), 400),
       onTalk: (id) => {
         store.setGame(`vt-${id}`, 1);
