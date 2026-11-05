@@ -773,14 +773,14 @@ export function buildCafe(lightCount: number): Cafe {
       ji++;
     }
   }
-  jars.castShadow = true;
+  // kleine Gegenstände werfen keinen eigenen Schatten (P-Licht)
   root.add(jars);
   // Ofen mit großem Kessel hinter der Theke
   B.add(new CylinderGeometry(0.3, 0.34, 0.7, 10), stone, [-6.45, FLOOR + 0.35, -5.35]);
   const kettle = new Mesh(new SphereGeometry(0.22, 14, 10), vinyl('#3a3632', { rough: 0.35, metal: 0.6 }));
   kettle.scale.y = 0.85;
   kettle.position.set(-6.45, FLOOR + 0.88, -5.35);
-  kettle.castShadow = true;
+  // kleine Gegenstände werfen keinen eigenen Schatten (P-Licht)
   root.add(kettle);
   const ember = new Mesh(
     new SphereGeometry(0.1, 8, 6),
@@ -812,7 +812,7 @@ export function buildCafe(lightCount: number): Cafe {
   handle.position.set(-0.13, 0.1, 0);
   handle.rotation.z = Math.PI * 0.4;
   teapot.add(body, lid, knob, spout, handle);
-  teapot.traverse((m) => (m.castShadow = true));
+  // kleine Gegenstände werfen keinen eigenen Schatten (P-Licht)
   teapot.position.set(COUNTER.x1 - 0.45, FLOOR + 1.04, ccz);
   teapot.rotation.y = -0.8;
   root.add(teapot);
@@ -897,8 +897,7 @@ export function buildCafe(lightCount: number): Cafe {
     o.updateMatrix();
     cups.setMatrixAt(i, o.matrix);
   });
-  pots.castShadow = true;
-  cups.castShadow = true;
+  // kleine Gegenstände werfen keinen eigenen Schatten (P-Licht)
   root.add(pots, cups);
   // Haupttisch: roter Läufer, Teller mit Mondkuchen, Vase mit Blütenzweig
   const main = TABLES.find((t) => t.id === 'main')!;

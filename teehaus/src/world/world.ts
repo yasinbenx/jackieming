@@ -17,6 +17,7 @@ import {
   Scene,
   Vector2,
   Vector3,
+  ShaderChunk,
   WebGLRenderer,
 } from 'three';
 import type { Object3D, PointsMaterial, ShaderMaterial, SkinnedMesh, Texture } from 'three';
@@ -35,6 +36,14 @@ import {
   ToneMappingMode,
 } from 'postprocessing';
 import type { Effect } from 'postprocessing';
+
+// Weiche Sonnenschatten laufen zum Rand der Schattenkarte hin aus (sonst endet der Schatten als sichtbare Kante,
+// die mit der Spielfigur mitwandert). Nur die erste Stelle: PCF-Schatten des Richtungslichts.
+ShaderChunk.shadowmap_pars_fragment = ShaderChunk.shadowmap_pars_fragment.replace(
+  'return mix( 1.0, shadow, shadowIntensity );',
+  `float shadowEdge = min( min( shadowCoord.x, 1.0 - shadowCoord.x ), min( shadowCoord.y, 1.0 - shadowCoord.y ) );
+			return mix( 1.0, shadow, shadowIntensity * smoothstep( 0.0, 0.18, shadowEdge ) );`,
+);
 import { buildLandscape, heightAt, makeSky, makeWater, updateSky } from '../three/landscape';
 import type { Landscape } from '../three/landscape';
 import { Fireflies, LightShafts, Petals, Steam } from '../three/effects';
@@ -58,6 +67,8 @@ import { buildVillage } from '../three/village';
 import { Critters } from '../three/critters';
 import { DebugOverlay } from '../ui/debug';
 import { Rain, Snow, Weather, WEATHER_ZH } from './weather';
+import { SoftLight } from './softlight';
+import { scatter } from './scatter';
 import type { Village } from '../three/village';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
@@ -74,6 +85,8 @@ export type Mode = 'intro' | 'free' | 'dialog' | 'cutscene';
 interface QualitySpec {
   dpr: number;
   shadow: number;
+  /** Weichheit der Schattenkanten (PCF-Radius in Texeln) */
+  shadowSoft: number;
   /** Grasbüschel um die Kamera (0 = aus) */
   grass: number;
   /** Bäume in voller Form bis (m), sonst einfache Form */
@@ -102,6 +115,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
   2: {
     dpr: 1.5,
     shadow: 2048,
+    shadowSoft: 4,
     bloom: true,
     dof: true,
     msaa: 2,
@@ -116,6 +130,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
   1: {
     dpr: 1.5,
     shadow: 1024,
+    shadowSoft: 3,
     bloom: true,
     dof: false,
     msaa: 0,
@@ -130,6 +145,7 @@ const QUALITY: Record<Quality, QualitySpec> = {
   0: {
     dpr: 1,
     shadow: 0,
+    shadowSoft: 1,
     bloom: false,
     dof: false,
     msaa: 0,
@@ -228,6 +244,12 @@ export class World {
   input!: Input;
   /** Alle Figuren (für Detailstufe und gegenseitiges Ausweichen) */
   readonly agents: Agent[] = [];
+  /** Kontaktschatten und Laternenlicht */
+  soft!: SoftLight;
+  /** aktuelle Stärke der Sonnen-/Mondschatten (0…1) */
+  get sunShadowStrength(): number {
+    return this.sun.shadow.intensity;
+  }
   readonly interactables: Interactable[] = [];
   /** Zusätzliche Abläufe pro Frame (NPCs, Skripte). true = fertig, wird entfernt */
   readonly tickers: ((dt: number) => boolean | void)[] = [];
@@ -322,8 +344,10 @@ export class World {
     sc.bottom = -13;
     sc.near = 1;
     sc.far = 90;
-    this.sun.shadow.bias = -0.0004;
-    this.sun.shadow.normalBias = 0.03;
+    // etwas mehr Abstand: keine Streifen (Acne) auf Gesichtern und Kleidern, aber noch kein Abheben an Wänden
+    this.sun.shadow.bias = -0.0003;
+    this.sun.shadow.normalBias = 0.045;
+    this.sun.shadow.radius = spec.shadowSoft;
     this.sun.target.position.set(0, 0, 0);
     this.fill.position.set(2, FLOOR + 2.6, -1);
 
@@ -343,6 +367,14 @@ export class World {
     this.scene.add(this.village.group);
     this.critters = new Critters((x, z) => this.nav?.walkable(x, z) ?? true);
     this.scene.add(this.critters.group);
+    // Kontaktschatten und warmes Laternenlicht (nur die nächsten Laternen echt beleuchtet)
+    this.soft = new SoftLight(this);
+    for (const l of scatter().lanterns) this.soft.lanterns.push(new Vector3(l.x, l.y + 1.15 * l.s, l.z));
+    this.soft.sources.push(() =>
+      this.agents
+        .filter((a) => a.ch.root.visible)
+        .map((a) => ({ x: a.ch.root.position.x, y: a.ch.root.position.y, z: a.ch.root.position.z, r: 0.42 })),
+    );
     if (this.quality > 0) {
       this.simpleWater = makeWater(false, 0);
       this.simpleWater.visible = false;
@@ -801,8 +833,8 @@ export class World {
     this.qualityForced = forced;
     const spec = QUALITY[q];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr) * this.resScale);
-    // Schatten an/aus nur über ihre Stärke (siehe init): die Shader bleiben dieselben
-    this.sun.shadow.intensity = spec.shadow > 0 ? 1 : 0;
+    // Schatten an/aus nur über ihre Stärke (siehe shadowStrength): die Shader bleiben dieselben
+    this.sun.shadow.radius = spec.shadowSoft;
     this.renderer.shadowMap.needsUpdate = true;
     if (spec.shadow > 0 && this.sun.shadow.map && this.sun.shadow.mapSize.x !== spec.shadow) {
       this.sun.shadow.mapSize.set(spec.shadow, spec.shadow);
@@ -1048,6 +1080,24 @@ export class World {
     this.sun.intensity = p.sunIntensity * (1 - 0.65 * c);
     this.hemi.intensity = p.hemi * (1 - 0.2 * c);
     this.applyGrade(c);
+    this.sun.shadow.intensity = this.shadowStrength(c);
+  }
+
+  /**
+   * Stärke der Sonnen-/Mondschatten (0…1): tagsüber deutlich, zur goldenen Stunde und nachts schwächer (dort
+   * sorgen Laternen für die Stimmung), bei Wolken fast keine; dazu die Einstellung „Schattenstärke“.
+   */
+  shadowStrength(cloud: number): number {
+    if (QUALITY[this.quality].shadow <= 0) return 0;
+    const p = this.pal;
+    const set = store.settings.shadows;
+    if (set === 'aus') return 0;
+    const golden = Math.max(0, Math.min(1, (p.lantern - 0.35) / 0.65)) * (1 - p.stars);
+    // flache Sonne → Schatten ausblenden (Höhe über dem Horizont)
+    const low = Math.max(0, Math.min(1, (p.sunDir.y - 0.1) / 0.25));
+    let k = (0.7 - golden * 0.2 - p.stars * 0.38) * (0.4 + 0.6 * low) * (1 - 0.75 * cloud);
+    if (set === 'schwach') k *= 0.5;
+    return Math.max(0, k);
   }
 
   /**
@@ -1448,7 +1498,8 @@ export class World {
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
     // auf Niedrig gar nicht (Schatten sind dort ausgeblendet)
-    if (QUALITY[this.quality].shadow > 0 && this.shadowDirty(dt)) this.renderer.shadowMap.needsUpdate = true;
+    if (QUALITY[this.quality].shadow > 0 && this.sun.shadow.intensity > 0.01 && this.shadowDirty(dt))
+      this.renderer.shadowMap.needsUpdate = true;
     const info = this.renderer.info;
     info.reset();
     this.composer.render(dt);

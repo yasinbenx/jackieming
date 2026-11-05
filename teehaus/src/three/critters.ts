@@ -142,7 +142,8 @@ export class Critters {
       });
     this.cats = VILLAGE_CATS.map(([, , , fur]) => new InstancedMesh(catGeo(fur), CRITTER_MAT, 1));
     for (const im of [...this.hens, ...this.duckMesh, ...this.cats]) {
-      im.castShadow = true;
+      // kleine Tiere: kein eigener Schatten (Kontaktschatten siehe softlight.ts)
+      im.castShadow = false;
       im.frustumCulled = false;
       this.group.add(im);
     }

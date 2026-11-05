@@ -191,6 +191,16 @@ Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im 
 - **Rauch aus Schornsteinen** (morgens und abends mehr), Dampf aus der Bäckerei, Funken und Rauch aus der Schmiede.
 - **Wetterspuren:** Pfützen auf dem Platz bei Regen, die danach langsam trocknen; Fahnen und Wäsche im Wind.
 
+## Licht und Schatten
+
+- **Sonnen- und Mondschatten** sind weich (PCF mit großem Radius: Hoch 4, Mittel 3 Texel) und dezent: tagsüber etwa 70 % Stärke, zur goldenen Stunde weniger, nachts nur noch schwach, bei Wolken fast keine. Das Himmelslicht füllt Schatten bläulich-warm auf, nichts wird schwarz. Die Sonne steht abends nicht mehr flacher als 21° (vorher 9°, die Schatten liefen quer über den Platz), der Mond höher. Zum Rand der Schattenkarte hin laufen Schatten weich aus, statt als Kante mitzuwandern.
+- **Kontaktschatten:** ein weicher, runder Fleck unter jeder Figur (Spielfigur, Gäste, alle Bewohner nah und fern) und unter den Tieren des Platzes, ein Draw-Call für alle. Sie bleiben auch, wenn die Sonnenschatten aus sind.
+- **Laternen:** leuchten über Material, Lichthof und Bloom. Nur die nächsten Laternen (Hoch 3, Mittel 2, Niedrig keine) bekommen ein echtes warmes Punktlicht, ohne Schatten, mit weichem Abfall und kaum merklichem Flackern. Beim Weitergehen wird überblendet. Die Lichter im Teehaus werfen ebenfalls keine Schatten.
+- **Kleine Dinge** (Tassen, Teekannen, Dosen, Tiere, Vögel) werfen keine eigenen Schatten; Figuren nur in der Nähe (bis 14 m).
+- **Einstellung „Schattenstärke“:** Normal, Schwach oder Aus (Kontaktschatten bleiben).
+- **Stufen:** Niedrig ohne Sonnenschatten und ohne zusätzliche Lichter (nur Kontaktschatten, Lichthöfe und das gleichmäßige Himmelslicht), Mittel mit weichen Sonnenschatten in der Nähe, Hoch mit feinerer Schattenkarte und drei Laternenlichtern.
+- Nicht umgesetzt: echte Kaskaden-Schatten (die Schattenkarte folgt der Spielfigur und läuft zum Rand aus) und vorberechnete Lichtkarten; beides wäre für die vielen eigenen Shader ein großer Umbau.
+
 ## Angeln, Fotomodus, Album, Handel, Jahreszeiten (P3d)
 
 - **Angeln** (钓鱼) an zwölf Plätzen an Teich und Fluss: Schwimmer auswerfen, beim „!“ rechtzeitig anschlagen, dann die Markierung im grünen Bereich halten. Sechs Fischarten mit chinesischem Namen (金鱼, 鲤鱼, 草鱼, 虾, 鲶鱼, 鳜鱼), Größe und Preis.

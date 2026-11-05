@@ -4,6 +4,7 @@
 // (fahrender Händler, Drachentanz, Laternenfest mit Lichtern auf dem Teich, Erhu am Abend).
 // Alles instanziert und mit wenigen Draw-Calls; nur in der Nähe des Platzes wird gerechnet.
 import {
+  AdditiveBlending,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -22,6 +23,8 @@ import {
   MeshStandardMaterial,
   Object3D,
   PlaneGeometry,
+  Points,
+  PointsMaterial,
   Quaternion,
   Raycaster,
   SphereGeometry,
@@ -31,6 +34,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { colored } from '../three/geo';
 import { catGeo, CRITTER_MAT } from '../three/critters';
+import { glowTexture } from '../three/textures';
 import { Sparks, Steam } from '../three/effects';
 import { POND } from '../three/shared';
 import { HOUSES, spec, STALLS, toWorld } from './village';
@@ -591,6 +595,25 @@ export class PlazaLife {
       lpos.length,
     );
     lpos.forEach((p, i) => this.chainLanterns.setMatrixAt(i, _m.makeTranslation(p.x, p.y, p.z)));
+    // Lichthof um jede Kettenlaterne (weicher Schein statt echter Lichter; ein Draw-Call)
+    this.halo = new Points(
+      new BufferGeometry().setFromPoints(lpos),
+      new PointsMaterial({
+        size: 1.5,
+        map: glowTexture(),
+        color: '#ffb066',
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: AdditiveBlending,
+      }),
+    );
+    this.halo.frustumCulled = false;
+    this.group.add(this.halo);
+    // Lichtquellen für die echten Punktlichter: Mitte jeder Kette zwischen den Masten (über dem Platz)
+    this.lightSpots = chains.map(([a, b, sag]) =>
+      sagPoint(a, b, 0.5, sag, new Vector3()).add(new Vector3(0, -0.6, 0)),
+    );
     this.chainLanterns.frustumCulled = false;
     this.group.add(this.chainLanterns);
 
@@ -665,6 +688,7 @@ export class PlazaLife {
     this.dHead = new Mesh(dragonHeadGeo(), MAT);
     this.dSegs = this.inst(dragonSegGeo(), 10, this.dragon);
     this.dBear = this.inst(bearerGeo(), 11, this.dragon);
+    this.dBear.castShadow = true;
     this.dPoles = new LineSegments(
       new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(11 * 6), 3)),
       new LineBasicMaterial({ color: '#5a3a20' }),
@@ -740,6 +764,19 @@ export class PlazaLife {
   }
 
   private smoke: Steam;
+  private halo!: Points;
+  /** Orte über dem Platz, an denen ein echtes Laternenlicht sitzen kann (siehe SoftLight) */
+  lightSpots: Vector3[] = [];
+
+  /** Kontaktschatten für Hunde, Katze und die Träger des Drachentanzes */
+  blobs(): { x: number; y: number; z: number; r: number }[] {
+    const out: { x: number; y: number; z: number; r: number }[] = [];
+    if (!this.group.visible) return out;
+    for (const d of this.dogs) out.push({ x: d.x, y: groundY(d.x, d.z), z: d.z, r: 0.32 });
+    if (this.fishCat !== 'idle')
+      out.push({ x: this.cat.x, y: groundY(this.cat.x, this.cat.z), z: this.cat.z, r: 0.2 });
+    return out;
+  }
 
   /** Leuchtstärke der Laternen 0 (Tag) … 1 (Nacht) */
   private glow(): number {
@@ -748,7 +785,8 @@ export class PlazaLife {
 
   private inst(geo: BufferGeometry, n: number, parent: Object3D = this.group): InstancedMesh {
     const im = new InstancedMesh(geo, MAT, n);
-    im.castShadow = true;
+    // Tiere und kleine Dinge: kein eigener Schatten; Drachentanz-Träger bekommen ihn unten wieder
+    im.castShadow = false;
     im.frustumCulled = false;
     im.count = 0;
     parent.add(im);
@@ -940,6 +978,8 @@ export class PlazaLife {
     const fest = this.festival ? 1.25 : 1;
     // lineare Farbwerte (werden für den Bildschirm nach sRGB umgerechnet): kräftiges Rot-Orange
     this.chainMat.color.setRGB(0.35 + glow * 1.5 * fest, 0.03 + glow * 0.16 * fest, 0.01 + glow * 0.03);
+    (this.halo.material as PointsMaterial).opacity = glow * 0.32 * fest;
+    this.halo.visible = glow > 0.02;
     this.forgeGlow.color.setRGB(
       1.6 + Math.sin(this.clock * 7) * 0.25 + Math.sin(this.clock * 2.3) * 0.2,
       0.62,

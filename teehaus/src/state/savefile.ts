@@ -79,6 +79,8 @@ export interface Settings {
   calm: boolean;
   /** Wetter: wechselnd oder immer klar */
   weather: 'auto' | 'klar';
+  /** Stärke der Sonnen- und Mondschatten */
+  shadows: 'aus' | 'schwach' | 'normal';
   /** Kamerageschwindigkeit (Maus/Wischen), 1 = normal */
   camSpeed: number;
   keys: Record<Action, string>;
@@ -131,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: 'auto',
   calm: false,
   weather: 'auto',
+  shadows: 'normal',
   camSpeed: 1,
   keys: { ...DEFAULT_KEYS },
   pinyin: true,
@@ -190,6 +193,7 @@ export function cleanSettings(raw: unknown): Settings {
     quality: q === 'auto' || q === 0 || q === 1 || q === 2 ? q : d.quality,
     calm: bool(r.calm, d.calm),
     weather: r.weather === 'klar' ? 'klar' : 'auto',
+    shadows: r.shadows === 'aus' || r.shadows === 'schwach' ? r.shadows : 'normal',
     camSpeed: num(r.camSpeed, d.camSpeed, 0.3, 2.5),
     keys,
     pinyin: bool(r.pinyin, d.pinyin),

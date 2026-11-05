@@ -233,6 +233,16 @@ export class Game {
     world.addToZone('Dorf', this.plaza.group);
     world.addToZone('Teehaus', this.plaza.pondGroup);
     world.noReflect.push(() => [this.plaza!.group]);
+    // Kontaktschatten unter allen sichtbaren Bewohnern (nah und fern) und den Tieren des Platzes;
+    // Laternenlicht auch über dem Dorfplatz
+    world.soft.sources.push(
+      () =>
+        this.villagers.list
+          .filter((r) => r.visible && r.state !== 'home')
+          .map((r) => ({ x: r.x, y: r.y, z: r.z, r: r.v.look.child ? 0.3 : 0.42 })),
+      () => this.plaza?.blobs() ?? [],
+    );
+    world.soft.lanterns.push(...this.plaza.lightSpots);
     (window as unknown as { __plaza: PlazaLife }).__plaza = this.plaza;
     // P3d: Fotomodus, Album, Angeln, Feilschen, Jahreszeiten
     this.photo = new PhotoMode({
