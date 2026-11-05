@@ -54,4 +54,4 @@ export const CREDITS: Credit[] = [
 ];
 
 export const CREDITS_EXTRA =
-  'Teehaus, Landschaft, Gewänder, Stickereimuster, Texturen, Musik und Geräusche sind im Code erzeugt (prozedural). Von außen kommen nur die oben genannten CC0-Figuren, -Animationen und -Haarmodelle von Quaternius. Es werden keine Fotos oder Tonaufnahmen geladen.';
+  'Teehaus, Landschaft, Dorf, Markt, Tiere, Drachentanz, Gewänder, Stickereimuster, Texturen, Verwitterung, Schnee, Musik, Erhu, Trommeln und Geräusche sind im Code erzeugt (prozedural). Alle Dorfbewohner sind frei erfunden. Von außen kommen nur die oben genannten CC0-Figuren, -Animationen und -Haarmodelle von Quaternius. Es werden keine Fotos oder Tonaufnahmen geladen.';

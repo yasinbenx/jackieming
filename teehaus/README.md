@@ -233,6 +233,27 @@ Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/m
 
 Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, kleine Gesichtsteile) und werden ab 12 m nur jedes zweite, ab 24 m jedes dritte Bild animiert, unsichtbare gar nicht. Die Schattenkarte wird jedes zweite Bild neu gezeichnet (in Kamerafahrten jedes Bild), die Teichspiegelung lässt Figuren, Gras, Tiere und Dorf weg, das Umgebungslicht wird je Tageszeit-Stufe zwischengespeichert. Hoch rendert mit Pixeldichte höchstens 1,5 und 2× MSAA, Mittel mit 1,25. Standard ist **automatisch**: die Startstufe richtet sich nach der Grafikkarte (integrierte Grafik Mittel), dann senkt die dynamische Auflösung bei zu wenig Bildern zuerst die Pixeldichte (bis 75 / 70 / 60 %) und erst danach die Stufe. Messwerte zeigt F3. Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
+## Leistung und Budgets (P0)
+
+Ziel: 60 fps auf einem Büro-Laptop mit integrierter Grafik (Startstufe dort Mittel). Budgets je Stufe, live in F3 (grün = im Budget, rot = darüber):
+
+| Stufe   | Draw-Calls | Dreiecke | volle Figuren | Auflösung bis |
+| ------- | ---------- | -------- | ------------- | ------------- |
+| Hoch    | 900        | 1,5 Mio. | 16            | 75 %          |
+| Mittel  | 750        | 900 k    | 12            | 70 %          |
+| Niedrig | 350        | 450 k    | 8             | 60 %          |
+
+Maßnahmen: Figurteile werden beim Anlegen nach Knochen und Farbe verschmolzen (etwa 45 % weniger Meshes), ferne Figuren mit 30 bzw. 15 Hz animiert, Schatten nur neu gezeichnet, wenn sich etwas bewegt, Teichspiegelung auf Hoch jedes zweite, auf Mittel jedes dritte Bild, dynamische Auflösung vor dem Stufenwechsel, Zonen mit Nebel ausgeblendet. Gemessen auf Hoch, 1280×720 (Software-Grafik der Testumgebung, daher nur Draw-Calls und Dreiecke vergleichbar):
+
+| Ort           | Draw-Calls vorher → nachher | Dreiecke vorher → nachher |
+| ------------- | --------------------------- | ------------------------- |
+| Teehaus innen | 464 → 407                   | gleich                    |
+| Teich         | 1260 → 915                  | gleich                    |
+| Dorfplatz     | 688 → 573                   | gleich                    |
+| Terrassen     | 497 → 470                   | 695 k → 545 k             |
+
+Meshes insgesamt 1907 → 1205, Geometrien 1888 → 1186. `?bench` misst fünf Orte und zeigt eine Tabelle zum Kopieren.
+
 ## Qualität und Technik (S4)
 
 - **Ladebildschirm mit Fortschritt:** Schriften, Welt, Figuren und Haarmodelle werden nachgeladen (die 3D-Welt, das Spiel und das Menü sind eigene, nachgeladene Teile). Am Ende werden alle Bewohner-Figuren angelegt und **die ganze Szene einmal unsichtbar gezeichnet** – auch die gerade ausgeblendeten Teile wie Dorf, Terrassen und Regen. So sind alle Shader übersetzt und alle Texturen und Geometrien auf der Grafikkarte, bevor das Spiel beginnt; vorher stand das Bild beim ersten Gang ins Dorf mehrere Sekunden.
