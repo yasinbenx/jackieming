@@ -22,7 +22,11 @@ import {
 import type { Object3D, PointsMaterial, ShaderMaterial, Texture } from 'three';
 import {
   BloomEffect,
+  BrightnessContrastEffect,
   DepthOfFieldEffect,
+  HueSaturationEffect,
+  SepiaEffect,
+  VignetteEffect,
   EffectComposer,
   EffectPass,
   FXAAEffect,
@@ -687,7 +691,13 @@ export class World {
    * Nachbearbeitung je Qualitätsstufe und Ruhe-Modus. Fertige Varianten bleiben erhalten (nicht freigeben!),
    * damit ein Wechsel der Automatik keine Shader neu übersetzt; warmEffects() bereitet sie im Ladebildschirm vor.
    */
-  private effectCache = new Map<string, { pass: EffectPass; dof: DepthOfFieldEffect | null }>();
+  private effectCache = new Map<string, { pass: EffectPass; dof: DepthOfFieldEffect | null; grade: Grade }>();
+  private grade: Grade | null = null;
+  /**
+   * Bildlook (Fotomodus-Filter): Sättigung, Kontrast, Helligkeit, Sepia, Vignette. Werte werden auf die
+   * tageszeitabhängige Farbkorrektur addiert; die Shader bleiben gleich (nur Uniforms).
+   */
+  readonly look = { sat: 0, contrast: 0, bright: 0, sepia: 0, vignette: 0, hue: 0 };
 
   private buildEffects(): void {
     const spec = QUALITY[this.quality];
@@ -718,12 +728,21 @@ export class World {
         effects.push(dof);
       }
       effects.push(new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }));
+      // Farbkorrektur und Vignette: alles in einem Durchgang, kostet kaum etwas
+      const grade: Grade = {
+        hue: new HueSaturationEffect({ saturation: 0.08 }),
+        bc: new BrightnessContrastEffect({ contrast: 0.05 }),
+        sepia: new SepiaEffect({ intensity: 0 }),
+        vignette: new VignetteEffect({ offset: 0.32, darkness: 0.42 }),
+      };
+      effects.push(grade.hue, grade.bc, grade.sepia, grade.vignette);
       if (spec.msaa === 0) effects.push(new FXAAEffect());
-      fx = { pass: new EffectPass(this.camera, ...effects), dof };
+      fx = { pass: new EffectPass(this.camera, ...effects), dof, grade };
       this.effectCache.set(key, fx);
     }
     this.effectPass = fx.pass;
     this.dof = fx.dof;
+    this.grade = fx.grade;
     this.composer.addPass(fx.pass);
     this.composer.multisampling = spec.msaa;
   }
@@ -1000,6 +1019,25 @@ export class World {
     fog.density = p.fogDensity * 0.55 * (1 + fogK * 3.2 + w.rain * 0.9 + c * 0.25);
     this.sun.intensity = p.sunIntensity * (1 - 0.65 * c);
     this.hemi.intensity = p.hemi * (1 - 0.2 * c);
+    this.applyGrade(c);
+  }
+
+  /**
+   * Farbkorrektur nach Tageszeit und Wetter: goldene Stunde satter und wärmer, Nacht etwas entsättigt,
+   * bei Wolken/Regen flauer. Darauf der Fotomodus-Look.
+   */
+  private applyGrade(cloud: number): void {
+    const g = this.grade;
+    if (!g) return;
+    const p = this.pal;
+    const L = this.look;
+    const golden = Math.max(0, Math.min(1, (p.lantern - 0.35) / 0.65)) * (1 - p.stars);
+    g.hue.saturation = 0.06 + golden * 0.12 - p.stars * 0.12 - cloud * 0.12 + L.sat;
+    g.hue.hue = L.hue;
+    g.bc.contrast = 0.05 + golden * 0.04 + L.contrast;
+    g.bc.brightness = L.bright;
+    g.sepia.intensity = L.sepia;
+    g.vignette.darkness = 0.4 + p.stars * 0.15 + L.vignette;
   }
 
   // ───────────────────────────────────────── Hilfen
@@ -1412,4 +1450,11 @@ export class World {
   get walkSpeed(): number {
     return WALK;
   }
+}
+
+interface Grade {
+  hue: HueSaturationEffect;
+  bc: BrightnessContrastEffect;
+  sepia: SepiaEffect;
+  vignette: VignetteEffect;
 }

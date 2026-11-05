@@ -397,6 +397,13 @@ export class PlazaLife {
   private erhuNote = 0;
   /** Ereignis für die Anzeige */
   private event = '';
+  // P2: Schornsteinrauch, Pfützen, Fahnen
+  private chimneySmoke: Steam;
+  private puddles: InstancedMesh;
+  private puddleMat: MeshStandardMaterial;
+  private wet = 0;
+  private flags: InstancedMesh;
+  private flagPts: { x: number; y: number; z: number; ph: number }[] = [];
 
   constructor(private ctx: PlazaContext) {
     this.w = ctx.world;
@@ -662,6 +669,51 @@ export class PlazaLife {
     this.dragon.visible = false;
     this.group.add(this.dragon);
 
+    // ── Schornsteinrauch (Emitter kommen mit den Dachhöhen dazu)
+    this.chimneySmoke = new Steam(this.w.quality === 0 ? 50 : 110, '#9a9690', 2.6);
+    this.group.add(this.chimneySmoke.points);
+
+    // ── Pfützen: erscheinen bei Regen und trocknen danach langsam
+    this.puddleMat = new MeshStandardMaterial({
+      color: '#7a8590',
+      roughness: 0.02,
+      metalness: 0.65,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    const pud = new CylinderGeometry(1, 1, 0.01, 14);
+    this.puddles = new InstancedMesh(pud, this.puddleMat, 14);
+    let n = 0;
+    for (let k = 0; k < 80 && n < 14; k++) {
+      const [x, z] = this.randomPlazaPoint(12);
+      if (STALLS.some((st) => dist(st.x, st.z, x, z) < 2.2) || dist(x, z, WELL.x, WELL.z) < 2) continue;
+      const r = rnd(0.35, 0.9);
+      _q.setFromAxisAngle(UP, rnd(0, 3));
+      this.puddles.setMatrixAt(
+        n++,
+        _m.compose(_v.set(x, groundY(x, z) + 0.025, z), _q, _s.set(r * 1.4, 1, r)),
+      );
+    }
+    this.puddles.count = n;
+    this.puddles.visible = false;
+    this.puddles.renderOrder = 2;
+    this.group.add(this.puddles);
+
+    // ── Fahnen an den Laternenmasten (wehen im Wind)
+    this.flags = new InstancedMesh(
+      merge([
+        colored(new PlaneGeometry(0.5, 1.3).translate(0.25, -0.65, 0), '#b8281e', 0),
+        colored(new PlaneGeometry(0.5, 0.12).translate(0.25, -1.36, 0.001), '#e3b450', 0),
+      ]),
+      new MeshStandardMaterial({ vertexColors: true, side: DoubleSide, roughness: 0.85 }),
+      LANTERN_POLES.length,
+    );
+    LANTERN_POLES.forEach(([x, z], i) => this.flagPts.push({ x, y: groundY(x, z) + 3.9, z, ph: i * 1.7 }));
+    this.flags.castShadow = true;
+    this.flags.frustumCulled = false;
+    this.group.add(this.flags);
+
     this.w.tickers.push((dt) => this.update(dt));
     this.w.debug?.lines.push(
       () =>
@@ -763,6 +815,25 @@ export class PlazaLife {
           }
         }
       }
+      // Schornsteine auf Wohnhäusern und Gasthaus, Rauch daraus
+      const stacks: BufferGeometry[] = [];
+      for (const h of HOUSES) {
+        if (h.kind !== 'wohnhaus' && h.kind !== 'gasthaus') continue;
+        const sp = spec(h.kind);
+        const [x, z] = toWorld(h, sp.w * 0.3, -sp.d * 0.18);
+        const y = top(x, z);
+        if (y === null) continue;
+        stacks.push(
+          colored(new BoxGeometry(0.4, 1.1, 0.4).translate(x, y + 0.25, z), '#8a7a6a', 0.1),
+          colored(new BoxGeometry(0.5, 0.08, 0.5).translate(x, y + 0.82, z), '#5a4a40', 0),
+        );
+        this.chimneySmoke.addEmitter(new Vector3(x, y + 0.9, z), 1.3, 0.12, 2.2);
+      }
+      if (stacks.length) {
+        const chim = new Mesh(merge(stacks), MAT);
+        chim.castShadow = true;
+        this.group.add(chim);
+      }
       this.roofCatPos.forEach(([x, y, z, rot], i) =>
         this.roofCats.setMatrixAt(
           i,
@@ -853,6 +924,10 @@ export class PlazaLife {
     this.updateDragon(dt, vis);
     this.steam.update(dt, this.clock, 1);
     this.smoke.update(dt, this.clock, 1);
+    // Kochzeiten: morgens und abends raucht es mehr
+    const ph = this.w.dayPhase();
+    this.chimneySmoke.update(dt, this.clock, ph === 'mittag' ? 0.35 : ph === 'nacht' ? 0.15 : 1);
+    this.updateWeatherBits(dt);
     this.sparks.update(dt);
     if (!this.ctx.busy()) {
       this.updateTalk(dt, vis);
@@ -1558,6 +1633,23 @@ export class PlazaLife {
       for (const r of vis)
         if (r.full && r.state === 'act' && dist(r.x, r.z, WELL.x, WELL.z) < 11 && Math.random() < 0.3)
           r.rig?.play('clap', 1.6);
+  }
+
+  // ── Wetter: Pfützen, Fahnen
+
+  private updateWeatherBits(dt: number): void {
+    const rain = this.w.weather.rain;
+    // nass werden geht schnell, trocknen dauert (etwa zwei Minuten)
+    this.wet = rain > this.wet ? Math.min(1, this.wet + dt * 0.12 * Math.max(rain, 0.3)) : Math.max(0, this.wet - dt / 120);
+    this.puddleMat.opacity = this.wet * 0.85;
+    this.puddles.visible = this.wet > 0.02;
+    const wind = 0.35 + rain * 0.4 + 0.2 * Math.sin(this.clock * 0.3);
+    this.flagPts.forEach((f, i) => {
+      const flap = Math.sin(this.clock * 3.1 + f.ph) * 0.25 * wind + Math.sin(this.clock * 7 + f.ph) * 0.06;
+      _q.setFromAxisAngle(UP, 0.9 + wind * 0.6 + flap);
+      this.flags.setMatrixAt(i, _m.compose(_v.set(f.x, f.y, f.z), _q, _s.set(1, 1, 1)));
+    });
+    this.flags.instanceMatrix.needsUpdate = true;
   }
 
   // ── Teich

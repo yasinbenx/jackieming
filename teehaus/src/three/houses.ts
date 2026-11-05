@@ -23,7 +23,7 @@ import {
 } from 'three';
 import type { Material } from 'three';
 import { Batcher, M } from '../world/cafe';
-import { vinyl } from '../world/materials';
+import { vinyl, weathered } from '../world/materials';
 import { Baker } from './geo';
 import { rng } from './noise';
 import { FONT_BRUSH } from './shared';
@@ -40,16 +40,26 @@ export const HOUSE_PAPER = new MeshStandardMaterial({
   side: DoubleSide,
 });
 
+let weatheredMats: Record<string, MeshStandardMaterial> | null = null;
 const mats = (): Record<string, Material> => {
   if (!HOUSE_PAPER.map) HOUSE_PAPER.map = paperTexture();
+  // Verwitterung (P2): Moos auf Ziegeln und Stein, Abnutzung auf Holz und Putz
+  weatheredMats ??= {
+    dw: weathered(M.darkWood(), 0, 0.5),
+    mw: weathered(M.midWood(), 0, 0.6),
+    pl: weathered(M.plaster(), 0.15, 0.7),
+    stone: weathered(M.stone(), 0.8, 0.5),
+    tile: weathered(TILE, 0.55, 0.3),
+  };
+  const W = weatheredMats;
   return {
     lac: M.lacquer(),
-    dw: M.darkWood(),
-    mw: M.midWood(),
-    pl: M.plaster(),
-    stone: M.stone(),
+    dw: W.dw!,
+    mw: W.mw!,
+    pl: W.pl!,
+    stone: W.stone!,
     gold: M.gold(),
-    tile: TILE,
+    tile: W.tile!,
     fascia: FASCIA,
     paper: HOUSE_PAPER,
     green: vinyl('#3f6b5a', { rough: 0.5 }),

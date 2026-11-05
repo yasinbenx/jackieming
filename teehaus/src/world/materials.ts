@@ -449,3 +449,62 @@ export function fabricNormals(): Texture {
   foldTex = t;
   return t;
 }
+
+// ───────────────────────────────────────── Verwitterung (P2)
+
+const weatherCache = new Map<string, MeshStandardMaterial>();
+
+/**
+ * Kopie eines Materials mit Verwitterung im Shader (ohne Texturen): Moos auf nach oben zeigenden Flächen
+ * (Ziegel, Stein) und fleckige Abnutzung (dunkler, ausgeblichen), beides aus Rauschen in Weltkoordinaten.
+ * moss/wear 0–1. Gecacht, damit gleiche Materialien beim Verschmelzen zusammenbleiben.
+ */
+export function weathered(base: MeshStandardMaterial, moss: number, wear: number): MeshStandardMaterial {
+  const key = `${base.uuid}|${moss}|${wear}`;
+  const hit = weatherCache.get(key);
+  if (hit) return hit;
+  const m = base.clone();
+  const prev = base.onBeforeCompile;
+  const baseKey = base.customProgramCacheKey();
+  m.onBeforeCompile = (shader, r) => {
+    prev.call(base, shader, r);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWxPos;\nvarying vec3 vWxNorm;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        vWxPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vWxNorm = normalize(mat3(modelMatrix) * objectNormal);`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        varying vec3 vWxPos;
+        varying vec3 vWxNorm;
+        float wxHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float wxNoise(vec3 x) {
+          vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(mix(wxHash(i), wxHash(i + vec3(1,0,0)), f.x), mix(wxHash(i + vec3(0,1,0)), wxHash(i + vec3(1,1,0)), f.x), f.y),
+                     mix(mix(wxHash(i + vec3(0,0,1)), wxHash(i + vec3(1,0,1)), f.x), mix(wxHash(i + vec3(0,1,1)), wxHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }`,
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          float n1 = wxNoise(vWxPos * 1.7) * 0.65 + wxNoise(vWxPos * 5.3) * 0.35;
+          float up = smoothstep(0.35, 0.85, vWxNorm.y);
+          float mossK = smoothstep(0.5, 0.78, n1) * up * ${moss.toFixed(2)};
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.3, 0.12), mossK);
+          float n2 = wxNoise(vWxPos * 2.9 + 7.0);
+          float w = smoothstep(0.45, 0.9, n2) * ${wear.toFixed(2)};
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.78, 0.75, 0.7), w);
+          diffuseColor.rgb *= 1.0 - 0.08 * ${wear.toFixed(2)} * (1.0 - n1);
+        }`,
+      );
+  };
+  m.customProgramCacheKey = () => `${baseKey}|wx${moss}|${wear}`;
+  weatherCache.set(key, m);
+  return m;
+}
