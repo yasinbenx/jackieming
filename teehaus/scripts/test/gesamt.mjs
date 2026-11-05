@@ -167,8 +167,16 @@ await ev(() => {
   w.weather.rain = 1;
   w.weather.cloud = 1;
 });
-await wait(2500);
-ok('Regen sichtbar', await ev(() => window.__world.scene.getObjectByName('rain').visible));
+// in der Software-Grafik dauert ein Bild bis zu 2 s: warten, bis die Welt „draußen“ erkannt hat
+const rainOn = await p
+  .waitForFunction(() => window.__world.scene.getObjectByName('rain').visible, null, { timeout: 20000 })
+  .then(() => true)
+  .catch(() => false);
+ok(
+  'Regen sichtbar',
+  rainOn,
+  await ev(() => `drinnen: ${window.__world.isInside}, Regen ${window.__world.weather.rain}`),
+);
 await shot('regen');
 await ev(() => {
   const w = window.__world;
