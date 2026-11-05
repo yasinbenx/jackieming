@@ -254,6 +254,20 @@ Maßnahmen: Figurteile werden beim Anlegen nach Knochen und Farbe verschmolzen (
 
 Meshes insgesamt 1907 → 1205, Geometrien 1888 → 1186. `?bench` misst fünf Orte und zeigt eine Tabelle zum Kopieren.
 
+## Langzeittest (P4)
+
+`npm run test:langzeit` (Build muss laufen) spielt 20 Minuten: Jede Minute wechselt die Spielfigur den Ort (Teehaus, Teich, Dorfplatz, Terrassen, Drachenwiese), dazu Tageszeit und Wetter, und es laufen Drachentanz, die Fisch-Katze und Fotos. Mit `MODE=schnell` wird jede Spielminute im Schnelldurchlauf gerechnet (1200 Logikschritte, dazwischen echtes Zeichnen), sonst in Echtzeit. Ergebnis (Mittel, 1280×720, Schnellmodus, Stand P4):
+
+| Minute | JS-Speicher | Geometrien | Texturen\* | Shader | Logik je Bild |
+| ------ | ----------- | ---------- | ---------- | ------ | ------------- |
+| 1      | 160 MB      | 1323       | 169        | 165    | 3,04 ms       |
+| 5      | 166 MB      | 1396       | 176        | 165    | 2,37 ms       |
+| 10     | 166 MB      | 1454       | 181        | 165    | 2,28 ms       |
+| 15     | 167 MB      | 1467       | 185        | 165    | 1,95 ms       |
+| 20     | 168 MB      | 1467       | 185        | 165    | 2,13 ms       |
+
+\* ohne die Knochen-Texturen der Figuren (je Skelett eine, inzwischen schon im Ladebildschirm angelegt). Geometrien und Texturen wachsen nur, solange Teile zum ersten Mal gezeichnet werden, und bleiben ab etwa Minute 15 gleich; kein Leck, keine Konsolenfehler, die Logikzeit bleibt gleich. Die Bildrate ist in der Software-Grafik der Testumgebung nicht aussagekräftig (unter 1 fps); F3 zeigt sie auf echter Hardware.
+
 ## Qualität und Technik (S4)
 
 - **Ladebildschirm mit Fortschritt:** Schriften, Welt, Figuren und Haarmodelle werden nachgeladen (die 3D-Welt, das Spiel und das Menü sind eigene, nachgeladene Teile). Am Ende werden alle Bewohner-Figuren angelegt und **die ganze Szene einmal unsichtbar gezeichnet** – auch die gerade ausgeblendeten Teile wie Dorf, Terrassen und Regen. So sind alle Shader übersetzt und alle Texturen und Geometrien auf der Grafikkarte, bevor das Spiel beginnt; vorher stand das Bild beim ersten Gang ins Dorf mehrere Sekunden.

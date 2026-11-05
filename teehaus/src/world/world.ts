@@ -19,7 +19,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { Object3D, PointsMaterial, ShaderMaterial, Texture } from 'three';
+import type { Object3D, PointsMaterial, ShaderMaterial, SkinnedMesh, Texture } from 'three';
 import {
   BloomEffect,
   BrightnessContrastEffect,
@@ -502,6 +502,18 @@ export class World {
                 report('Textur vorab laden', e, 'warn');
               }
             }
+      });
+      // Knochen-Texturen aller Skelette (jede animierte Figur hat eigene) gleich anlegen: sonst entstehen sie erst,
+      // wenn die Figur zum ersten Mal ins Bild kommt (kleiner Ruckler, im Langzeittest wie ein Leck aussehend)
+      this.scene.traverse((o) => {
+        const sk = (o as SkinnedMesh).isSkinnedMesh ? (o as SkinnedMesh).skeleton : null;
+        if (!sk || sk.boneTexture) return;
+        try {
+          sk.computeBoneTexture();
+          if (sk.boneTexture) this.renderer.initTexture(sk.boneTexture);
+        } catch (e) {
+          report('Knochen-Textur vorab', e, 'warn');
+        }
       });
       if (this.renderer.extensions.has('KHR_parallel_shader_compile'))
         await this.renderer.compileAsync(this.scene, this.camera);

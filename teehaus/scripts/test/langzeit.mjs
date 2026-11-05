@@ -101,7 +101,14 @@ for (let m = 0; m < MINUTES; m++) {
     return {
       heap: Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1048576),
       geo: i.memory.geometries,
-      tex: i.memory.textures,
+      // ohne Knochen-Texturen: jede Figur bekommt beim ersten Zeichnen eine (begrenzt durch die Zahl der Skelette)
+      tex:
+        i.memory.textures -
+        (() => {
+          const sk = new Set();
+          w.scene.traverse((o) => o.isSkinnedMesh && o.skeleton?.boneTexture && sk.add(o.skeleton));
+          return sk.size;
+        })(),
       prog: i.programs?.length ?? 0,
       calls: i.render.calls,
       quality: w.quality,
