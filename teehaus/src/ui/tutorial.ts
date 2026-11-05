@@ -46,7 +46,7 @@ const STEPS: Step[] = [
     title: 'Weitere Tasten',
     text: () => {
       const k = store.settings.keys;
-      return `${keyLabel(k.map)} Karte · Esc oder ${keyLabel(k.pause)} Pause · ${keyLabel(k.fullscreen)} Vollbild · ${keyLabel(k.wave)} Winken · ${keyLabel(k.sound)} Ton · F3 Messwerte. Alle Tasten lassen sich in den Einstellungen ändern.`;
+      return `${keyLabel(k.map)} Karte · Esc oder ${keyLabel(k.pause)} Pause · ${keyLabel(k.fullscreen)} Vollbild · ${keyLabel(k.photo)} Fotomodus · ${keyLabel(k.album)} Album · ${keyLabel(k.wave)}/${keyLabel(k.bow)}/${keyLabel(k.clap)}/${keyLabel(k.taichi)} Winken, Verbeugen, Klatschen, Tai-Chi · ${keyLabel(k.sound)} Ton · F3 Messwerte. Alle Tasten lassen sich in den Einstellungen ändern.`;
     },
   },
 ];

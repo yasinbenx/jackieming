@@ -20,7 +20,8 @@
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:content && npm run test",
     "test:haenger": "node scripts/test/haenger.mjs",
     "test:belastung": "node scripts/test/belastung.mjs",
-    "test:layout": "node scripts/test/layout.mjs"
+    "test:layout": "node scripts/test/layout.mjs",
+    "test:langzeit": "node scripts/test/langzeit.mjs"
   },
   "engines": {
     "node": ">=20.19"

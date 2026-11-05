@@ -143,7 +143,9 @@ export class Snow {
           vec3 w = uCam + mod(p - uCam + uBox * 0.5, uBox) - uBox * 0.5;
           vA = step(aSeed, uAmount);
           vec4 mv = viewMatrix * vec4(w, 1.0);
-          gl_PointSize = (2.0 + aSeed * 3.0) * 60.0 / max(1.0, -mv.z);
+          gl_PointSize = min(7.0, (2.0 + aSeed * 3.0) * 40.0 / max(1.0, -mv.z));
+          // ganz nah an der Kamera ausblenden (sonst große Kleckse)
+          vA *= smoothstep(1.5, 3.5, -mv.z);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `

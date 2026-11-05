@@ -103,9 +103,17 @@ for (const [w, h, name] of SIZES) {
     await p.evaluate((k) => window.__game[k].start(), key);
     // Einblende-Animation abwarten (in der Software-Grafik dauert sie deutlich länger)
     await p
-      .waitForFunction((s) => document.querySelector(s)?.getAnimations().every((a) => a.playState !== 'running'), sel, {
-        timeout: 20000,
-      })
+      .waitForFunction(
+        (s) =>
+          document
+            .querySelector(s)
+            ?.getAnimations()
+            .every((a) => a.playState !== 'running'),
+        sel,
+        {
+          timeout: 20000,
+        },
+      )
       .catch(() => undefined);
     const bad = await p.evaluate(outside, sel);
     ok(`${name} im Bild`, bad.length === 0, bad);

@@ -4712,3 +4712,12 @@ body.photo-mode #debug {
 .haggle-offers [lang='zh'] {
   font-size: 18px;
 }
+
+.photo-bar .btn.ghost {
+  color: #f4ead6;
+  border-color: rgba(244, 234, 214, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+}
+.photo-bar .btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
