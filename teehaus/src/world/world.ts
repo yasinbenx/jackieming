@@ -39,6 +39,15 @@ import type { Effect } from 'postprocessing';
 
 // Weiche Sonnenschatten laufen zum Rand der Schattenkarte hin aus (sonst endet der Schatten als sichtbare Kante,
 // die mit der Spielfigur mitwandert). Nur die erste Stelle: PCF-Schatten des Richtungslichts.
+// Schutz gegen schwarze Flächen: Auf manchen Grafikkarten wurden abends und nachts ganze Flächen tiefschwarz
+// (abgewandte Seiten von Boden, Stämmen, Kleidern). Jede Fläche behält deshalb eine kleine Mindesthelligkeit aus
+// ihrer eigenen Farbe, und ungültige Werte (NaN/unendlich) werden durch eine gedämpfte Eigenfarbe ersetzt.
+ShaderChunk.opaque_fragment = ShaderChunk.opaque_fragment.replace(
+  'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+  `if ( any( isnan( outgoingLight ) ) || any( isinf( outgoingLight ) ) ) outgoingLight = diffuseColor.rgb * 0.4;
+outgoingLight = max( outgoingLight, diffuseColor.rgb * 0.16 );
+gl_FragColor = vec4( outgoingLight, diffuseColor.a );`,
+);
 ShaderChunk.shadowmap_pars_fragment = ShaderChunk.shadowmap_pars_fragment.replace(
   'return mix( 1.0, shadow, shadowIntensity );',
   `float shadowEdge = min( min( shadowCoord.x, 1.0 - shadowCoord.x ), min( shadowCoord.y, 1.0 - shadowCoord.y ) );
@@ -180,6 +189,9 @@ const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motio
  * Startstufe für „Automatisch“: integrierte Grafik (Intel, AMD-APU, Software) beginnt auf Mittel, eigene
  * Grafikkarten auf Hoch. Die Automatik passt danach Auflösung und Stufe an die gemessene Bildrate an.
  */
+/** vom Browser gemeldete Grafikkarte (für F3) */
+let GPU_NAME = 'unbekannt';
+
 function guessQuality(): Quality {
   try {
     const gl = document.createElement('canvas').getContext('webgl2');
@@ -187,6 +199,7 @@ function guessQuality(): Quality {
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
     gl.getExtension('WEBGL_lose_context')?.loseContext();
+    GPU_NAME = name;
     if (/swiftshader|llvmpipe|software/i.test(name)) return 0;
     if (/intel|uhd|iris|radeon\(tm\) graphics|radeon graphics|vega \d+ graphics|mali|adreno/i.test(name))
       return 1;
@@ -485,6 +498,7 @@ export class World {
       watchdog.notes.length ? `Watchdog   ${watchdog.notes.slice(-2).join(' | ')}` : 'Watchdog   ruhig',
     );
     this.debug.lines.push(() => `Wetter     ${WEATHER_ZH[this.weather.kind]} ${this.weather.kind}`);
+    this.debug.lines.push(() => `Grafik     ${GPU_NAME.slice(0, 90)}`);
     this.debug.lines.push(() => {
       const pp = this.player.ch.root.position;
       return `Zone       ${this.zoneAt(pp.x, pp.z)} · geladen: ${this.zoneList
@@ -970,7 +984,8 @@ export class World {
       // Wechsel kurz, weil der Himmel in eine Würfelkarte gerechnet wird)
       const env = this.envFor(Math.round(this.t * 20));
       this.scene.environment = env.texture as Texture;
-      this.scene.environmentIntensity = 0.5 - p.stars * 0.25;
+      // das Umgebungslicht enthält jetzt wirklich den Himmel: tagsüber dezent, nachts etwas mehr Aufhellung
+      this.scene.environmentIntensity = 0.32 + p.stars * 0.1;
       bus.emit('time:changed', { t: this.t });
     }
   }
@@ -980,7 +995,11 @@ export class World {
     let env = this.envCache.get(key);
     if (!env) {
       const envScene = new Scene();
-      envScene.add(this.sky.clone());
+      // Der Himmel (Radius 450 m) lag bisher hinter der Fernebene der Würfelkamera (100 m) und fehlte daher im
+      // Umgebungslicht ganz: abgewandte Flächen bekamen nur das Himmelslicht. Verkleinert passt er hinein.
+      const sky = this.sky.clone();
+      sky.scale.setScalar(0.1);
+      envScene.add(sky);
       // 64 statt 256 Pixel je Würfelseite: für das weiche Umgebungslicht reicht das, und es kostet ein
       // Sechzehntel der Rechenzeit
       env = this.pmrem.fromScene(envScene, 0.04, 0.1, 100, { size: 64 });
