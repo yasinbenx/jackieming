@@ -2,6 +2,7 @@
 import type { World } from '../world/world';
 import type { TimePreset } from '../three/palette';
 import { bus } from '../core/bus';
+import { store } from '../state/store';
 import { h } from './dom';
 
 interface TimeBtn {
@@ -89,7 +90,9 @@ export function createHud(stage: World, handlers: HudHandlers): Hud {
     seg.appendChild(btn);
     buttons.push(btn);
   }
-  mark('auto');
+  // gespeicherte Wahl anzeigen und jeder Änderung folgen (auch beim Start eines neuen Spiels)
+  mark(store.progress.time);
+  bus.on('time:preset', (p) => mark(p.id));
 
   const el = h(
     'header',

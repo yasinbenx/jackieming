@@ -18,6 +18,8 @@ export interface BusEvents {
   'ui:word': { id: string };
   'ui:lock': undefined;
   'ui:select': { who: FigureId };
+  /** gewählte Tageszeit (Knöpfe oben) */
+  'time:preset': { id: 'day' | 'golden' | 'night' | 'auto' };
   /** Szenen-Ereignisse mit Klang */
   'scene:sip': { who: FigureId };
   'scene:pour': undefined;

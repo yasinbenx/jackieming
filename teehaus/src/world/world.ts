@@ -946,7 +946,10 @@ export class World {
   // ───────────────────────────────────────── Tageszeit
 
   setTime(id: TimePreset | 'auto', instant = false): void {
-    if (id === 'day' || id === 'golden' || id === 'night' || id === 'auto') store.setTime(id);
+    if (id === 'day' || id === 'golden' || id === 'night' || id === 'auto') {
+      store.setTime(id);
+      bus.emit('time:preset', { id });
+    }
     if (id === 'auto') {
       this.auto = true;
       this.autoPhase = Math.asin(clamp((this.t - 0.5) * 2, -1, 1));

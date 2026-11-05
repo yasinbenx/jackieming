@@ -217,6 +217,9 @@ async function boot(): Promise<void> {
   /** Kleiderwahl, Weg ins Haus, Tutorial */
   const newGame = async (): Promise<void> => {
     menu.hide();
+    // Neues Spiel: feste Tageszeit nach der Uhr (6–19 Uhr Tag, sonst Nacht), kein Abend und kein Automatik-Lauf
+    const hour = new Date().getHours();
+    world.setTime(hour >= 6 && hour < 19 ? 'day' : 'night', true);
     document.body.classList.add('is-picking');
     await intro.pickOutfit(world);
     store.markStarted();
