@@ -57,7 +57,7 @@ import { groundY, NavGrid } from './nav';
 import { buildVillage } from '../three/village';
 import { Critters } from '../three/critters';
 import { DebugOverlay } from '../ui/debug';
-import { Rain, Weather, WEATHER_ZH } from './weather';
+import { Rain, Snow, Weather, WEATHER_ZH } from './weather';
 import type { Village } from '../three/village';
 import { Agent, WALK } from './agent';
 import { FollowCam } from './camera';
@@ -201,6 +201,18 @@ export class World {
   private frameNo = 0;
   readonly weather = new Weather();
   private rain!: Rain;
+  private snow!: Snow;
+  private _seasonPetals = 1;
+  /** Blütenmenge der Jahreszeit (1 Frühling … 0 Herbst/Winter) */
+  set seasonPetals(k: number) {
+    if (k === this._seasonPetals) return;
+    this._seasonPetals = k;
+    this.petals?.setActive(Math.round(240 * QUALITY[this.quality].petals * k * (this.calm ? 0.4 : 1)));
+  }
+  /** Ist die Spielfigur im Teehaus? */
+  get isInside(): boolean {
+    return this.inside;
+  }
   private moreFireflies: Fireflies[] = [];
   /** Debug-Anzeige (F3) */
   debug: DebugOverlay | null = null;
@@ -352,7 +364,7 @@ export class World {
       if (x > HALL.x0 && x < HALL.x1 && z > HALL.z0 && z < TERRACE.z1) return FLOOR - 0.02;
       return heightAt(x, z);
     });
-    this.petals.setActive(Math.round(240 * spec.petals * (this.calm ? 0.4 : 1)));
+    this.petals.setActive(Math.round(240 * spec.petals * this._seasonPetals * (this.calm ? 0.4 : 1)));
     this.scene.add(this.petals.mesh);
     this.fireflies = new Fireflies(40, new Vector3(POND.x, 0, POND.z), POND.rx, POND.rz);
     // Glühwürmchen auch am Fluss beim Dorf und im Bambushain
@@ -366,6 +378,8 @@ export class World {
     }
     this.rain = new Rain(this.quality === 2 ? 4000 : this.quality === 1 ? 2200 : 900);
     this.scene.add(this.rain.mesh);
+    this.snow = new Snow(this.quality === 2 ? 3000 : this.quality === 1 ? 1800 : 800);
+    this.scene.add(this.snow.points);
     this.scene.add(this.fireflies.points);
     await progress(0.6);
     this.nav = timed('· Laufraster', () => new NavGrid());
@@ -787,7 +801,7 @@ export class World {
       this.simpleWater.visible = q === 0;
       this.land.water.visible = q > 0;
     }
-    this.petals.setActive(Math.round(240 * spec.petals * (this.calm ? 0.4 : 1)));
+    this.petals.setActive(Math.round(240 * spec.petals * this._seasonPetals * (this.calm ? 0.4 : 1)));
     this.land.nature.setRange(spec.near, spec.far, spec.grass);
     this.village.range = VILLAGE_RANGE[q];
     this.buildEffects();
@@ -796,7 +810,9 @@ export class World {
 
   setCalm(on: boolean): void {
     this.calm = on || reducedMotion();
-    this.petals.setActive(Math.round(240 * QUALITY[this.quality].petals * (this.calm ? 0.4 : 1)));
+    this.petals.setActive(
+      Math.round(240 * QUALITY[this.quality].petals * this._seasonPetals * (this.calm ? 0.4 : 1)),
+    );
     this.buildEffects();
     this.resize();
   }
@@ -1369,6 +1385,7 @@ export class World {
     this.weather.update(dt);
     this.applyWeather();
     this.rain.update(this.time, c, this.weather.rain, this.inside);
+    this.snow.update(this.time, c, this.weather.snow, this.inside);
     this.updateZones(c);
     this.land.koi.update(dt * motion + dt * (1 - motion) * 0.3, this.time);
     this.land.magpie.update(dt, this.time);
@@ -1398,6 +1415,21 @@ export class World {
       // Schärfe dort, wo die Kamera hinschaut (im Gespräch: das Gesicht des Gegenübers)
       this.dof.target = this.cam.lookPoint;
     }
+  }
+
+  /**
+   * Foto vom aktuellen Bild (Fotomodus): einmal rendern und sofort auslesen (ohne preserveDrawingBuffer),
+   * verkleinert auf maxW Pixel Breite, als JPEG-Daten-URL.
+   */
+  snapshot(maxW = 640, quality = 0.82): string {
+    this.composer.render(0);
+    const src = this.renderer.domElement;
+    const k = Math.min(1, maxW / src.width);
+    const c = document.createElement('canvas');
+    c.width = Math.round(src.width * k);
+    c.height = Math.round(src.height * k);
+    c.getContext('2d')!.drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', quality);
   }
 
   private draw(dt: number, rawDt: number, now: number): void {

@@ -782,6 +782,20 @@ export class Villagers {
     this.crowd.end();
   }
 
+  /** Geste der Spielfigur: Bewohner in der Nähe antworten (Verbeugung → nicken/verbeugen, Klatschen → klatschen) */
+  gestureFrom(p: Vector3, act: 'bow' | 'clap' | 'taichi'): number {
+    let n = 0;
+    for (const r of this.list) {
+      if (!r.full || !r.rig || r.state === 'walk' || Math.hypot(r.x - p.x, r.z - p.z) > 7) continue;
+      const ch = r.rig;
+      const reply: Action =
+        act === 'bow' ? (r.sitting ? 'nod' : 'bow') : act === 'clap' ? 'clap' : r.sitting ? 'nod' : 'taichi';
+      window.setTimeout(() => ch.play(reply, act === 'taichi' ? 3 : 1.4), 300 + Math.random() * 700);
+      n++;
+    }
+    return n;
+  }
+
   /** Spieler winkt: Bewohner in der Nähe winken zurück */
   waveFrom(p: Vector3): void {
     for (const r of this.list) {

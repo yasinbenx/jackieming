@@ -70,6 +70,63 @@ export const BADGES: Badge[] = [
     how: 'Mit zehn Leuten im Dorf sprechen',
     check: (p) => games(p, 'vt-') >= Math.min(10, VILLAGERS.length),
   },
+  // ── P3d: Dorfleben, Angeln, Fotos, Handel, Jahreszeiten
+  {
+    id: 'angler',
+    zh: '渔夫',
+    de: 'Angler',
+    how: 'Einen Fisch fangen',
+    check: (p) => games(p, 'fisch-') - games(p, 'fisch-max-') > 0,
+  },
+  {
+    id: 'fischkenner',
+    zh: '鱼王',
+    de: 'Fischkenner',
+    how: 'Alle sechs Fischarten fangen',
+    check: (p) => games(p, 'fisch-') - games(p, 'fisch-max-') >= 6,
+  },
+  {
+    id: 'fotograf',
+    zh: '摄影师',
+    de: 'Fotograf',
+    how: 'Fünf Fotos im Fotomodus machen',
+    check: (p) => (p.games['fotos'] ?? 0) >= 5,
+  },
+  {
+    id: 'feilscher',
+    zh: '砍价高手',
+    de: 'Feilscher',
+    how: 'Beim fahrenden Händler etwas heruntergehandelt kaufen',
+    check: (p) => (p.games['gespart'] ?? 0) > 0,
+  },
+  {
+    id: 'drachenflieger',
+    zh: '放风筝',
+    de: 'Drachenflieger',
+    how: 'Den eigenen Drachen eine Minute steigen lassen',
+    check: (p) => (p.games['drachen-flug'] ?? 0) >= 60,
+  },
+  {
+    id: 'katzenretter',
+    zh: '好心人',
+    de: 'Fischretter',
+    how: 'Die Katze vom Fischstand verscheuchen',
+    check: (p) => (p.games['katze-verscheucht'] ?? 0) > 0,
+  },
+  {
+    id: 'jahreszeiten',
+    zh: '四季',
+    de: 'Vier Jahreszeiten',
+    how: 'Das Tal in allen vier Jahreszeiten erleben',
+    check: (p) => ['fruehling', 'sommer', 'herbst', 'winter'].every((s) => p.games[`jahreszeit-${s}`]),
+  },
+  {
+    id: 'festgast',
+    zh: '过节',
+    de: 'Festgast',
+    how: 'Den Drachentanz auf dem Dorfplatz sehen',
+    check: (p) => (p.games['drachentanz'] ?? 0) > 0,
+  },
 ];
 
 /** Neu verdiente Abzeichen (noch nicht im Spielstand) */

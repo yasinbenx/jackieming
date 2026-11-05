@@ -13,6 +13,7 @@ export const WORD_GROUPS: WordGroup[] = [
   { id: 'tee', de: 'Tee', zh: '茶' },
   { id: 'alltag', de: 'Begrüßen und Bestellen', zh: '日常' },
   { id: 'spiele', de: 'Brettspiel', zh: '象棋' },
+  { id: 'zahlen', de: 'Zahlen und Feilschen', zh: '数字' },
   { id: 'welt', de: 'Teehaus und Dorf', zh: '村子' },
 ];
 
@@ -53,6 +54,7 @@ const LISTS: Record<string, string[]> = {
     'meiguanxi',
     'wanshang',
   ],
+  zahlen: ['yi1', 'er4', 'san1', 'si4', 'wu3', 'liu4', 'qi1', 'ba1', 'jiu3', 'shi2', 'kuai', 'taojia'],
   spiele: ['xiangqi', 'jiangjun', 'ju', 'ma', 'pao', 'bing', 'xiaqi', 'qipan'],
 };
 

@@ -45,7 +45,7 @@ import type { NatureOpts } from './nature';
 import { buildStructures } from './structures';
 import type { Structures } from './structures';
 import { buildWaterways } from './waterways';
-import { addWind, flat, mesh, POND, SHARED } from './shared';
+import { addWind, flat, mesh, POND, seasonize, SHARED } from './shared';
 import { BRIDGE, bridgeY } from '../world/layout';
 import { glowTexture, mistTexture } from './textures';
 import type { Palette } from './palette';
@@ -133,11 +133,9 @@ function terrain(): Mesh {
   geo.setIndex(new BufferAttribute(idx, 1));
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
-  const m = mesh(
-    geo,
-    new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }),
-    'receive',
-  );
+  const tmat = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+  seasonize(tmat, { snow: true, autumn: true });
+  const m = mesh(geo, tmat, 'receive');
   m.name = 'terrain';
   return m;
 }

@@ -165,6 +165,24 @@ export class SettingsPage {
         ),
         'Wolken, Regen und Nebel kommen und gehen',
       ),
+      row(
+        'Jahreszeit',
+        this.select<string>(
+          'set-season',
+          [
+            ['-1', 'Wechselnd'],
+            ['0', 'Frühling'],
+            ['1', 'Sommer'],
+            ['2', 'Herbst'],
+            ['3', 'Winter'],
+          ],
+          String(store.progress.games['jahreszeit-wahl'] ?? -1),
+          (v) => {
+            store.setGame('jahreszeit-wahl', Number(v));
+          },
+        ),
+        'wechselnd: alle zwei Spieltage eine neue; im Winter schneit es statt zu regnen',
+      ),
 
       h('h3', {}, h('span', { lang: 'zh' }, '操作'), ' Steuerung'),
       row('Kamerageschwindigkeit', this.slider('set-cam', 'camSpeed', 0.4, 2, 0.1)),

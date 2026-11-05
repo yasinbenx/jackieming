@@ -67,7 +67,17 @@ export class Input {
       }
       if (e.code === k.wave) this.wave = true;
       if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey)
-        for (const a of ['map', 'sound', 'pause', 'fullscreen'] as const)
+        for (const a of [
+          'map',
+          'sound',
+          'pause',
+          'fullscreen',
+          'photo',
+          'album',
+          'bow',
+          'clap',
+          'taichi',
+        ] as const)
           if (e.code === k[a]) this.onAction?.(a);
       if (
         e.code.startsWith('Arrow') &&

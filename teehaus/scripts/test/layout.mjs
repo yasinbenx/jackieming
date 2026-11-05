@@ -95,6 +95,24 @@ for (const [w, h, name] of SIZES) {
   ok('Quiz-Fenster im Bild', (await p.evaluate(outside, '#quiz .modal-card')).length === 0);
   await p.keyboard.press('Escape');
   await p.waitForTimeout(400);
+  // Mini-Spiele: Tee zubereiten und Xiangqi
+  for (const [name, key, sel] of [
+    ['Tee-Spiel', 'tea', '.teagame'],
+    ['Xiangqi', 'xq', '.xiangqi'],
+  ]) {
+    await p.evaluate((k) => window.__game[k].start(), key);
+    // Einblende-Animation abwarten (in der Software-Grafik dauert sie deutlich länger)
+    await p
+      .waitForFunction((s) => document.querySelector(s)?.getAnimations().every((a) => a.playState !== 'running'), sel, {
+        timeout: 20000,
+      })
+      .catch(() => undefined);
+    const bad = await p.evaluate(outside, sel);
+    ok(`${name} im Bild`, bad.length === 0, bad);
+    await p.screenshot({ path: `${out}-${w}x${h}-${key}.png`, timeout: 180000 }).catch(() => undefined);
+    await p.evaluate((k) => window.__game[k].close(), key);
+    await p.waitForTimeout(400);
+  }
   await p.keyboard.press('Escape');
   await p.waitForTimeout(600);
   ok(

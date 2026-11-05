@@ -324,7 +324,7 @@ export class PlazaLife {
   readonly pondGroup = new Group();
   private readonly w: World;
   private readonly vs: Villagers;
-  private day: number;
+  day: number;
   private lastPhase: DayPhase;
   private festivalAnnounced = -1;
   private dragonDone = -1;
@@ -404,6 +404,12 @@ export class PlazaLife {
   private wet = 0;
   private flags: InstancedMesh;
   private flagPts: { x: number; y: number; z: number; ph: number }[] = [];
+  // eigener Drachen der Spielfigur (beim Händler gekauft)
+  private myKite: Mesh;
+  private myLine: Line;
+  private myKiteOn = false;
+  private myKiteT = 0;
+  private myStart: [number, number] = [0, 0];
 
   constructor(private ctx: PlazaContext) {
     this.w = ctx.world;
@@ -714,6 +720,17 @@ export class PlazaLife {
     this.flags.frustumCulled = false;
     this.group.add(this.flags);
 
+    // ── eigener Drachen
+    this.myKite = new Mesh(this.kite.geometry, this.kite.material);
+    this.myKite.scale.setScalar(1.1);
+    this.myLine = new Line(
+      new BufferGeometry().setFromPoints([new Vector3(), new Vector3()]),
+      this.kiteLine.material,
+    );
+    this.myLine.frustumCulled = false;
+    this.myKite.visible = this.myLine.visible = false;
+    this.group.add(this.myKite, this.myLine);
+
     this.w.tickers.push((dt) => this.update(dt));
     this.w.debug?.lines.push(
       () =>
@@ -870,6 +887,24 @@ export class PlazaLife {
         },
       }),
     );
+    // eigenen Drachen steigen lassen (auf der Wiese am Fluss)
+    const meadow = (): boolean => {
+      const sp = this.vs.spot('drachenwiese');
+      return dist(w.player.x, w.player.z, sp.x, sp.z) < 9;
+    };
+    w.addInteractable({
+      id: 'drachen-steigen',
+      pos: () => new Vector3(w.player.x, groundY(w.player.x, w.player.z), w.player.z),
+      radius: 3,
+      priority: -1,
+      label: () => (this.myKiteOn ? 'Drachen einholen' : 'Drachen steigen lassen'),
+      enabled: () =>
+        (store.progress.games['drachen-gekauft'] ?? 0) > 0 &&
+        meadow() &&
+        !w.player.seated &&
+        !this.ctx.busy(),
+      use: () => this.toggleMyKite(),
+    });
     // Drachen aufheben
     w.addInteractable({
       id: 'drachen-aufheben',
@@ -928,6 +963,7 @@ export class PlazaLife {
     const ph = this.w.dayPhase();
     this.chimneySmoke.update(dt, this.clock, ph === 'mittag' ? 0.35 : ph === 'nacht' ? 0.15 : 1);
     this.updateWeatherBits(dt);
+    this.updateMyKite(dt);
     this.sparks.update(dt);
     if (!this.ctx.busy()) {
       this.updateTalk(dt, vis);
@@ -1283,6 +1319,7 @@ export class PlazaLife {
       store.addCoins(2);
       this.ctx.toast('Fisch gerettet! <b>+2 Münzen</b> · 猫 māo – Katze');
       this.ctx.award('mao');
+      store.setGame('katze-verscheucht', (store.progress.games['katze-verscheucht'] ?? 0) + 1);
       this.event = 'Katze verscheucht';
     }
     if (this.fishCat === 'grab') {
@@ -1552,6 +1589,7 @@ export class PlazaLife {
     this.dragon.visible = true;
     this.ctx.toast('<b>舞龙 Drachentanz</b> auf dem Dorfplatz! Hörst du die Trommeln?');
     this.ctx.award('wulong');
+    if (dist(this.player.x, this.player.z, PLAZA.x, PLAZA.z) < 40) store.setGame('drachentanz', 1);
     this.event = 'Drachentanz';
   }
 
@@ -1635,12 +1673,63 @@ export class PlazaLife {
           r.rig?.play('clap', 1.6);
   }
 
+  // ── eigener Drachen
+
+  toggleMyKite(): void {
+    const w = this.w;
+    this.myKiteOn = !this.myKiteOn;
+    if (this.myKiteOn) {
+      this.myStart = [w.player.x, w.player.z];
+      this.myKiteT = 0;
+      w.player.ch.hold('kite');
+      this.ctx.toast('风筝 – der Drachen steigt! Bleib stehen und schau ihm zu (E: einholen).');
+      this.ctx.award('fengzheng');
+    } else {
+      w.player.ch.stop('kite');
+      this.myKite.visible = this.myLine.visible = false;
+    }
+  }
+
+  private updateMyKite(dt: number): void {
+    if (!this.myKiteOn) return;
+    const p = this.w.player;
+    // weggelaufen → Drachen einholen
+    if (dist(p.x, p.z, this.myStart[0], this.myStart[1]) > 2.5) {
+      this.toggleMyKite();
+      return;
+    }
+    this.myKiteT += dt;
+    const g = store.progress.games;
+    if (Math.floor(this.myKiteT) % 5 === 0 && Math.floor(this.myKiteT - dt) % 5 !== 0)
+      store.setGame('drachen-flug', (g['drachen-flug'] ?? 0) + 5);
+    const t = this.clock;
+    const up = Math.min(1, this.myKiteT / 6);
+    const hy = groundY(p.x, p.z) + 1.9;
+    const kp = _v.set(
+      p.x - 4 - up * 3 + Math.sin(t * 0.6) * 1.4,
+      hy + 1 + up * 8 + Math.sin(t * 1.3) * 0.7,
+      p.z + 3 + up * 3 + Math.cos(t * 0.45) * 1.6,
+    );
+    this.myKite.visible = this.myLine.visible = true;
+    this.myKite.position.copy(kp);
+    this.myKite.lookAt(p.x, hy, p.z);
+    this.myKite.rotateZ(Math.sin(t * 2.1) * 0.3);
+    this.myKite.rotateX(-0.4);
+    const lp = this.myLine.geometry.attributes.position as BufferAttribute;
+    lp.setXYZ(0, p.x, hy, p.z);
+    lp.setXYZ(1, kp.x, kp.y - 0.1, kp.z);
+    lp.needsUpdate = true;
+  }
+
   // ── Wetter: Pfützen, Fahnen
 
   private updateWeatherBits(dt: number): void {
     const rain = this.w.weather.rain;
     // nass werden geht schnell, trocknen dauert (etwa zwei Minuten)
-    this.wet = rain > this.wet ? Math.min(1, this.wet + dt * 0.12 * Math.max(rain, 0.3)) : Math.max(0, this.wet - dt / 120);
+    this.wet =
+      rain > this.wet
+        ? Math.min(1, this.wet + dt * 0.12 * Math.max(rain, 0.3))
+        : Math.max(0, this.wet - dt / 120);
     this.puddleMat.opacity = this.wet * 0.85;
     this.puddles.visible = this.wet > 0.02;
     const wind = 0.35 + rain * 0.4 + 0.2 * Math.sin(this.clock * 0.3);

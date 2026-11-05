@@ -1,6 +1,11 @@
 // Verdrahtet Welt, Oberfläche, Ton und Spielstand. NPCs, Dialog und Fundstücke hängen sich hier an.
 import { SHOP_THANKS, WEATHER_TOASTS } from './content/lines';
 import { PLACES } from './world/map';
+import { PhotoMode } from './ui/photo';
+import { Album } from './ui/album';
+import { Fishing } from './ui/fishing';
+import { Haggle } from './ui/haggle';
+import { Seasons, SEASONS } from './world/seasons';
 import { PlazaLife } from './world/plaza';
 import { Villagers } from './world/villagers';
 import { VILLAGE_CATS } from './three/critters';
@@ -68,6 +73,15 @@ export class Game {
   readonly npcs: Npcs;
   villagers!: Villagers;
   plaza?: PlazaLife;
+  photo!: PhotoMode;
+  album!: Album;
+  fishing!: Fishing;
+  haggle!: Haggle;
+  seasons!: Seasons;
+  /** P3d-Fenster offen (Fotomodus, Album, Angeln, Feilschen) */
+  private extrasOpen(): boolean {
+    return !!(this.photo?.open || this.album?.open || this.fishing?.open || this.haggle?.open);
+  }
   shop!: Shop;
   map!: WorldMap;
   orderPanel!: OrderPanel;
@@ -194,7 +208,8 @@ export class Game {
       busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
       night: () => world.pal.stars > 0.55,
       phase: () => world.dayPhase(),
-      openShop: () => window.setTimeout(() => this.shop.show(), 400),
+      openShop: (who) =>
+        window.setTimeout(() => (who.id === 'v-qiao' ? this.haggle.show() : this.shop.show()), 400),
       onTalk: (id) => {
         store.setGame(`vt-${id}`, 1);
         void this.quests?.onTalk(id);
@@ -211,7 +226,7 @@ export class Game {
       icon: (sp, sym) => this.bubbles.icon(sp, sym),
       award: (id) => this.award(id),
       toast: (html) => this.toast.show(html, 5200),
-      busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open,
+      busy: () => this.talking || this.tea.open || this.xq.open || this.shop.open || this.extrasOpen(),
       sound: (kind, vol, midi) => this.audio.sfx.village(kind, vol, midi),
     });
     world.scene.add(this.plaza.group, this.plaza.pondGroup);
@@ -219,6 +234,29 @@ export class Game {
     world.addToZone('Teehaus', this.plaza.pondGroup);
     world.noReflect.push(() => [this.plaza!.group]);
     (window as unknown as { __plaza: PlazaLife }).__plaza = this.plaza;
+    // P3d: Fotomodus, Album, Angeln, Feilschen, Jahreszeiten
+    this.photo = new PhotoMode({
+      world,
+      where: () => world.zoneAt(world.player.x, world.player.z),
+      toast: (html) => this.toast.show(html, 3600),
+      onShot: () => this.award('paizhao'),
+    });
+    this.album = new Album();
+    this.fishing = new Fishing({
+      world,
+      toast: (html) => this.toast.show(html, 4200),
+      award: (id) => this.award(id),
+      icon: (sym) => this.bubbles.icon(world.playerSpeaker, sym, 1.2),
+      splash: () => this.audio.sfx.koi(),
+    });
+    this.haggle = new Haggle({ award: (id) => this.award(id), toast: (html) => this.toast.show(html, 5200) });
+    this.seasons = new Seasons(world, () => this.plaza?.day ?? 0);
+    this.seasons.onChange = (sn) => {
+      const info = SEASONS.find((x) => x.id === sn)!;
+      this.toast.show(`<b>${info.zh}</b> – der ${info.de} zieht ins Tal.`, 4800);
+      this.award(info.word);
+      if (sn === 'winter') this.award('xue');
+    };
     // Karte mit Schnellreise
     this.map = new WorldMap({
       player: () => ({ x: world.player.x, z: world.player.z, yaw: world.player.ch.yaw }),
@@ -311,6 +349,16 @@ export class Game {
         if (world.mode === 'free' || this.map.open) this.map.toggle();
       } else if (a === 'pause') this.togglePause();
       else if (a === 'fullscreen') toggleFullscreen();
+      else if (a === 'photo') {
+        if (this.photo.open || this.canPause()) this.photo.toggle();
+      } else if (a === 'album') {
+        if (this.album.open || this.canPause()) this.album.toggle();
+      } else if ((a === 'bow' || a === 'clap' || a === 'taichi') && this.canPause() && !world.player.seated) {
+        world.player.ch.play(a, a === 'taichi' ? 4 : 1.5);
+        const n = this.villagers?.gestureFrom(world.player.ch.root.position, a) ?? 0;
+        if (a === 'bow' && n) this.award('xiexie');
+        if (a === 'taichi') this.award('taiji');
+      }
     };
     // Esc öffnet die Pause, wenn nichts anderes offen ist (vor allen anderen Esc-Handlern prüfen)
     window.addEventListener(
@@ -733,7 +781,7 @@ export class Game {
   private canPause(): boolean {
     const w = this.world;
     if (w.mode !== 'free') return false;
-    if (this.approach || this.talk.open || this.tea.open || this.xq.open) return false;
+    if (this.approach || this.talk.open || this.tea.open || this.xq.open || this.extrasOpen()) return false;
     if (document.querySelector('.quest-offer:not([hidden])')) return false;
     return !document.querySelector(
       '.modal:not([hidden]), .sound-panel:not([hidden]), .outfit, #mainmenu:not([hidden])',

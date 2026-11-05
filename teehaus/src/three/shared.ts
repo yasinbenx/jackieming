@@ -19,7 +19,52 @@ export const SHARED = {
   uWind: { value: 1 },
   /** Pixel pro Meter in 1 m Abstand (für Partikelgrößen), wird bei Größenänderung gesetzt */
   uPx: { value: 800 },
+  /** Jahreszeiten (P3d): Schneedecke 0–1 und Herbstfärbung 0–1 */
+  uSnow: { value: 0 },
+  uAutumn: { value: 0 },
 };
+
+/**
+ * Jahreszeit im Shader: Herbst färbt Grün nach Gelb-Orange, Schnee legt sich auf nach oben zeigende Flächen.
+ * Hängt sich an ein vorhandenes onBeforeCompile an (Wind, Randlicht, Verwitterung bleiben erhalten).
+ */
+export function seasonize(mat: Material, opts: { snow?: boolean; autumn?: boolean }): void {
+  const prev = mat.onBeforeCompile;
+  const prevKey = mat.customProgramCacheKey();
+  const tag = `${opts.snow ? 's' : ''}${opts.autumn ? 'a' : ''}`;
+  mat.onBeforeCompile = (shader, r) => {
+    prev.call(mat, shader, r);
+    shader.uniforms.uSnow = SHARED.uSnow;
+    shader.uniforms.uAutumn = SHARED.uAutumn;
+    let f = shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\nuniform float uSnow;\nuniform float uAutumn;',
+    );
+    if (opts.autumn)
+      f = f.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          float green = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 4.0, 0.0, 1.0);
+          vec3 fall = mix(vec3(0.78, 0.42, 0.12), vec3(0.85, 0.66, 0.2), fract(diffuseColor.g * 7.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, fall * (0.6 + diffuseColor.g), green * uAutumn * 0.85);
+        }`,
+      );
+    if (opts.snow)
+      f = f.replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+        {
+          vec3 wN = inverseTransformDirection(normal, viewMatrix);
+          float cover = smoothstep(0.45, 0.8, wN.y) * uSnow;
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.94, 0.98), cover);
+        }`,
+      );
+    shader.fragmentShader = f;
+  };
+  mat.customProgramCacheKey = () => `${prevKey}|season-${tag}`;
+  mat.needsUpdate = true;
+}
 
 const matCache = new Map<string, MeshStandardMaterial>();
 /** Low-Poly-Standardmaterial (flach schattiert), nach Farbe zwischengespeichert */

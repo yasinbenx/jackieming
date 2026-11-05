@@ -2,6 +2,7 @@
 // Stickerei (Drachen, Wolken) wird als Canvas-Textur erzeugt – keine Bilddateien.
 import { CanvasTexture, Color, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Texture } from 'three';
+import { seasonize } from '../three/shared';
 
 /** Gemeinsame Uniforms für das Randlicht (Farbe folgt der Tageszeit) */
 export const RIM = {
@@ -505,6 +506,8 @@ export function weathered(base: MeshStandardMaterial, moss: number, wear: number
       );
   };
   m.customProgramCacheKey = () => `${baseKey}|wx${moss}|${wear}`;
+  // Schnee auf Dächern und Mauerkronen (Jahreszeiten)
+  if (moss > 0) seasonize(m, { snow: true });
   weatherCache.set(key, m);
   return m;
 }

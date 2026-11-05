@@ -27,7 +27,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { colored, T } from './geo';
 import { fbm, rand, rng } from './noise';
-import { addWind, SHARED } from './shared';
+import { addWind, seasonize, SHARED } from './shared';
 import { boundaryK } from '../world/map';
 import { scatter } from '../world/scatter';
 import { onHouse } from '../world/village';
@@ -345,6 +345,8 @@ function grassMesh(count: number, tex: DataTexture): Mesh {
     shader.uniforms.uWind = SHARED.uWind;
     shader.uniforms.uGround = { value: tex };
     shader.uniforms.uCam = GRASS_CAM;
+    shader.uniforms.uSnow = SHARED.uSnow;
+    shader.uniforms.uAutumn = SHARED.uAutumn;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -353,6 +355,7 @@ function grassMesh(count: number, tex: DataTexture): Mesh {
         uniform float uWind;
         uniform sampler2D uGround;
         uniform vec3 uCam;
+        uniform float uSnow;
         attribute vec3 aOff;
         attribute float aTip;
         varying vec3 vGrass;
@@ -382,7 +385,7 @@ function grassMesh(count: number, tex: DataTexture): Mesh {
         mat2 R = mat2(cos(rot), -sin(rot), sin(rot), cos(rot));
         vec3 transformed = vec3(position);
         transformed.xz = R * transformed.xz;
-        transformed *= keep * (0.7 + aOff.z * 0.45);
+        transformed *= keep * (0.7 + aOff.z * 0.45) * (1.0 - uSnow * 0.85);
         float sway = sin(uTime * 1.8 + wp.x * 0.35 + wp.y * 0.21) * 0.6 + sin(uTime * 3.1 + wp.x * 0.9) * 0.3;
         transformed.x += sway * aTip * 0.09 * uWind;
         transformed.z += cos(uTime * 1.4 + wp.y * 0.4) * aTip * 0.05 * uWind;
@@ -390,13 +393,14 @@ function grassMesh(count: number, tex: DataTexture): Mesh {
         vGrass = vec3(aTip, gr.b, aOff.z);`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vGrass;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGrass;\nuniform float uAutumn;')
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         vec3 base = mix(vec3(0.33, 0.42, 0.18), vec3(0.50, 0.55, 0.24), vGrass.y);
         vec3 tipc = mix(vec3(0.60, 0.66, 0.30), vec3(0.75, 0.68, 0.38), vGrass.y);
         diffuseColor.rgb = mix(base, tipc, vGrass.x);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.5, 0.24) * (0.8 + vGrass.x * 0.4), uAutumn * 0.75);
         // vereinzelt Blüten an der Spitze
         if (vGrass.z > 0.985 && vGrass.x > 0.8) diffuseColor.rgb = mix(vec3(0.95, 0.85, 0.35), vec3(0.92, 0.62, 0.75), step(0.993, vGrass.z));`,
       );
@@ -435,6 +439,7 @@ export class Nature {
     const geos = treeGeos();
     const treeMat = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });
     addWind(treeMat, 0.05, 6);
+    seasonize(treeMat, { snow: true, autumn: true });
     for (const kind of Object.keys(geos) as TreeKind[]) {
       const items = sc.trees.filter((t) => t.kind === kind);
       if (!items.length) continue;

@@ -12,7 +12,22 @@ export const LEGACY_KEY = 'teehaus.v1';
 
 /** Tastenbelegung: Aktion → KeyboardEvent.code */
 export type Action =
-  'forward' | 'back' | 'left' | 'right' | 'run' | 'use' | 'wave' | 'map' | 'sound' | 'pause' | 'fullscreen';
+  | 'forward'
+  | 'back'
+  | 'left'
+  | 'right'
+  | 'run'
+  | 'use'
+  | 'wave'
+  | 'bow'
+  | 'clap'
+  | 'taichi'
+  | 'map'
+  | 'photo'
+  | 'album'
+  | 'sound'
+  | 'pause'
+  | 'fullscreen';
 
 export const ACTIONS: { id: Action; label: string }[] = [
   { id: 'forward', label: 'Vorwärts' },
@@ -22,7 +37,12 @@ export const ACTIONS: { id: Action; label: string }[] = [
   { id: 'run', label: 'Laufen (halten)' },
   { id: 'use', label: 'Ansprechen / benutzen' },
   { id: 'wave', label: 'Winken' },
+  { id: 'bow', label: 'Verbeugen' },
+  { id: 'clap', label: 'Klatschen' },
+  { id: 'taichi', label: 'Tai-Chi' },
   { id: 'map', label: 'Karte' },
+  { id: 'photo', label: 'Fotomodus' },
+  { id: 'album', label: 'Album' },
   { id: 'sound', label: 'Ton an/aus' },
   { id: 'pause', label: 'Pause' },
   { id: 'fullscreen', label: 'Vollbild' },
@@ -36,7 +56,12 @@ export const DEFAULT_KEYS: Record<Action, string> = {
   run: 'ShiftLeft',
   use: 'KeyE',
   wave: 'KeyG',
+  bow: 'KeyH',
+  clap: 'KeyJ',
+  taichi: 'KeyK',
   map: 'KeyM',
+  photo: 'KeyC',
+  album: 'KeyB',
   sound: 'KeyT',
   pause: 'KeyP',
   fullscreen: 'KeyF',
