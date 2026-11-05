@@ -166,20 +166,6 @@ export class SettingsPage {
         'Wolken, Regen und Nebel kommen und gehen',
       ),
       row(
-        'Schattenstärke',
-        this.select<'aus' | 'schwach' | 'normal'>(
-          'set-shadows',
-          [
-            ['normal', 'Normal'],
-            ['schwach', 'Schwach'],
-            ['aus', 'Aus'],
-          ],
-          s.shadows,
-          (v) => this.set('shadows', v),
-        ),
-        'Sonnen- und Mondschatten; weiche Kontaktschatten unter Figuren bleiben immer',
-      ),
-      row(
         'Jahreszeit',
         this.select<string>(
           'set-season',

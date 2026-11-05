@@ -193,13 +193,10 @@ Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im 
 
 ## Licht und Schatten
 
-- **Sonnen- und Mondschatten** sind weich (PCF mit großem Radius: Hoch 4, Mittel 3 Texel) und dezent: tagsüber etwa 70 % Stärke, zur goldenen Stunde weniger, nachts nur noch schwach, bei Wolken fast keine. Das Himmelslicht füllt Schatten bläulich-warm auf, nichts wird schwarz. Die Sonne steht abends nicht mehr flacher als 21° (vorher 9°, die Schatten liefen quer über den Platz), der Mond höher. Zum Rand der Schattenkarte hin laufen Schatten weich aus, statt als Kante mitzuwandern.
-- **Kontaktschatten:** ein weicher, runder Fleck unter jeder Figur (Spielfigur, Gäste, alle Bewohner nah und fern) und unter den Tieren des Platzes, ein Draw-Call für alle. Sie bleiben auch, wenn die Sonnenschatten aus sind.
-- **Laternen:** leuchten über Material, Lichthof und Bloom. Nur die nächsten Laternen (Hoch 3, Mittel 2, Niedrig keine) bekommen ein echtes warmes Punktlicht, ohne Schatten, mit weichem Abfall und kaum merklichem Flackern. Beim Weitergehen wird überblendet. Die Lichter im Teehaus werfen ebenfalls keine Schatten.
-- **Kleine Dinge** (Tassen, Teekannen, Dosen, Tiere, Vögel) werfen keine eigenen Schatten; Figuren nur in der Nähe (bis 14 m).
-- **Einstellung „Schattenstärke“:** Normal, Schwach oder Aus (Kontaktschatten bleiben).
-- **Stufen:** Niedrig ohne Sonnenschatten und ohne zusätzliche Lichter (nur Kontaktschatten, Lichthöfe und das gleichmäßige Himmelslicht), Mittel mit weichen Sonnenschatten in der Nähe, Hoch mit feinerer Schattenkarte und drei Laternenlichtern.
-- Nicht umgesetzt: echte Kaskaden-Schatten (die Schattenkarte folgt der Spielfigur und läuft zum Rand aus) und vorberechnete Lichtkarten; beides wäre für die vielen eigenen Shader ein großer Umbau.
+- **Keine dynamischen Sonnen- und Mondschatten:** Auf manchen Grafikkarten lieferte die Schattenkarte falsche Werte (große schwarze Flächen mit ausgefransten Rändern rund um die Spielfigur, vor allem direkt nach dem Start). Sie sind deshalb ganz abgeschaltet; das spart zugleich einen kompletten Zeichendurchgang. Das bläulich-warme Himmelslicht und das Umgebungslicht modellieren die Formen.
+- **Kontaktschatten:** ein weicher, runder Fleck unter jeder Figur (Spielfigur, Gäste, alle Bewohner nah und fern) und unter den Tieren des Platzes, ein Draw-Call für alle.
+- **Laternen:** leuchten über Material, Lichthof und Bloom. Nur die nächsten Laternen (Hoch 3, Mittel 2, Niedrig keine) bekommen ein echtes warmes Punktlicht ohne Schatten, mit weichem Abfall und kaum merklichem Flackern; beim Weitergehen wird überblendet. Die Lichter im Teehaus werfen ebenfalls keine Schatten.
+- Die Sonne steht zur goldenen Stunde nicht mehr flacher als 21°, der Mond höher, und das Himmelslicht ist heller (Licht wirkt weicher).
 
 ## Angeln, Fotomodus, Album, Handel, Jahreszeiten (P3d)
 

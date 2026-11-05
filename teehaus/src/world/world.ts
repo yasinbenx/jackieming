@@ -314,7 +314,10 @@ export class World {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, spec.dpr));
     // Schattenkarte immer an (auch auf Niedrig): Ein- und Ausschalten würde alle Shader ändern und das Spiel
     // beim Wechsel der Qualität sekundenlang anhalten. Auf Niedrig wird sie nur nicht gezeichnet und ausgeblendet.
-    this.renderer.shadowMap.enabled = true;
+    // Keine dynamischen Sonnen-/Mondschatten: Auf manchen Grafikkarten lieferte die Schattenkarte falsche Werte
+    // (große schwarze Flächen mit ausgefransten Rändern rund um die Spielfigur). Stattdessen weiche
+    // Kontaktschatten unter Figuren und Tieren (softlight.ts); spart außerdem einen ganzen Zeichendurchgang.
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     // erstes Bild: Schattenkarte sofort anlegen (sonst liest der Shader eine leere Textur)
@@ -334,7 +337,7 @@ export class World {
     // Licht
     this.scene.fog = new FogExp2('#e8b88a', 0.005);
     this.scene.add(this.sky, this.hemi, this.sun, this.sun.target, this.fill);
-    this.sun.castShadow = true;
+    this.sun.castShadow = false;
     this.sun.shadow.mapSize.set(Math.max(512, spec.shadow), Math.max(512, spec.shadow));
     this.sun.shadow.intensity = spec.shadow > 0 ? 1 : 0;
     const sc = this.sun.shadow.camera;
@@ -1088,7 +1091,7 @@ export class World {
    * sorgen Laternen für die Stimmung), bei Wolken fast keine; dazu die Einstellung „Schattenstärke“.
    */
   shadowStrength(cloud: number): number {
-    if (QUALITY[this.quality].shadow <= 0) return 0;
+    if (!this.renderer.shadowMap.enabled || QUALITY[this.quality].shadow <= 0) return 0;
     const p = this.pal;
     const set = store.settings.shadows;
     if (set === 'aus') return 0;
@@ -1498,7 +1501,12 @@ export class World {
     // Schatten nur jedes zweite Bild neu rechnen (spart einen ganzen Durchgang aller Schattenwerfer)
     this.frameNo++;
     // auf Niedrig gar nicht (Schatten sind dort ausgeblendet)
-    if (QUALITY[this.quality].shadow > 0 && this.sun.shadow.intensity > 0.01 && this.shadowDirty(dt))
+    if (
+      this.renderer.shadowMap.enabled &&
+      QUALITY[this.quality].shadow > 0 &&
+      this.sun.shadow.intensity > 0.01 &&
+      this.shadowDirty(dt)
+    )
       this.renderer.shadowMap.needsUpdate = true;
     const info = this.renderer.info;
     info.reset();

@@ -98,7 +98,7 @@ export class SoftLight {
     const p = this.w.pal;
     // Tagsüber zeichnen die Sonnenschatten schon den Fuß nach: Fleck leichter; nachts und bei Wolken kräftiger
     const sun = this.w.sunShadowStrength;
-    this.blobMat.opacity = 0.5 - sun * 0.3 + p.stars * 0.05;
+    this.blobMat.opacity = 0.42 - sun * 0.2 + p.stars * 0.04;
     let n = 0;
     for (const f of this.sources)
       for (const b of f()) {
