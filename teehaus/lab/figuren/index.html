@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Figuren-Labor · Das Teehaus</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+    <link rel="stylesheet" href="../../src/lab/lab.css" />
+  </head>
+  <body>
+    <header class="lab-head">
+      <h1><span lang="zh">人物</span> Figuren-Labor · Vorher / Nachher</h1>
+      <p>
+        Links die bisherige Figur (Quaternius-Teile), rechts die neue geschneiderte Figur. Drehen mit Maus/Finger,
+        zoomen mit Rad/Pinch.
+      </p>
+    </header>
+    <main class="lab">
+      <nav id="list" aria-label="Figuren"></nav>
+      <section class="stage">
+        <div id="view"></div>
+        <div class="tools">
+          <label><input type="checkbox" id="spin" /> Drehen</label>
+          <label><input type="checkbox" id="before" checked /> Vorher zeigen</label>
+        </div>
+        <div id="anims" class="anims" aria-label="Bewegungen"></div>
+      </section>
+      <aside id="info" aria-live="polite"></aside>
+    </main>
+    <script type="module" src="../../src/lab/figuren.ts"></script>
+  </body>
+</html>

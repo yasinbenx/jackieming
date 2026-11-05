@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Musik-Labor · Das Teehaus</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+    <link rel="stylesheet" href="../../src/lab/lab.css" />
+    <link rel="stylesheet" href="../../src/lab/musik.css" />
+  </head>
+  <body>
+    <header class="lab-head">
+      <h1><span lang="zh">音乐</span> Musik-Labor</h1>
+      <p>
+        Drei neue Soundtrack-Entwürfe für das Teehaus – vollständig im Browser erzeugt, ohne Aufnahmen. Am besten
+        mit Kopfhörern anhören.
+      </p>
+    </header>
+    <main class="musik">
+      <div class="vol">
+        <label for="vol">Lautstärke</label>
+        <input type="range" id="vol" min="0" max="1" step="0.01" value="0.55" />
+        <output id="vol-out" for="vol">55 %</output>
+      </div>
+      <div id="cards" class="cards"></div>
+      <p class="hint">
+        Es spielt immer nur eine Vorschau. Jede dauert knapp eine Minute und klingt am Ende sanft aus.
+      </p>
+    </main>
+    <script type="module" src="../../src/lab/musik.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,319 @@
+// Bewegte Figur (Spieler und NPCs): Laufen mit Beschleunigung, Gleiten an Hindernissen, Wegpunkte (A*),
+// Hinsetzen auf Hocker und Aufstehen. Die Animation steuert das Character-Rig über speed/sitDown.
+import { Vector2 } from 'three';
+import { makeFigure } from './figure';
+import type { Figure } from './figure';
+import type { Look } from './character';
+import { groundY } from './nav';
+import type { NavGrid } from './nav';
+import type { Seat } from './layout';
+import { FLOOR } from './layout';
+import { approachPoint } from './seating';
+import { report } from '../core/guard';
+
+export const WALK = 1.45;
+export const RUN = 3.5;
+
+type SeatPhase = 'none' | 'approach' | 'settle' | 'seated' | 'rising';
+
+export class Agent {
+  readonly ch: Figure;
+  readonly vel = new Vector2();
+  path: [number, number][] = [];
+  private onArrive: (() => void) | null = null;
+  private pathRun = false;
+  seat: Seat | null = null;
+  private seatPhase: SeatPhase = 'none';
+  private seatT = 0;
+  private seatFrom = new Vector2();
+  private seatFromYaw = 0;
+  private yawTarget: number | null = null;
+  /** Gehgeschwindigkeit dieses Agenten (Kinder trippeln, der Teemeister schlurft) */
+  walkSpeed = WALK;
+  runSpeed = RUN;
+  /** Kollisionen mit dem Raster beachten (Skripte dürfen das kurz abschalten, z. B. hinter der Theke) */
+  collide = true;
+  private y = FLOOR;
+  /** Durchsichtigkeit, wenn die Figur die Sicht verdeckt (1 = normal) */
+  fade = 1;
+
+  // Notausgang beim Gehen: kein Fortschritt zum nächsten Wegpunkt → dorthin setzen; ganzer Weg dauert viel
+  // länger als erwartet → ans Ziel setzen und Ankunft melden (sonst warten Sitzplatz, Tür, Gespräch ewig)
+  private stuckT = 0;
+  private bestD = Infinity;
+  private pathT = 0;
+  private pathBudget = 0;
+  /** Zahl der Notausgänge (für Tests und Debug-Anzeige) */
+  rescues = 0;
+
+  private startPath(points: [number, number][]): void {
+    this.path = points;
+    let len = 0;
+    let px = this.x;
+    let pz = this.z;
+    for (const [x, z] of points) {
+      len += Math.hypot(x - px, z - pz);
+      px = x;
+      pz = z;
+    }
+    this.pathT = 0;
+    this.pathBudget = (len / Math.max(0.5, this.walkSpeed)) * 2.5 + 6;
+    this.stuckT = 0;
+    this.bestD = Infinity;
+  }
+
+  private rescue(why: string, x: number, z: number): void {
+    this.rescues++;
+    report(
+      `Figur ${this.ch.root.name || '?'}`,
+      new Error(
+        `${why} bei ${this.x.toFixed(1)}, ${this.z.toFixed(1)} → gesetzt auf ${x.toFixed(1)}, ${z.toFixed(1)}`,
+      ),
+      'warn',
+    );
+    const yaw = this.ch.yaw;
+    this.place(x, z, yaw);
+    this.stuckT = 0;
+    this.bestD = Infinity;
+  }
+
+  /** Animation nur jedes n-te Bild (ferne Figuren); die Zeit wird aufgesammelt */
+  animStride = 1;
+  private animAcc = 0;
+  private animN = 0;
+
+  /** Figur animieren – unsichtbare gar nicht, ferne seltener */
+  private animate(dt: number): void {
+    this.animAcc += dt;
+    if (!this.ch.root.visible) {
+      this.animAcc = Math.min(this.animAcc, 0.2);
+      return;
+    }
+    if (++this.animN % this.animStride !== 0) return;
+    this.ch.update(Math.min(0.15, this.animAcc));
+    this.animAcc = 0;
+  }
+
+  constructor(
+    look: Look,
+    private nav: NavGrid,
+  ) {
+    this.ch = makeFigure(look);
+  }
+
+  get x(): number {
+    return this.ch.root.position.x;
+  }
+
+  get z(): number {
+    return this.ch.root.position.z;
+  }
+
+  get busy(): boolean {
+    return (
+      this.path.length > 0 ||
+      this.seatPhase === 'approach' ||
+      this.seatPhase === 'settle' ||
+      this.seatPhase === 'rising'
+    );
+  }
+
+  get seated(): boolean {
+    return this.seatPhase === 'seated';
+  }
+
+  place(x: number, z: number, yaw = 0): void {
+    this.ch.root.position.set(x, groundY(x, z), z);
+    this.y = this.ch.root.position.y;
+    this.ch.yaw = yaw;
+    this.vel.set(0, 0);
+  }
+
+  /** Sofort sitzend platzieren (Startzustand der Gäste) */
+  placeSeated(seat: Seat): void {
+    this.seat = seat;
+    this.place(seat.x, seat.z, seat.yaw);
+    this.ch.sitDown(seat.h);
+    this.seatPhase = 'seated';
+  }
+
+  faceYaw(yaw: number | null): void {
+    this.yawTarget = yaw;
+  }
+
+  faceTo(x: number, z: number): void {
+    this.yawTarget = Math.atan2(x - this.x, z - this.z);
+  }
+
+  /** Mit Wegfindung zu einem Punkt gehen. false, wenn kein Weg existiert. */
+  goTo(x: number, z: number, run = false, onArrive?: () => void): boolean {
+    if (this.seatPhase === 'seated') this.standUp();
+    const p = this.nav.path(this.x, this.z, x, z);
+    if (!p) return false;
+    this.startPath(p);
+    this.pathRun = run;
+    this.onArrive = onArrive ?? null;
+    return true;
+  }
+
+  /** Direkter Weg ohne Rasterprüfung (für kurze Skriptstrecken, z. B. hinter der Theke) */
+  walkDirect(points: [number, number][], onArrive?: () => void): void {
+    this.startPath(points.slice());
+    this.pathRun = false;
+    this.onArrive = onArrive ?? null;
+  }
+
+  stopPath(): void {
+    this.path = [];
+    this.onArrive = null;
+  }
+
+  /** Zum Hocker gehen und hinsetzen */
+  sitAt(seat: Seat, onSeated?: () => void): boolean {
+    const t = approachPoint(seat, (x, z) => this.nav.walkable(x, z));
+    // Der Annäherungspunkt liegt vom Tisch weg; der Hocker selbst ist frei begehbar
+    const ok = this.goTo(t.x, t.z, false, () => {
+      this.seat = seat;
+      this.seatPhase = 'settle';
+      this.seatT = 0;
+      this.seatFrom.set(this.x, this.z);
+      this.seatFromYaw = this.ch.yaw;
+      this.ch.sitDown(seat.h);
+      onSeated?.();
+    });
+    if (ok) this.seatPhase = 'approach';
+    return ok;
+  }
+
+  standUp(): void {
+    if (this.seatPhase !== 'seated' && this.seatPhase !== 'settle') return;
+    this.ch.standUp();
+    this.seatPhase = 'rising';
+    this.seatT = 0;
+  }
+
+  update(dt: number, wish: { x: number; z: number; run: boolean } | null): void {
+    const ch = this.ch;
+    const pos = ch.root.position;
+    // ── Sitzen
+    if (this.seatPhase === 'settle' && this.seat) {
+      this.seatT = Math.min(1, this.seatT + dt / 0.6);
+      const u = this.seatT * this.seatT * (3 - 2 * this.seatT);
+      pos.x = this.seatFrom.x + (this.seat.x - this.seatFrom.x) * u;
+      pos.z = this.seatFrom.y + (this.seat.z - this.seatFrom.y) * u;
+      let dy = this.seat.yaw - this.seatFromYaw;
+      dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      ch.yaw = this.seatFromYaw + dy * u;
+      ch.speed = 0;
+      if (this.seatT >= 1) this.seatPhase = 'seated';
+      this.animate(dt);
+      return;
+    }
+    if (this.seatPhase === 'seated') {
+      ch.speed = 0;
+      if (wish && Math.hypot(wish.x, wish.z) > 0.3) this.standUp();
+      else {
+        if (this.yawTarget !== null) this.turnTo(this.yawTarget, dt, 1.2);
+        this.animate(dt);
+        return;
+      }
+    }
+    if (this.seatPhase === 'rising' && this.seat) {
+      this.seatT = Math.min(1, this.seatT + dt / 0.7);
+      const u = Math.max(0, (this.seatT - 0.35) / 0.65);
+      const back = approachPoint(this.seat, (x, z) => this.nav.walkable(x, z));
+      const bx = back.x;
+      const bz = back.z;
+      pos.x = this.seat.x + (bx - this.seat.x) * u;
+      pos.z = this.seat.z + (bz - this.seat.z) * u;
+      ch.speed = u > 0 && u < 1 ? 0.6 : 0;
+      this.animate(dt);
+      if (this.seatT >= 1) {
+        this.seatPhase = 'none';
+        this.seat = null;
+      }
+      return;
+    }
+
+    // ── Gehen
+    let dx = 0;
+    let dz = 0;
+    let run = false;
+    if (wish && Math.hypot(wish.x, wish.z) > 0.05) {
+      if (this.path.length) this.stopPath();
+      if (this.seatPhase === 'approach') this.seatPhase = 'none';
+      dx = wish.x;
+      dz = wish.z;
+      run = wish.run;
+    } else if (this.path.length) {
+      // Notausgänge (siehe startPath)
+      this.pathT += dt;
+      if (this.pathT > this.pathBudget) {
+        const [ex, ez] = this.path[this.path.length - 1]!;
+        this.rescue(`Weg dauert über ${Math.round(this.pathBudget)} s`, ex, ez);
+        this.path = [[ex, ez]];
+      }
+      const [tx, tz] = this.path[0]!;
+      const ddx = tx - this.x;
+      const ddz = tz - this.z;
+      const d = Math.hypot(ddx, ddz);
+      const last = this.path.length === 1;
+      // kein Fortschritt zum Wegpunkt seit 2,5 s: dorthin setzen und als erreicht werten
+      let reached = d < (last ? 0.08 : 0.3);
+      if (d < this.bestD - 0.03) {
+        this.bestD = d;
+        this.stuckT = 0;
+      } else if ((this.stuckT += dt) > 2.5) {
+        this.rescue('hängt fest', tx, tz);
+        reached = true;
+      }
+      if (reached) {
+        this.bestD = Infinity;
+        this.path.shift();
+        if (!this.path.length) {
+          const cb = this.onArrive;
+          this.onArrive = null;
+          this.vel.multiplyScalar(0.3);
+          cb?.();
+        }
+      } else {
+        // am Ziel abbremsen
+        const slow = last ? Math.min(1, d / 0.6) : 1;
+        dx = (ddx / d) * slow;
+        dz = (ddz / d) * slow;
+        run = this.pathRun;
+      }
+    }
+    const maxV = run ? this.runSpeed : this.walkSpeed;
+    const tv = new Vector2(dx, dz);
+    if (tv.lengthSq() > 1) tv.normalize();
+    tv.multiplyScalar(maxV);
+    const acc = tv.lengthSq() > this.vel.lengthSq() ? 7 : 9;
+    this.vel.lerp(tv, Math.min(1, dt * acc));
+    if (this.vel.lengthSq() < 1e-4) this.vel.set(0, 0);
+    const mx = this.vel.x * dt;
+    const mz = this.vel.y * dt;
+    if (mx || mz) {
+      if (this.collide) [pos.x, pos.z] = this.nav.move(pos.x, pos.z, mx, mz);
+      else {
+        pos.x += mx;
+        pos.z += mz;
+      }
+    }
+    // Höhe weich nachführen (Stufen, Brückenbogen)
+    const gy = groundY(pos.x, pos.z);
+    this.y += (gy - this.y) * Math.min(1, dt * 12);
+    pos.y = this.y;
+    const sp = this.vel.length();
+    ch.speed = sp;
+    if (sp > 0.15) this.turnTo(Math.atan2(this.vel.x, this.vel.y), dt, 9);
+    else if (this.yawTarget !== null) this.turnTo(this.yawTarget, dt, 5);
+    this.animate(dt);
+  }
+
+  private turnTo(target: number, dt: number, rate: number): void {
+    let d = target - this.ch.yaw;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    this.ch.yaw += d * Math.min(1, dt * rate);
+  }
+}

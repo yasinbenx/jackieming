@@ -1,0 +1,362 @@
+import './style.css';
+import { installGlobalHandlers, report, setSnapshot } from './core/guard';
+import { loadStep, loadSummary, setOptionalDeadline } from './core/loadstate';
+import { watchdog } from './core/watchdog';
+
+// Ungefangene Fehler und abgelehnte Promises immer klar melden (auch während des Ladens)
+installGlobalHandlers();
+
+// Der Ladescreen steht in index.html (reines DOM). Hier wird die 3D-Welt nachgeladen.
+const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/**
+ * Auf das nächste Bild warten – höchstens 100 ms. In einem Hintergrund-Tab feuert requestAnimationFrame gar
+ * nicht; ohne die Obergrenze bliebe das Laden dort einfach stehen.
+ */
+const nextFrame = (): Promise<void> =>
+  new Promise((r) => {
+    const t = window.setTimeout(r, 100);
+    requestAnimationFrame(() => {
+      window.clearTimeout(t);
+      r();
+    });
+  });
+
+/** Schriften vor dem Zeichnen laden, damit Schilder und Hängerollen nicht mit Ersatzschrift entstehen. */
+async function loadFonts(): Promise<void> {
+  if (!('fonts' in document)) return;
+  const load = Promise.all([
+    document.fonts.load('400 1em "Ma Shan Zheng"', '茶馆香四溢宾至如归以和为贵成龙姚明楚河汉界'),
+    document.fonts.load('700 1em "Noto Serif SC"', '茶馆以和为贵'),
+    document.fonts.load('400 1em "Noto Serif SC"', '茶馆以和为贵'),
+  ]).catch(() => undefined);
+  await Promise.race([load, new Promise((r) => setTimeout(r, 3000))]);
+}
+
+type WorldT = import('./world/world').World;
+type GameT = import('./game').Game;
+
+/**
+ * Watchdog an Welt und Spiel hängen: Hauptschleife, Zwischenzustände, gesperrte Eingabe, Überblendung.
+ * Jeder Eintrag meldet sich nach 10 s unverändert; manche haben einen Notausgang.
+ */
+function watchGame(world: WorldT, game: GameT): void {
+  watchdog.attach({ lastFrameAt: () => world.lastFrameAt, restartLoop: () => world.restartLoop() });
+  const body = document.body.classList;
+  /** ein Fenster oder Menü, das einen Zwischenzustand rechtfertigt */
+  const uiOpen = (): boolean =>
+    game.pause.open ||
+    game.talk.open ||
+    game.tea.open ||
+    game.xq.open ||
+    body.contains('is-picking') ||
+    body.contains('is-entering') ||
+    !!document.querySelector(
+      '.menu.show, .modal:not([hidden]), #worldmap:not([hidden]), .approach-hint, .quest-offer:not([hidden])',
+    );
+  watchdog.watch({
+    name: 'Zwischensequenz',
+    value: () => (world.mode === 'cutscene' && !uiOpen() ? 'Modus cutscene ohne offenes Fenster' : null),
+    recoverAfter: 20,
+    recover: () => {
+      world.cam.setShot(null);
+      world.hidePlayer = false;
+      world.player.stopPath();
+      world.mode = 'free';
+      world.input.enabled = true;
+    },
+  });
+  watchdog.watch({
+    name: 'Intro',
+    value: () => (world.mode === 'intro' ? 'Weg ins Teehaus' : null),
+    warnAfter: 30,
+  });
+  watchdog.watch({
+    name: 'Weg der Spielfigur',
+    value: () => {
+      const pl = world.player;
+      return pl.path.length
+        ? `${pl.path.length} Wegpunkte, bei ${pl.x.toFixed(1)}, ${pl.z.toFixed(1)}`
+        : null;
+    },
+  });
+  watchdog.watch({
+    name: 'Eingabe gesperrt',
+    value: () =>
+      world.mode === 'free' && !world.input.enabled && !uiOpen()
+        ? `ohne offenes Fenster (Sperren: ${world.input.lockReasons.join(', ') || 'Grundzustand'})`
+        : null,
+    warnAfter: 5,
+    recoverAfter: 8,
+    recover: () => {
+      world.input.clearLocks();
+      world.input.enabled = true;
+    },
+  });
+  watchdog.watch({
+    name: 'Überblendung',
+    value: () => {
+      const f = document.getElementById('fade');
+      return f && Number(f.style.opacity || 0) > 0.5 ? 'Bild schwarz' : null;
+    },
+    recoverAfter: 12,
+    recover: () => {
+      const f = document.getElementById('fade');
+      if (f) f.style.opacity = '0';
+    },
+  });
+}
+
+async function boot(): Promise<void> {
+  const bar = $('loader-bar');
+  const msg = $('loader-msg');
+  const set = async (f: number, text: string): Promise<void> => {
+    bar.style.transform = `scaleX(${f})`;
+    msg.innerHTML = text;
+    await nextFrame();
+    await nextFrame();
+  };
+  const t0 = performance.now();
+  await set(0.08, '<span lang="zh">研墨</span> <i>yánmò</i> · Tusche wird angerieben …');
+  await loadStep('Schriften', loadFonts, { timeout: 4000, optional: true });
+  const { World } = await loadStep('Welt-Code', () => import('./world/world'), { timeout: 20000 });
+  await set(0.25, '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …');
+  const world = new World();
+  await loadStep(
+    'Welt aufbauen',
+    () =>
+      world.init($('stage'), (f) =>
+        set(
+          0.25 + f * 0.6,
+          f < 0.7
+            ? '<span lang="zh">烧水</span> <i>shāoshuǐ</i> · Wasser wird aufgesetzt …'
+            : '<span lang="zh">泡茶</span> <i>pàochá</i> · Tee zieht …',
+        ),
+      ),
+    { timeout: 30000 },
+  );
+  (window as unknown as { __world: unknown }).__world = world;
+  // Zustand, der jeder Fehlermeldung beigelegt wird
+  setSnapshot(() => {
+    const pl = world.player;
+    return {
+      modus: world.mode,
+      position: [+pl.x.toFixed(2), +pl.z.toFixed(2)],
+      weg: pl.path.length,
+      beschäftigt: pl.busy,
+      sitzt: pl.seated,
+      eingabe: world.input.enabled,
+      bilder: world.frames,
+      letztesBildVor: `${Math.round(performance.now() - world.lastFrameAt)} ms`,
+      fenster: [
+        ...document.querySelectorAll('.modal:not([hidden]), #worldmap:not([hidden]), .menu.show'),
+      ].map((e) => e.id || e.className),
+    };
+  });
+  const { Game } = await loadStep('Spiel-Code', () => import('./game'), { timeout: 20000 });
+  const game = await loadStep('Spiel einrichten', () => new Game(world), { timeout: 10000 });
+  (window as unknown as { __game: unknown }).__game = game;
+  watchGame(world, game);
+  // Bewohner, Umgebungslicht, Shader und Texturen jetzt vorbereiten, damit es später im Spiel nicht ruckelt.
+  // Alles hier ist optional und hat zusammen ein Budget (Standard 15 s, ?ladebudget=Sekunden): Ist es
+  // aufgebraucht, startet das Spiel trotzdem – dann eben mit kleinen Rucklern beim ersten Anblick.
+  const budget = Number(new URLSearchParams(location.search).get('ladebudget')) || 15;
+  setOptionalDeadline(budget * 1000);
+  const prep = '<span lang="zh">请客</span> <i>qǐngkè</i> · Gäste werden eingeladen …';
+  await loadStep('Bewohner vorbereiten', () => game.villagers.prepare((f) => set(0.85 + f * 0.1, prep)), {
+    // auf echter Hardware etwa 2 s für alle Figuren; bei großem Ladebudget (langsame Rechner, Tests) länger warten
+    timeout: Math.max(10000, budget * 500),
+    optional: true,
+  });
+  await set(0.94, prep);
+  await loadStep('Umgebungslicht', () => world.prepareEnvironment(() => set(0.96, prep)), {
+    timeout: 8000,
+    optional: true,
+  });
+  await loadStep('Shader und Texturen', () => world.precompile(), { timeout: 15000, optional: true });
+  console.info(`[Teehaus] geladen in ${((performance.now() - t0) / 1000).toFixed(1)} s – ${loadSummary()}`);
+  const params = new URLSearchParams(location.search);
+  if (params.has('galerie')) {
+    const { gallery } = await import('./world/gallery');
+    (window as unknown as { __gal: unknown }).__gal = gallery(
+      world,
+      params.get('anim'),
+      (params.get('ansicht') as 'front' | 'side' | 'close') ?? 'front',
+    );
+    document.body.classList.add('is-loaded', 'is-picking');
+    return;
+  }
+  const intro = await import('./world/intro');
+  const { MainMenu, confirmView } = await import('./ui/menu');
+  const { store } = await import('./state/store');
+  await set(1, '<span lang="zh">请进</span> <i>qǐng jìn</i> · Bitte eintreten');
+  document.body.classList.add('is-loaded');
+  // Vorschaubild (scripts/make-og.mjs): beim Startbild bleiben
+  if (params.has('og')) return;
+  // Benchmark: direkt in die Welt, fünf Orte messen, Ergebnis zeigen
+  if (params.has('bench')) {
+    const { runBench, showBench } = await import('./world/bench');
+    await intro.enterDirect(world, null);
+    document.body.classList.add('is-inside');
+    showBench(world, await runBench(world));
+    return;
+  }
+
+  const menu = new MainMenu();
+  // Ton darf erst nach einer Geste starten (Klick, Taste, Tippen)
+  const unlock = (): void => void game.audio.start();
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
+  let entered = false;
+  const skip = { requested: false };
+  $('skip').addEventListener('click', () => (skip.requested = true));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('is-entering')) skip.requested = true;
+  });
+
+  /** Kleiderwahl, Weg ins Haus, Tutorial */
+  const newGame = async (): Promise<void> => {
+    menu.hide();
+    // Neues Spiel: feste Tageszeit nach der Uhr (6–19 Uhr Tag, sonst Nacht), kein Abend und kein Automatik-Lauf
+    const hour = new Date().getHours();
+    world.setTime(hour >= 6 && hour < 19 ? 'day' : 'night', true);
+    document.body.classList.add('is-picking');
+    await intro.pickOutfit(world);
+    store.markStarted();
+    document.body.classList.remove('is-picking');
+    document.body.classList.add('is-entering');
+    skip.requested = false;
+    await intro.walkIn(world, skip, (u) => {
+      document.body.classList.toggle('cap-1', u > 0.02 && u < 0.45);
+      document.body.classList.toggle('cap-2', u >= 0.55 && u < 0.98);
+    });
+    document.body.classList.remove('cap-1', 'cap-2', 'is-entering');
+    afterEnter();
+    game.tutorial.begin();
+  };
+  /** Weiterspielen an der gespeicherten Stelle */
+  const continueGame = async (): Promise<void> => {
+    menu.hide();
+    if (entered) {
+      // aus der Pause zurück ins laufende Spiel
+      world.hidePlayer = false;
+      world.cam.setShot(null);
+      world.mode = 'free';
+      world.input.enabled = true;
+      document.body.classList.add('is-inside');
+      return;
+    }
+    const t = store.progress.time;
+    world.setTime(t, true);
+    await intro.enterDirect(world, store.progress.pos);
+    afterEnter();
+    game.tutorial.begin();
+  };
+  const afterEnter = (): void => {
+    entered = true;
+    document.body.classList.add('is-inside');
+    game.audio.setInside(true);
+    game.onEntered();
+  };
+
+  const showMenu = (): void => {
+    intro.menuShot(world);
+    document.body.classList.remove('is-inside');
+    const has = store.hasProgress;
+    const p = store.progress;
+    menu.show(
+      [
+        {
+          id: 'continue',
+          label: 'Weiter',
+          zh: '继续',
+          primary: true,
+          hidden: !has && !entered,
+          onClick: () => {
+            void game.audio.start();
+            void continueGame();
+          },
+        },
+        {
+          id: 'new',
+          label: 'Neues Spiel',
+          zh: '新游戏',
+          primary: !has && !entered,
+          onClick: async () => {
+            void game.audio.start();
+            if (has || entered) {
+              const ok = await confirmView(menu.body, {
+                title: 'Neues Spiel beginnen?',
+                text: `Dein bisheriger Fortschritt (${p.asked.length} Fragen, ${p.words.length} Wörter) wird gelöscht. Einstellungen bleiben.`,
+                yes: 'Neu beginnen',
+                danger: true,
+              });
+              if (!ok) return;
+              store.resetProgress();
+              if (entered) {
+                // Die Welt ist schon im Spielzustand: sauber neu laden und direkt mit der Kleiderwahl beginnen
+                try {
+                  sessionStorage.setItem('teehaus.start', 'new');
+                } catch {
+                  /* egal */
+                }
+                location.reload();
+                return;
+              }
+              game.refresh();
+            }
+            void newGame();
+          },
+        },
+        { id: 'settings', label: 'Einstellungen', zh: '设置', onClick: () => game.settings.open() },
+        { id: 'credits', label: 'Credits', zh: '鸣谢', onClick: () => game.credits.open() },
+        { id: 'info', label: 'Info und Hinweis', zh: '关于', onClick: () => game.openInfo() },
+      ],
+      store.recovered
+        ? 'Der alte Spielstand war beschädigt und wurde gesichert; es beginnt ein neues Spiel.'
+        : store.saveFailed
+          ? 'Hinweis: Dein Browser erlaubt kein Speichern, der Fortschritt geht beim Schließen verloren.'
+          : '',
+    );
+  };
+  game.onMainMenu = () => {
+    store.flush();
+    showMenu();
+  };
+  game.onProgressReset = () => {
+    try {
+      sessionStorage.setItem('teehaus.start', 'menu');
+    } catch {
+      /* egal */
+    }
+    location.reload();
+  };
+
+  let start: string | null = null;
+  try {
+    start = sessionStorage.getItem('teehaus.start');
+    sessionStorage.removeItem('teehaus.start');
+  } catch {
+    /* egal */
+  }
+  if (start === 'new') {
+    document.body.classList.add('is-menu');
+    void newGame();
+  } else {
+    document.body.classList.add('is-menu');
+    showMenu();
+  }
+}
+
+boot().catch((err) => {
+  report('Start', err);
+  const msg = $('loader-msg');
+  const webgl =
+    !!document.createElement('canvas').getContext('webgl2') ||
+    !!document.createElement('canvas').getContext('webgl');
+  msg.textContent = webgl
+    ? 'Das Teehaus konnte nicht geöffnet werden. Bitte lade die Seite neu.'
+    : 'Das Teehaus braucht WebGL. Bitte aktiviere die Hardwarebeschleunigung in deinem Browser oder probiere einen aktuellen Browser aus.';
+  msg.classList.add('error');
+  document.getElementById('loader-bar')!.style.background = '#b3261a';
+});

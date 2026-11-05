@@ -1,0 +1,5 @@
+Noto Serif SC: Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+Ma Shan Zheng: Copyright 2018 The MaShanZheng Project Authors (https://github.com/googlefonts/mashanzheng)
+
+Beide Schriften stehen unter der SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+Die hier enthaltenen Dateien sind auf die im Spiel verwendeten Zeichen reduzierte Auszüge (Subsets).

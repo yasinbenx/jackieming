@@ -1,0 +1,2232 @@
+// Rig-Figur: Quaternius-Körper (Skelett + Animationen) mit Teehaus-Gewändern. Zusammengesetzt aus Kopf, Körper,
+// Beinen und Füßen verschiedener Grundfiguren, umgefärbt, mit Stickerei, angesetztem Mantelschoß, Gürtel,
+// Frisuren und Requisiten. Dieselbe Schnittstelle wie die gezeichnete Figur (character.ts), damit Agent, NPCs
+// und Hauptfiguren unverändert bleiben.
+import {
+  AnimationMixer,
+  CylinderGeometry,
+  CanvasTexture,
+  CircleGeometry,
+  MeshBasicMaterial,
+  BufferAttribute,
+  BufferGeometry,
+  ConeGeometry,
+  DoubleSide,
+  Group,
+  LoopOnce,
+  LoopRepeat,
+  Matrix3,
+  Matrix4,
+  Mesh,
+  Object3D,
+  Quaternion,
+  Skeleton,
+  SkinnedMesh,
+  Sphere,
+  SphereGeometry,
+  TorusGeometry,
+  Vector3,
+} from 'three';
+import type { AnimationAction, Bone, Material, MeshStandardMaterial } from 'three';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { Action, Face, HairFit, Look, Prop } from './character';
+import { embroidery, fabricNormals, vinyl } from './materials';
+import type { Front } from './materials';
+import { attachRigid, rigAssets } from './rig';
+import type { RigAssets, RigBase, RigPart } from './rig';
+import { hairKit } from './hairkit';
+import { makeProp } from './props';
+import { Character } from './character';
+import { tube } from './tailor';
+import type { Section } from './tailor';
+import { groundY } from './nav';
+
+export type Role =
+  | 'skin'
+  | 'hair'
+  | 'brows'
+  | 'eye'
+  | 'top'
+  | 'sleeve'
+  | 'inner'
+  | 'trim'
+  | 'pants'
+  | 'shoes'
+  | 'sole'
+  | 'stripe'
+  | 'belt'
+  | 'hat'
+  | 'band'
+  | 'hide'
+  | 'keep';
+
+export interface BodyShape {
+  /** Kopfgröße (Knochen-Skalierung) */
+  head?: number;
+  /** Schulterbreite (Abstand der Schultergelenke) */
+  shoulders?: number;
+  /** Rumpf und Arme breiter/kräftiger */
+  girth?: number;
+  /** Armlänge/-stärke */
+  arms?: number;
+  hands?: number;
+  feet?: number;
+  /** weite Hosenbeine */
+  wide?: number;
+}
+
+export interface RigSpec {
+  head: RigBase;
+  body: RigBase;
+  legs: RigBase;
+  feet: RigBase;
+  /** Material-Rollen überschreiben, Schlüssel „Teil:Material“ (z. B. „Body:White“) oder nur „Material“ */
+  roles?: Record<string, Role>;
+  /** Haar des Kopfteils ausblenden (für Haarmodelle aus haare.glb) */
+  hideHair?: boolean;
+  /** Haarmodelle aus haare.glb (Dutt, lange Haare …) */
+  hair?: HairFit[];
+  shape?: BodyShape;
+}
+
+/** Standard-Rollen der Materialien je Teil */
+const DEFAULT_ROLES: Record<string, Role> = {
+  Skin: 'skin',
+  Skin_Darker: 'skin',
+  Eye: 'eye',
+  Eyebrows: 'brows',
+  Hair: 'hair',
+  Hair_White: 'hair',
+  Moustache: 'hair',
+  Earrings: 'hide',
+  'Head:Gold': 'hide',
+  'Head:Worker_Yellow': 'hide',
+  'Head:Beige': 'hat',
+  'Head:Red': 'band',
+  'Body:White': 'inner',
+  'Body:Tie': 'inner',
+  'Body:Beige': 'trim',
+  'Body:LightGreen': 'inner',
+  'Feet:White': 'sole',
+  'Feet:Red_Dark': 'shoes',
+  'Feet:Grey': 'sole',
+  'Feet:Brown2': 'sole',
+};
+
+function roleOf(part: RigPart, mat: string, spec: RigSpec): Role {
+  return (
+    spec.roles?.[`${part}:${mat}`] ??
+    spec.roles?.[mat] ??
+    DEFAULT_ROLES[`${part}:${mat}`] ??
+    DEFAULT_ROLES[mat] ??
+    (part === 'Body' ? 'top' : part === 'Legs' ? 'pants' : part === 'Feet' ? 'shoes' : 'keep')
+  );
+}
+
+interface ActionState {
+  t: number;
+  dur: number;
+  loop: boolean;
+  w: number;
+  stopping: boolean;
+}
+
+/** Grundgesicht der geschneiderten Figuren: mandelförmige Augen, weiche Nase, klare Brauen und Mund */
+const DRESS_FACE: Partial<Face> = {
+  // eiförmiger Kopf mit weichem Kiefer und Kinn statt einer Kugel
+  skull: [0.94, 1.06, 0.98],
+  jaw: 0.6,
+  jawW: 0.86,
+  jawH: 0.7,
+  chin: 0.45,
+  chinW: 1,
+  cheeks: 0.35,
+  cheekbones: 0.25,
+  eyeW: 0.95,
+  eyeH: 0.62,
+  eyeGap: 0.36,
+  eyeY: 0.04,
+  iris: '#2b1a10',
+  smileEyes: 0.15,
+  browThick: 1.35,
+  browLen: 1.05,
+  browTilt: 0.06,
+  browY: 0.3,
+  noseTip: 0.85,
+  noseW: 1.1,
+  noseBridge: 0,
+  mouthW: 1.12,
+  mouthY: -0.38,
+  lip: 0.3,
+  blush: 0.22,
+};
+
+const CLIP_ACTIONS: Partial<Record<Action, string>> = { wave: 'Wave', kungfu: 'Punch_Right' };
+
+const X = new Vector3(1, 0, 0);
+const Y = new Vector3(0, 1, 0);
+const Z = new Vector3(0, 0, 1);
+const _q1 = new Quaternion();
+const _q2 = new Quaternion();
+const _v1 = new Vector3();
+const _v2 = new Vector3();
+const _v3 = new Vector3();
+const _v4 = new Vector3();
+const _h = new Vector3();
+const _k = new Vector3();
+const _e = new Vector3();
+const _t = new Vector3();
+const _q3 = new Quaternion();
+const _q4 = new Quaternion();
+const SHIN = new Vector3(0, -1, 0.06);
+const _m = new Matrix4();
+
+const smoothstep = (a: number, b: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+let blobMat: MeshBasicMaterial | null = null;
+function blobMaterial(): MeshBasicMaterial {
+  if (blobMat) return blobMat;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(20,10,5,0.55)');
+  gr.addColorStop(0.55, 'rgba(20,10,5,0.25)');
+  gr.addColorStop(1, 'rgba(20,10,5,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  blobMat = new MeshBasicMaterial({ map: new CanvasTexture(c), transparent: true, depthWrite: false });
+  return blobMat;
+}
+
+/** Morph-Ziele für Blinzeln (Augen schließen) und Brauen heben, einmal je Geometrie */
+const morphDone = new WeakSet<BufferGeometry>();
+function addMorph(geo: BufferGeometry, world: Matrix4, kind: 'blink' | 'brow'): void {
+  if (morphDone.has(geo)) return;
+  morphDone.add(geo);
+  const pos = geo.getAttribute('position');
+  const inv = world.clone().invert();
+  const p = new Vector3();
+  // Weltlage der Vertices, Augenmitte je Seite
+  const centers = { l: { y: 0, n: 0 }, r: { y: 0, n: 0 } };
+  const wpos: Vector3[] = [];
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i).applyMatrix4(world);
+    wpos.push(p.clone());
+    const c = p.x >= 0 ? centers.l : centers.r;
+    c.y += p.y;
+    c.n++;
+  }
+  const delta = new Float32Array(pos.count * 3);
+  const a = new Vector3();
+  const b = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const w = wpos[i]!;
+    const c = w.x >= 0 ? centers.l : centers.r;
+    const cy = c.y / Math.max(1, c.n);
+    const target = w.clone();
+    if (kind === 'blink') target.y = cy + (w.y - cy) * 0.08;
+    else target.y += 0.012;
+    a.copy(w).applyMatrix4(inv);
+    b.copy(target).applyMatrix4(inv);
+    delta[i * 3] = b.x - a.x;
+    delta[i * 3 + 1] = b.y - a.y;
+    delta[i * 3 + 2] = b.z - a.z;
+  }
+  geo.morphAttributes.position = [new BufferAttribute(delta, 3)];
+  geo.morphTargetsRelative = true;
+}
+
+/** Mantelschoß als Röhre ab der Taille, an Hüfte und Beinen „angenäht“ (Skinning), optional vorne offen */
+function skirtGeometry(
+  bones: { hips: number; ulL: number; ulR: number; llL: number; llR: number },
+  o: {
+    y0: number;
+    len: number;
+    rx: number;
+    rz: number;
+    flare: number;
+    z: number;
+    gap: number;
+    arc?: number;
+    /** Bezugsschoß: Weite und Gewichte nach dessen Höhe (Schürze liegt so überall knapp darüber) */
+    ref?: { y0: number; len: number; flare: number };
+  },
+): BufferGeometry {
+  const S = 28;
+  const R = 14;
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const si: number[] = [];
+  const sw: number[] = [];
+  const idx: number[] = [];
+  const arc = o.arc ?? Math.PI * 2;
+  const a0 = o.arc ? -arc / 2 : o.gap / 2;
+  const span = o.arc ? arc : arc - o.gap;
+  for (let j = 0; j <= R; j++) {
+    const t = j / R;
+    const y = o.y0 - t * o.len;
+    const tr = o.ref ? Math.min(1, Math.max(0, (o.ref.y0 - y) / o.ref.len)) : t;
+    const grow = 1 + (o.ref ? o.ref.flare : o.flare) * Math.pow(tr, 1.2);
+    for (let i = 0; i <= S; i++) {
+      const a = a0 + (i / S) * span;
+      const sx = Math.sin(a);
+      pos.push(sx * o.rx * grow, y, o.z + Math.cos(a) * o.rz * grow);
+      uv.push((((a / (Math.PI * 2)) % 1) + 1) % 1, 1 - t);
+      // Gewichte: oben Hüfte, darunter Oberschenkel, am Saum Unterschenkel (so fällt der Stoff im Sitzen von
+      // den Knien nach unten). Seiten nur leicht dem jeweiligen Bein zuordnen: vorne/hinten folgt der Stoff dem
+      // Mittel beider Beine (beim Gehen ruhig, beim Sitzen über dem Schoß statt seitlich ausgebeult).
+      const tt = smoothstep(0, 0.6, tr);
+      const wh = 1 - 0.88 * tt;
+      const rest = 1 - wh;
+      const side = Math.max(-1, Math.min(1, sx * 0.55));
+      const shin = smoothstep(0.4, 1, tr) * 0.75;
+      const ws: [number, number][] = [
+        [bones.hips, wh],
+        [bones.ulL, rest * (1 - shin) * (0.5 + 0.5 * side)],
+        [bones.ulR, rest * (1 - shin) * (0.5 - 0.5 * side)],
+        [bones.llL, rest * shin * (0.5 + 0.5 * side)],
+        [bones.llR, rest * shin * (0.5 - 0.5 * side)],
+      ];
+      ws.sort((a, b) => b[1] - a[1]);
+      const top4 = ws.slice(0, 4);
+      const sum = top4.reduce((a, [, w]) => a + w, 0) || 1;
+      for (const [b, w] of top4) {
+        si.push(b);
+        sw.push(w / sum);
+      }
+    }
+  }
+  for (let j = 0; j < R; j++)
+    for (let i = 0; i < S; i++) {
+      const a = j * (S + 1) + i;
+      const b = a + S + 1;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+  g.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+  g.setAttribute('skinIndex', new BufferAttribute(new Uint16Array(si), 4));
+  g.setAttribute('skinWeight', new BufferAttribute(new Float32Array(sw), 4));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+export class RigCharacter {
+  /** Fuß-IK am Spielwelt-Boden (im Figuren-Labor aus, dort gibt es nur eine ebene Fläche) */
+  static groundIK = true;
+  readonly root = new Group();
+  readonly look: Look;
+  readonly H: number;
+  /** Kopfmitte (folgt dem Kopfknochen) */
+  readonly head = new Object3D();
+  private model = new Group();
+  private inst!: Group;
+  private bones = new Map<string, Bone>();
+  private mixer: AnimationMixer;
+  private loco: {
+    idle: AnimationAction;
+    idle2: AnimationAction;
+    walk: AnimationAction;
+    run: AnimationAction;
+  };
+  /** Mischung der beiden Idle-Varianten (0 = erste, 1 = zweite), wechselt zufällig */
+  private idleMix = 0;
+  private idleTarget = 0;
+  private idleSwap = 6 + Math.random() * 10;
+  // Sprechgesten
+  private gest = 0;
+  private gestTimer = 0;
+  private gestPose = { side: 1, lift: 0.5, open: 0.5 };
+  private talkHold = 0;
+  // Nachschwingen (Quasten, Haare)
+  private mats: MeshStandardMaterial[] = [];
+  private fade = 1;
+  private blob!: Mesh;
+  private lodSkip = 0;
+  private dangles: {
+    obj: Object3D;
+    rest: Quaternion;
+    prev: Vector3;
+    vel: Vector3;
+    ang: Vector3;
+    angVel: Vector3;
+    k: number;
+    gain: number;
+    hang: boolean;
+  }[] = [];
+  private clipActs = new Map<Action, AnimationAction>();
+  private A: RigAssets;
+  private S!: number;
+  private eyes: Mesh[] = [];
+  private brows: Mesh[] = [];
+  private mouth: Mesh | null = null;
+  private mouthOpen: Mesh | null = null;
+  /** stilisierter Kopf (geschneiderte Figuren): Gesicht, Frisur, Mimik */
+  private headChar: Character | null = null;
+  private props: Partial<Record<Exclude<Prop, null>, Object3D>> = {};
+  private detail = true;
+  // Zustand (wie character.ts)
+  speed = 0;
+  talk = 0;
+  stoop = 0;
+  private stoopSmooth = 0;
+  private talkSmooth = 0;
+  private sit = 0;
+  private sitTarget = 0;
+  private seatH = 0.46;
+  private actions = new Map<Action, ActionState>();
+  private blink = 2 + Math.random() * 3;
+  private lookTarget: Vector3 | null = null;
+  private lookYaw = 0;
+  private lookPitch = 0;
+  private time = Math.random() * 10;
+  private seed = Math.random() * 100;
+  private hasBall = false;
+  /**
+   * Vom prozeduralen Teil veränderte Knochen mit ihrer Pose davor. Der Animationsmixer schreibt einen Wert nur,
+   * wenn er sich ändert; ohne Zurücksetzen würden sich die Zusatzdrehungen von Bild zu Bild aufaddieren.
+   */
+  private touched = new Map<Object3D, { q: Quaternion; p: Vector3 }>();
+  // Bewegung: geglättete Mischgewichte, Drehrate (für Kurvenneigung und Trippeln im Stand)
+  private wMove = 0;
+  private wRun = 0;
+  private wStep = 0;
+  private lastYaw = 0;
+  private yawRate = 0;
+
+  constructor(look: Look) {
+    const A = rigAssets()!;
+    this.A = A;
+    this.look = look;
+    const shape = look.rig?.shape ?? {};
+    this.H = look.height;
+    this.root.name = `rig-${look.id}`;
+    if (look.dress) this.buildTailored();
+    else this.buildParts();
+    // Requisiten in der Ruhepose anhängen (später nur ein-/ausblenden)
+    for (const p of ['cup', 'teapot', 'brush', 'fan', 'bowl'] as const) this.makeProp(p);
+    if (look.prop === 'ball') this.makeProp('ball');
+    for (const t of look.tools ?? []) if (!this.props[t]) this.makeProp(t);
+    if (look.prop) this.showProp(look.prop, true);
+    this.shapeBody(shape);
+    // erst jetzt skalieren: alle Bindungen oben wurden in der Ruhepose bei Maßstab 1 berechnet
+    this.model.scale.setScalar(this.S);
+    this.ownMaterials();
+    // kleine Teile werfen keinen Schatten (spart Zeichenaufrufe im Schattendurchgang)
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const mn = (m.material as Material).name;
+      if (mn === 'Eye' || mn === 'Eyebrows' || !(m as SkinnedMesh).isSkinnedMesh) m.castShadow = false;
+    });
+    // Kontaktschatten: weicher dunkler Fleck unter der Figur (folgt dem Boden, nicht dem Körper)
+    const blob = new Mesh(new CircleGeometry(1, 24), blobMaterial());
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.y = 0.012;
+    blob.scale.setScalar(0.36 * this.S * (shape.shoulders ?? 1));
+    blob.renderOrder = -1;
+    this.root.add(blob);
+    this.blob = blob;
+
+    // Animationen: Bewegungs-Mischung (Idle/Gehen/Laufen) mit zufälligem Zeitversatz
+    this.mixer = new AnimationMixer(this.inst);
+    const clip = (n: string) => A.clips.get(n)!;
+    const first = look.id === 'master' || Math.random() < 0.5;
+    const idle = this.mixer.clipAction(clip(first ? 'Idle_Neutral' : 'Idle'));
+    const idle2 = this.mixer.clipAction(clip(first ? 'Idle' : 'Idle_Neutral'));
+    const walk = this.mixer.clipAction(clip('Walk'));
+    const run = this.mixer.clipAction(clip('Run'));
+    for (const a of [idle, idle2, walk, run]) {
+      a.setLoop(LoopRepeat, Infinity);
+      a.play();
+      a.time = Math.random() * a.getClip().duration;
+      a.setEffectiveWeight(a === idle ? 1 : 0);
+    }
+    idle.timeScale = 0.85 + Math.random() * 0.3;
+    idle2.timeScale = 0.85 + Math.random() * 0.3;
+    this.loco = { idle, idle2, walk, run };
+    // Quasten und lange Haare schwingen nach
+    this.root.updateMatrixWorld(true);
+    this.inst.traverse((o) => {
+      if (o.userData.tassel) this.addDangle(o, 28, 0.06, true);
+      if (o.userData.hairSway) this.addDangle(o, 60, 0.012, false);
+    });
+    // Sichtbarkeitstest für die animierten Teile: eine großzügige Kugel um die ganze Figur (reicht für
+    // ausgestreckte Arme, Sitzen, Verbeugen). Ohne sie wurden alle Figuren immer gezeichnet, auch hinter der
+    // Kamera, und warfen Schatten im Schattendurchgang.
+    const c = new Vector3(0, this.H * 0.5, 0);
+    const r = this.H * 0.75 + 0.6;
+    this.root.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      const s = m.matrixWorld.getMaxScaleOnAxis() || 1;
+      m.boundingSphere = new Sphere(c.clone().applyMatrix4(m.matrixWorld.clone().invert()), r / s);
+      m.frustumCulled = true;
+    });
+    this.fuseRigid();
+  }
+
+  /** Zahl der Teile vor und nach dem Zusammenfassen (Debug, Tests) */
+  fused = { before: 0, after: 0 };
+
+  /**
+   * Starre, einfarbige Teile (Kopf, Ohren, Nase, Knöpfe, Hände …) je Knochen zu einem Mesh mit Vertexfarben
+   * zusammenfassen: eine Figur bestand aus 32–43 Einzelteilen mit 22–26 Materialien, also ebenso vielen
+   * Draw-Calls. Ausgenommen bleibt alles, was einzeln bewegt, verformt oder ein-/ausgeblendet wird: Augen und
+   * Brauen (Blinzeln), Mund, Requisiten, nachschwingende Quasten und Haare, Schattenfleck sowie Teile mit
+   * Textur oder Durchsichtigkeit. Die kleinen Gesichtsteile, die aus der Ferne verschwinden, werden getrennt
+   * zusammengefasst, damit setDetail sie weiter als Ganzes ausblenden kann.
+   */
+  private fuseRigid(): void {
+    const keep = new Set<Object3D>([...this.eyes, ...this.brows, this.blob]);
+    if (this.mouth) keep.add(this.mouth);
+    if (this.mouthOpen) keep.add(this.mouthOpen);
+    for (const d of this.dangles) d.obj.traverse((o) => keep.add(o));
+    // Requisiten werden nur als Ganzes ein-/ausgeblendet: ihre Teile innerhalb des Requisits zusammenfassen
+    const propOf = new Map<Object3D, Object3D>();
+    for (const pr of Object.values(this.props)) pr?.traverse((o) => propOf.set(o, pr));
+    this.root.updateMatrixWorld(true);
+    // Gruppen: Anker (Knochen oder Requisit) × fein/grob × Leuchten (Haut leuchtet leicht von innen)
+    const groups = new Map<string, { anchor: Object3D; fine: boolean; parts: Mesh[] }>();
+    let before = 0;
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const prop = propOf.get(m);
+      if (!m.visible && !prop) return;
+      before++;
+      if ((m as SkinnedMesh).isSkinnedMesh || keep.has(m) || Array.isArray(m.material)) return;
+      const mat = m.material as MeshStandardMaterial;
+      if (!mat.isMeshStandardMaterial || mat.map || mat.transparent || mat.alphaMap || mat.normalMap) return;
+      if (m.morphTargetInfluences) return;
+      const glow =
+        mat.emissive && mat.emissiveIntensity > 0
+          ? `${mat.emissive.getHexString()}*${mat.emissiveIntensity}`
+          : '';
+      // Anker: das Requisit selbst oder der nächste Knochen darüber (oder die Wurzel)
+      let a: Object3D | null = prop ?? m.parent;
+      if (!prop) while (a && !(a as Bone).isBone && a !== this.root) a = a.parent;
+      if (!a) return;
+      const geo = m.geometry;
+      const tris = (geo.index ? geo.index.count : geo.attributes.position!.count) / 3;
+      const fine = !prop && tris <= 136;
+      const key = `${a.uuid}|${fine}|${glow}`;
+      const g = groups.get(key) ?? { anchor: a, fine, parts: [] };
+      g.parts.push(m);
+      groups.set(key, g);
+    });
+    const fineFused: Mesh[] = [];
+    const inv = new Matrix4();
+    const rel = new Matrix4();
+    const nm = new Matrix3();
+    const make = (anchor: Object3D, parts: Mesh[], fine: boolean): void => {
+      if (parts.length < 2) {
+        if (fine) fineFused.push(...parts);
+        return;
+      }
+      inv.copy(anchor.matrixWorld).invert();
+      const geos: BufferGeometry[] = [];
+      let rough = 0;
+      let metal = 0;
+      for (const m of parts) {
+        const src = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+        const g = new BufferGeometry();
+        rel.multiplyMatrices(inv, m.matrixWorld);
+        const pos = (src.attributes.position as BufferAttribute).clone().applyMatrix4(rel);
+        g.setAttribute('position', pos);
+        if (src.attributes.normal) {
+          nm.getNormalMatrix(rel);
+          g.setAttribute('normal', (src.attributes.normal as BufferAttribute).clone().applyNormalMatrix(nm));
+        }
+        const mat = m.material as MeshStandardMaterial;
+        const col = new Float32Array(pos.count * 3);
+        for (let i = 0; i < pos.count; i++) col.set([mat.color.r, mat.color.g, mat.color.b], i * 3);
+        g.setAttribute('color', new BufferAttribute(col, 3));
+        geos.push(g);
+        src.dispose();
+        rough += mat.roughness;
+        metal += mat.metalness;
+      }
+      const merged = mergeGeometries(geos);
+      geos.forEach((g) => g.dispose());
+      if (!merged) {
+        if (fine) fineFused.push(...parts);
+        return;
+      }
+      merged.computeBoundingSphere();
+      const base = parts[0]!.material as MeshStandardMaterial;
+      const mat = base.clone();
+      mat.onBeforeCompile = base.onBeforeCompile;
+      mat.customProgramCacheKey = base.customProgramCacheKey;
+      mat.vertexColors = true;
+      mat.color.set('#ffffff');
+      mat.roughness = rough / parts.length;
+      mat.metalness = metal / parts.length;
+      this.mats.push(mat);
+      const out = new Mesh(merged, mat);
+      out.name = `fused-${fine ? 'fein' : 'grob'}`;
+      out.castShadow = false;
+      out.receiveShadow = parts[0]!.receiveShadow;
+      anchor.add(out);
+      for (const m of parts) {
+        m.parent?.remove(m);
+        m.geometry.dispose();
+      }
+      if (fine) fineFused.push(out);
+    };
+    for (const g of groups.values()) make(g.anchor, g.parts, g.fine);
+    this.mergeSkinned();
+    // feine Teile für setDetail: zusammengefasste plus übrige kleine (Augen, Brauen …)
+    let after = 0;
+    this.root.traverse((o) => {
+      if ((o as Mesh).isMesh && o.visible) after++;
+    });
+    this.fused = { before, after };
+    this.fineExtra = fineFused;
+  }
+  /** zusammengefasste feine Teile (setDetail blendet sie mit aus) */
+  private fineExtra: Mesh[] = [];
+
+  /**
+   * Geskinnte Kleidungsteile mit demselben Material (linker/rechter Ärmel, beide Hosenbeine …) zu einem Mesh
+   * zusammenfassen – nur, wenn sie dasselbe Skelett in derselben Bindung benutzen.
+   */
+  private mergeSkinned(): void {
+    const groups = new Map<Material, SkinnedMesh[]>();
+    this.root.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh || !m.visible || Array.isArray(m.material) || m.morphTargetInfluences) return;
+      const l = groups.get(m.material) ?? [];
+      l.push(m);
+      groups.set(m.material, l);
+    });
+    const same = (a: SkinnedMesh, b: SkinnedMesh): boolean => {
+      const A = a.skeleton;
+      const B = b.skeleton;
+      if (a.parent !== b.parent || A.bones.length !== B.bones.length) return false;
+      if (!a.bindMatrix.equals(b.bindMatrix)) return false;
+      for (let i = 0; i < A.bones.length; i++) {
+        if (A.bones[i] !== B.bones[i]) return false;
+        if (!A.boneInverses[i]!.equals(B.boneInverses[i]!)) return false;
+      }
+      return true;
+    };
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      const first = list[0]!;
+      const parts = list.filter((m) => same(first, m));
+      if (parts.length < 2) continue;
+      const names = Object.keys(first.geometry.attributes).sort().join();
+      if (parts.some((m) => Object.keys(m.geometry.attributes).sort().join() !== names)) continue;
+      const geos = parts.map((m) => (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()));
+      const merged = mergeGeometries(geos);
+      geos.forEach((g) => g.dispose());
+      if (!merged) continue;
+      const out = new SkinnedMesh(merged, first.material);
+      out.name = 'fused-haut';
+      out.castShadow = first.castShadow;
+      out.receiveShadow = first.receiveShadow;
+      out.position.copy(first.position);
+      out.quaternion.copy(first.quaternion);
+      out.scale.copy(first.scale);
+      first.parent!.add(out);
+      out.bind(first.skeleton, first.bindMatrix);
+      out.boundingSphere = first.boundingSphere?.clone() ?? null;
+      out.frustumCulled = first.frustumCulled;
+      for (const m of parts) {
+        m.parent?.remove(m);
+        m.geometry.dispose();
+      }
+    }
+  }
+
+  // ───────────────────────────────────────── Aufbau
+
+  /**
+   * Geschneiderte Figur: vom Quaternius-Pack nur Skelett, Animationen und Hände; Körper und Kleidung kommen aus
+   * der Schneiderei (Röhren entlang der Knochen, direkt geskinnt), der Kopf ist stilisiert (Gesicht, Frisur, Hut).
+   * Gebaut wird in der ersten Idle-Pose.
+   */
+  private buildTailored(): void {
+    const A = this.A;
+    const L = this.look;
+    this.inst = cloneSkinned(A.bases.get('suit')!) as Group;
+    this.inst.traverse((o) => {
+      if ((o as Bone).isBone || o.name.endsWith('_end')) this.bones.set(o.name, o as Bone);
+    });
+    // Hände aus dem Anzug-Körper herauslösen (nur Dreiecke, die an Hand- und Fingerknochen hängen)
+    const handBone = /^(Wrist|Thumb|Index|Middle|Ring|Pinky)/;
+    const keep: SkinnedMesh[] = [];
+    this.inst.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      if (m.userData.part === 'Body' && (m.material as Material).name === 'Skin') keep.push(m);
+    });
+    const all: SkinnedMesh[] = [];
+    this.inst.traverse((o) => {
+      if ((o as SkinnedMesh).isSkinnedMesh) all.push(o as SkinnedMesh);
+    });
+    for (const m of all) if (!keep.includes(m)) m.removeFromParent();
+    const mats = this.materials();
+    for (const m of keep) {
+      const g = m.geometry;
+      const si = g.getAttribute('skinIndex');
+      const sw = g.getAttribute('skinWeight');
+      const names = m.skeleton.bones.map((b) => b.name);
+      const isHand = (v: number): boolean => {
+        let best = 0;
+        let bw = -1;
+        for (let k = 0; k < 4; k++) {
+          const w = sw.getComponent(v, k);
+          if (w > bw) {
+            bw = w;
+            best = si.getComponent(v, k);
+          }
+        }
+        return handBone.test(names[best] ?? '');
+      };
+      const idx = g.index!;
+      const out: number[] = [];
+      for (let i = 0; i < idx.count; i += 3) {
+        const a = idx.getX(i);
+        const b = idx.getX(i + 1);
+        const c = idx.getX(i + 2);
+        if (isHand(a) && isHand(b) && isHand(c)) out.push(a, b, c);
+      }
+      const hg = g.clone();
+      hg.setIndex(out);
+      m.geometry = hg;
+      m.material = mats.skin!;
+      m.castShadow = true;
+    }
+    this.model.add(this.inst);
+    this.root.add(this.model);
+
+    // Bindepose: erster Frame der ruhigen Idle-Animation (Arme hängen, Beine gerade)
+    const pose = new AnimationMixer(this.inst);
+    const act = pose.clipAction(A.clips.get('Idle_Neutral')!);
+    act.play();
+    pose.setTime(0);
+    const saved: [Object3D, Vector3, Quaternion][] = [];
+    this.inst.traverse((o) => saved.push([o, o.position.clone(), o.quaternion.clone()]));
+    act.stop();
+    pose.uncacheRoot(this.inst);
+    for (const [o, p, q] of saved) {
+      o.position.copy(p);
+      o.quaternion.copy(q);
+    }
+    this.root.updateMatrixWorld(true);
+
+    const bones = [...this.bones.values()].filter((b) => b.isBone);
+    const skel = new Skeleton(bones);
+    const bi = (n: string): number =>
+      Math.max(
+        0,
+        bones.findIndex((b) => b.name === n),
+      );
+    const P = (n: string): Vector3 => (this.bones.get(n) ?? this.inst).getWorldPosition(new Vector3());
+    const add = (geo: BufferGeometry, mat: Material): SkinnedMesh => {
+      const m = new SkinnedMesh(geo, mat);
+      m.castShadow = true;
+      m.frustumCulled = false;
+      this.inst.add(m);
+      this.inst.updateMatrixWorld(true);
+      m.bind(new Skeleton(skel.bones), m.matrixWorld);
+      return m;
+    };
+    const hips = P('Hips');
+    const neck = P('Neck');
+    const headP = P('Head');
+    const top = L.top;
+    const cut = top.cut ?? 'tang';
+    const len = Math.max(0, top.skirt);
+    const shoulder =
+      (sgn: 1 | -1) =>
+      (p: Vector3, t: number): { bone: number; w: number } | null => {
+        if (t < 0.72 || p.x * sgn < 0.06) return null;
+        return {
+          bone: bi(sgn > 0 ? 'ShoulderL' : 'ShoulderR'),
+          w: Math.min(0.55, (t - 0.72) * 3) * Math.min(1, (p.x * sgn - 0.06) * 12),
+        };
+      };
+
+    // ── Hose: Sitzteil um das Becken und zwei Hosenbeine
+    // unter langen Gewändern schmalere Hosenbeine, damit beim Ausschreiten nichts durch den Stoff sticht
+    const robe = len > 0.18 && cut !== 'coat';
+    const wide = robe ? 0.62 : L.pants.wide ? 1.16 : 1;
+    const seat = tube({
+      chain: [
+        { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, 0.1, 0)) },
+        { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, -0.13, 0)) },
+      ],
+      sections: [
+        { t: 0, rx: 0.165, rz: 0.125 },
+        { t: 1, rx: 0.17, rz: 0.12 },
+      ],
+      rings: 6,
+      extra: (p, t) =>
+        t > 0.4
+          ? {
+              bone: bi(p.x >= 0 ? 'UpperLegL' : 'UpperLegR'),
+              w: (t - 0.4) * 0.9 * Math.min(1, Math.abs(p.x) * 10),
+            }
+          : null,
+    });
+    // Saumhöhe des langen Gewands (wie unten beim Schoß berechnet)
+    const robeHem =
+      hips.y -
+      (cut === 'tang' ? 0.17 : 0.2) +
+      0.06 -
+      (hips.y * Math.min(0.92, len) - (cut === 'tang' ? 0.17 : 0.2) + 0.1);
+    if (!robe) add(seat, mats.pants!);
+    for (const sd of ['L', 'R'] as const) {
+      const hip = P(`UpperLeg${sd}`);
+      const knee = P(`LowerLeg${sd}`);
+      const ankle = P(`LowerLeg${sd}_end`).add(new Vector3(0, 0.075, 0));
+      if (robe) {
+        // Unter langen Gewändern nur das sichtbare Stück unter dem Saum: Oberschenkel und Knie stechen sonst
+        // beim Ausschreiten durch den Stoff, der in der Mitte zwischen beiden Beinen hängt.
+        const top = Math.min(knee.y - 0.04, robeHem + 0.14);
+        const f = (knee.y - top) / Math.max(0.01, knee.y - ankle.y);
+        const start = knee.clone().lerp(ankle, Math.max(0, Math.min(0.8, f)));
+        add(
+          tube({
+            chain: [
+              { bone: bi(`LowerLeg${sd}`), p: start },
+              { bone: bi(`LowerLeg${sd}`), p: ankle },
+            ],
+            sections: [
+              { t: 0, rx: 0.05, rz: 0.052 },
+              { t: 1, rx: 0.05, rz: 0.052 },
+            ],
+            rings: 4,
+            seg: 14,
+            vUp: false,
+          }),
+          mats.pants!,
+        );
+        continue;
+      }
+      const leg = tube({
+        chain: [
+          { bone: bi(`UpperLeg${sd}`), p: hip.clone().add(new Vector3(0, 0.06, 0)) },
+          { bone: bi(`UpperLeg${sd}`), p: hip },
+          { bone: bi(`LowerLeg${sd}`), p: knee },
+          { bone: bi(`LowerLeg${sd}`), p: ankle },
+        ],
+        sections: [
+          { t: 0, rx: 0.095, rz: 0.095 },
+          { t: 0.12, rx: 0.09 * (robe ? 0.78 : 1), rz: 0.092 * (robe ? 0.78 : 1) },
+          { t: 0.55, rx: 0.068 * wide, rz: 0.07 * wide },
+          { t: 0.9, rx: 0.064 * wide, rz: 0.066 * wide },
+          { t: 1, rx: 0.052, rz: 0.054 },
+        ],
+        rings: 20,
+        seg: 18,
+        vUp: false,
+      });
+      add(leg, mats.pants!);
+    }
+
+    // ── Oberteil: Rumpf vom Saum bis zum Hals
+    const hemDrop = cut === 'tang' ? 0.17 : 0.2;
+    const torsoChain = [
+      { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, -hemDrop, 0.0)) },
+      { bone: bi('Hips'), p: hips.clone() },
+      { bone: bi('Abdomen'), p: P('Abdomen') },
+      { bone: bi('Torso'), p: P('Torso') },
+      { bone: bi('Chest'), p: P('Chest') },
+      { bone: bi('Neck'), p: neck.clone().add(new Vector3(0, 0.02, 0)) },
+    ];
+    const lens = [0];
+    for (let i = 1; i < torsoChain.length; i++)
+      lens.push(lens[i - 1]! + torsoChain[i]!.p.distanceTo(torsoChain[i - 1]!.p));
+    const T = (i: number): number => lens[i]! / lens[lens.length - 1]!;
+    const torsoSec: Section[] = [
+      { t: 0, rx: 0.205, rz: 0.155 },
+      { t: T(1), rx: 0.19, rz: 0.14 },
+      { t: T(2), rx: 0.172, rz: 0.13 },
+      { t: T(3), rx: 0.175, rz: 0.128, dz: 0.005 },
+      { t: T(4), rx: 0.19, rz: 0.13, dz: 0.012 },
+      { t: T(4) + (1 - T(4)) * 0.55, rx: 0.17, rz: 0.105, dz: 0.004 },
+      { t: 0.97, rx: 0.07, rz: 0.066 },
+      { t: 1, rx: 0.06, rz: 0.058 },
+    ];
+    const torso = tube({
+      chain: torsoChain,
+      sections: torsoSec,
+      rings: 30,
+      seg: 28,
+      blend: 0.45,
+      extra: (p, t) => shoulder(1)(p, t) ?? shoulder(-1)(p, t),
+    });
+    add(torso, mats.top!);
+    // Weste darüber (etwas weiter, kürzer, ohne Ärmel)
+    if (top.vest) {
+      const vest = tube({
+        chain: torsoChain,
+        sections: torsoSec.map((q) => ({ ...q, rx: q.rx + 0.012, rz: q.rz + 0.012 })),
+        rings: 30,
+        seg: 28,
+        blend: 0.45,
+        extra: (p, t) => shoulder(1)(p, t) ?? shoulder(-1)(p, t),
+      });
+      // nur bis unter den Kragen: obere Ringe ausblenden, indem wir sie kollabieren
+      const pos = vest.getAttribute('position');
+      const uvA = vest.getAttribute('uv');
+      for (let i = 0; i < pos.count; i++) if (uvA.getY(i) > 0.9) pos.setY(i, pos.getY(i) - 0.02);
+      // Weste: vorne offen (darunter die Jacke), Kante in der Zierfarbe
+      const vt = embroidery(top.vest, top.trim ?? top.gold ?? '#d9a94a', 'plain', 1, {
+        kind: 'open',
+        inner: top.color,
+        knots: true,
+      });
+      const vm = vinyl('#ffffff', { rough: 0.8, map: vt, key: `vest-${top.vest}-${top.color}` }).clone();
+      vm.onBeforeCompile = vinyl('#ffffff').onBeforeCompile;
+      vm.normalMap = fabricNormals();
+      vm.normalScale.set(0.5, 0.5);
+      add(vest, vm);
+    }
+
+    // ── Ärmel
+    for (const sd of ['L', 'R'] as const) {
+      const sh = P(`Shoulder${sd}`);
+      const up = P(`UpperArm${sd}`);
+      const el = P(`LowerArm${sd}`);
+      const wr = P(`Wrist${sd}`);
+      const dir = wr.clone().sub(el).normalize();
+      const wideS = top.wideSleeves ? 1 : 0;
+      const sleeve = tube({
+        chain: [
+          { bone: bi(`Shoulder${sd}`), p: sh.clone().lerp(up, 0.2) },
+          { bone: bi(`UpperArm${sd}`), p: up },
+          { bone: bi(`LowerArm${sd}`), p: el },
+          { bone: bi(`LowerArm${sd}`), p: wr.clone().addScaledVector(dir, 0.01 + wideS * 0.04) },
+        ],
+        sections: [
+          { t: 0, rx: 0.07, rz: 0.07 },
+          { t: 0.2, rx: 0.068, rz: 0.066 },
+          { t: 0.55, rx: 0.056, rz: 0.055 },
+          { t: 0.88, rx: 0.05 + wideS * 0.04, rz: 0.05 + wideS * 0.05 },
+          { t: 1, rx: 0.05 + wideS * 0.06, rz: 0.05 + wideS * 0.075 },
+        ],
+        rings: 22,
+        seg: 16,
+        vUp: false,
+        front: new Vector3(0, 0, 1),
+      });
+      add(sleeve, mats.sleeve ?? mats.top!);
+      // heller Ärmelaufschlag
+      if (L.cuff) {
+        const cuff = tube({
+          chain: [
+            { bone: bi(`LowerArm${sd}`), p: wr.clone().addScaledVector(dir, -0.05) },
+            { bone: bi(`LowerArm${sd}`), p: wr.clone().addScaledVector(dir, 0.012) },
+          ],
+          sections: [
+            { t: 0, rx: 0.053, rz: 0.053 },
+            { t: 1, rx: 0.053, rz: 0.054 },
+          ],
+          rings: 2,
+          seg: 16,
+        });
+        add(cuff, mats.inner!);
+      }
+    }
+
+    // ── Hals
+    const neckTube = tube({
+      chain: [
+        { bone: bi('Neck'), p: neck.clone().add(new Vector3(0, -0.02, 0)) },
+        { bone: bi('Head'), p: headP.clone().add(new Vector3(0, 0.06, 0)) },
+      ],
+      sections: [
+        { t: 0, rx: 0.05, rz: 0.05 },
+        { t: 1, rx: 0.045, rz: 0.048 },
+      ],
+      rings: 4,
+      seg: 14,
+    });
+    add(neckTube, mats.skin!);
+
+    // ── Gewand: Schoß ab der Taille (Changshan, Hanfu, Mantel), Schürze, Gürtel
+    const ids = {
+      hips: bi('Hips'),
+      ulL: bi('UpperLegL'),
+      ulR: bi('UpperLegR'),
+      llL: bi('LowerLegL'),
+      llR: bi('LowerLegR'),
+    };
+    const legLen = hips.y;
+    let skirtRef: { y0: number; len: number; flare: number } | undefined;
+    if (len > 0.18) {
+      const gold = top.gold ?? '#d9a94a';
+      const tex = top.motif
+        ? embroidery(top.color, gold, top.motif === 'dragon' ? 'cloud' : top.motif)
+        : null;
+      const mat = vinyl(tex ? '#ffffff' : top.color, {
+        rough: 0.72,
+        map: tex,
+        key: `skirt2-${L.id}-${top.color}`,
+      }).clone();
+      mat.onBeforeCompile = vinyl('#ffffff').onBeforeCompile;
+      mat.side = DoubleSide;
+      mat.normalMap = fabricNormals();
+      mat.normalScale.set(0.7, 0.7);
+      skirtRef = {
+        y0: hips.y - hemDrop + 0.06,
+        len: legLen * Math.min(0.92, len) - hemDrop + 0.1,
+        flare: 0.25 + len * 0.45,
+      };
+      const geo = skirtGeometry(ids, {
+        ...skirtRef,
+        rx: 0.215,
+        rz: 0.17,
+        z: hips.z + 0.01,
+        gap: cut === 'coat' ? 0.6 : 0,
+      });
+      add(geo, mat);
+    }
+    if (L.apron) {
+      const mat = vinyl(L.apron, { rough: 0.85 }).clone();
+      mat.onBeforeCompile = vinyl('#ffffff').onBeforeCompile;
+      mat.side = DoubleSide;
+      mat.normalMap = fabricNormals();
+      mat.normalScale.set(1.1, 1.1);
+      const geo = skirtGeometry(ids, {
+        y0: hips.y + 0.12,
+        len: legLen * 0.78,
+        rx: skirtRef ? 0.24 : 0.235,
+        rz: skirtRef ? 0.198 : 0.195,
+        flare: 0.3 + len * 0.45,
+        z: hips.z + 0.012,
+        gap: 0,
+        arc: 1.9,
+        ref: skirtRef,
+      });
+      add(geo, mat);
+    }
+    if (L.belt) {
+      const band = tube({
+        chain: [
+          { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, 0.14, 0)) },
+          { bone: bi('Hips'), p: hips.clone().add(new Vector3(0, 0.08, 0)) },
+        ],
+        sections: [
+          { t: 0, rx: 0.188, rz: 0.142, dz: 0.004 },
+          { t: 1, rx: 0.195, rz: 0.148, dz: 0.004 },
+        ],
+        rings: 2,
+        seg: 28,
+      });
+      add(band, mats.belt!);
+      if (L.belt.tassels) {
+        const hb = this.bones.get('Hips')!;
+        const goldM = vinyl('#d9a94a', { rough: 0.3, metal: 0.5 });
+        for (const dx of [-0.035, 0.02]) {
+          const knot = new Mesh(new SphereGeometry(0.016, 8, 6), goldM);
+          const tas = new Mesh(new ConeGeometry(0.02, 0.13, 8), mats.belt!);
+          const g = new Group();
+          g.add(knot, tas);
+          tas.position.y = -0.075;
+          g.userData.tassel = true;
+          attachRigid(hb, g, new Matrix4().makeTranslation(0.11 + dx, hips.y + 0.09, hips.z + 0.15));
+        }
+      }
+    }
+
+    // ── Schuhe (Stoffschuhe; Turnschuhe nur beim Basketball-Look)
+    for (const sd of ['L', 'R'] as const) {
+      const foot = this.bones.get(`Foot${sd}`)!;
+      const heel = P(`Foot${sd}`);
+      const toeRef = P(`Foot${sd}_end`);
+      const fwd = toeRef.clone().sub(heel).setY(0).normalize();
+      if (fwd.lengthSq() < 0.5) fwd.set(0, 0, 1);
+      const shoe = new Group();
+      const sneaker = L.shoes.kind === 'sneaker';
+      const upper = new Mesh(new SphereGeometry(1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mats.shoes!);
+      upper.scale.set(0.052, sneaker ? 0.075 : 0.06, 0.13);
+      upper.castShadow = true;
+      const sole = new Mesh(new CylinderGeometry(1, 1, 1, 16), mats.sole!);
+      sole.scale.set(0.054, sneaker ? 0.03 : 0.014, 0.133);
+      sole.position.y = sneaker ? 0.012 : 0.004;
+      shoe.add(upper, sole);
+      if (sneaker && L.shoes.stripe) {
+        const st = new Mesh(new TorusGeometry(0.052, 0.006, 4, 16, Math.PI), mats.stripe!);
+        st.rotation.y = Math.PI / 2;
+        st.scale.set(1, 0.8, 2.3);
+        st.position.y = 0.03;
+        shoe.add(st);
+      }
+      const yaw = Math.atan2(fwd.x, fwd.z);
+      const at = heel.clone().addScaledVector(fwd, 0.055);
+      at.y = 0.0;
+      attachRigid(
+        foot,
+        shoe,
+        new Matrix4().compose(at, new Quaternion().setFromAxisAngle(Y, yaw), new Vector3(1, 1, 1)),
+      );
+    }
+
+    // ── Kopf: stilisiert, mit Gesicht, Frisur und Kopfbedeckung
+    const hs = L.headSize ?? 0.32;
+    const hc = new Character({ ...L, face: { ...DRESS_FACE, ...L.face } }, { headOnly: true, headSize: hs });
+    this.headChar = hc;
+    const headBone = this.bones.get('Head')!;
+    attachRigid(
+      headBone,
+      hc.head,
+      new Matrix4().makeTranslation(headP.x, headP.y + hs * 0.36, headP.z + 0.015),
+    );
+    attachRigid(
+      headBone,
+      this.head,
+      new Matrix4().makeTranslation(headP.x, headP.y + hs * 0.36, headP.z + 0.015),
+    );
+    this.S = this.H / (headP.y + hs * 0.9);
+  }
+
+  /** Bisheriger Aufbau aus Quaternius-Teilen (Kopf/Körper/Beine/Füße) */
+  private buildParts(): void {
+    const A = this.A;
+    const look = this.look;
+    const spec = look.rig!;
+    // Grundkörper klonen, fremde Teile entfernen und aus den anderen Grundfiguren einsetzen
+    this.inst = cloneSkinned(A.bases.get(spec.body)!) as Group;
+    this.inst.updateMatrixWorld(true);
+    this.inst.traverse((o) => {
+      // Endpunkte (…_end) sind keine Skin-Knochen, werden aber für Füße/Kopf gebraucht
+      if ((o as Bone).isBone || o.name.endsWith('_end')) this.bones.set(o.name, o as Bone);
+    });
+    const want: Record<RigPart, RigBase> = {
+      Head: spec.head,
+      Body: spec.body,
+      Legs: spec.legs,
+      Feet: spec.feet,
+    };
+    const drop: Object3D[] = [];
+    this.inst.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (m.isSkinnedMesh && want[m.userData.part as RigPart] !== spec.body) drop.push(m);
+    });
+    for (const m of drop) m.removeFromParent();
+    for (const part of ['Head', 'Legs', 'Feet'] as RigPart[]) {
+      if (want[part] === spec.body) continue;
+      const src = A.bases.get(want[part])!;
+      src.traverse((o) => {
+        const sm = o as SkinnedMesh;
+        if (!sm.isSkinnedMesh || sm.userData.part !== part) return;
+        const m = new SkinnedMesh(sm.geometry, sm.material);
+        m.name = sm.name;
+        m.userData.part = part;
+        sm.matrixWorld.decompose(m.position, m.quaternion, m.scale);
+        const bones = sm.skeleton.bones.map((b) => this.bones.get(b.name)!);
+        m.bind(
+          new Skeleton(
+            bones,
+            sm.skeleton.boneInverses.map((x) => x.clone()),
+          ),
+          sm.bindMatrix.clone(),
+        );
+        m.frustumCulled = false;
+        this.inst.add(m);
+      });
+    }
+    // Materialien nach Rollen
+    const mats = this.materials();
+    const meshes: SkinnedMesh[] = [];
+    this.inst.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (m.isSkinnedMesh) meshes.push(m);
+    });
+    for (const m of meshes) {
+      const name = (m.material as Material).name;
+      const part = m.userData.part as RigPart;
+      let role = roleOf(part, name, spec);
+      if (role === 'hair' && spec.hideHair && name !== 'Moustache') role = 'hide';
+      m.castShadow = true;
+      m.receiveShadow = false;
+      if (role === 'hide') {
+        m.visible = false;
+        continue;
+      }
+      const mat = mats[role] ?? (role === 'keep' ? (m.material as Material) : mats.top!);
+      m.material = mat;
+      if (name === 'Eye') {
+        addMorph(m.geometry, m.matrixWorld, 'blink');
+        m.updateMorphTargets();
+        this.eyes.push(m);
+      }
+      if (name === 'Eyebrows') {
+        addMorph(m.geometry, m.matrixWorld, 'brow');
+        m.updateMorphTargets();
+        this.brows.push(m);
+      }
+    }
+    this.model.add(this.inst);
+    this.root.add(this.model);
+    this.S = this.H / A.rest.headTopY;
+    this.root.updateMatrixWorld(true);
+
+    this.addClothes(mats);
+    this.addHead();
+  }
+
+  private materials(): Partial<Record<Role, Material>> {
+    const L = this.look;
+    const gold = L.top.gold ?? '#d9a94a';
+    const cutFront: Record<string, Front['kind']> = {
+      tang: 'tang',
+      hanfu: 'cross',
+      changshan: 'side',
+      coat: 'open',
+    };
+    const front: Front = L.dress
+      ? {
+          kind: cutFront[L.top.cut ?? 'tang']!,
+          trim: L.top.trim,
+          inner: L.inner?.color,
+          knots: L.inner?.knots,
+        }
+      : L.top.trim && !L.top.open
+        ? { kind: 'closed', trim: L.top.trim }
+        : { kind: 'none' };
+    const topTex = L.top.motif ? embroidery(L.top.color, gold, L.top.motif, 1, front) : null;
+    const pantsTex = L.pants.motif ? embroidery(L.pants.color, L.pants.gold ?? gold, L.pants.motif) : null;
+    const cloth = (m: MeshStandardMaterial): MeshStandardMaterial => {
+      // eigene Instanz, damit die Falten-Normalen nicht auf andere Nutzer des Material-Caches durchschlagen
+      const c = m.clone();
+      c.onBeforeCompile = m.onBeforeCompile;
+      c.customProgramCacheKey = m.customProgramCacheKey;
+      c.normalMap = fabricNormals();
+      c.normalScale.set(0.55, 0.55);
+      return c;
+    };
+    return {
+      skin: vinyl(L.skin, { rough: 0.55, warm: 0.1 }),
+      hair: vinyl(L.hair, { rough: 0.5 }),
+      brows: vinyl(L.brows ?? L.hair, { rough: 0.6 }),
+      eye: vinyl('#1c120c', { rough: 0.25, rim: 0 }),
+      top: cloth(vinyl(topTex ? '#ffffff' : L.top.color, { rough: 0.72, map: topTex })),
+      sleeve: cloth(
+        vinyl(L.top.motif ? '#ffffff' : L.top.color, {
+          rough: 0.72,
+          map: L.top.motif ? embroidery(L.top.color, gold, L.top.sleeveMotif ?? 'hem') : null,
+        }),
+      ),
+      inner: vinyl(L.inner?.color ?? L.cuff ?? L.top.trim ?? L.top.color, { rough: 0.7 }),
+      trim: vinyl(L.top.trim ?? gold, { rough: 0.5, metal: 0.2 }),
+      pants: cloth(vinyl(pantsTex ? '#ffffff' : L.pants.color, { rough: 0.78, map: pantsTex })),
+      shoes: vinyl(L.shoes.color, { rough: 0.45 }),
+      sole: vinyl(L.shoes.sole ?? '#f2efe6', { rough: 0.6 }),
+      stripe: vinyl(L.shoes.stripe ?? L.shoes.sole ?? L.shoes.color, { rough: 0.5 }),
+      belt: vinyl(L.belt?.color ?? L.pants.color, { rough: 0.5 }),
+      hat: vinyl('#d9b56a', { rough: 0.9 }),
+      band: vinyl('#b3261a', { rough: 0.6 }),
+    };
+  }
+
+  /** Taillenumfang aus den Körpervertices in Ruhepose */
+  private waist(): { rx: number; rz: number; z: number } {
+    const R = this.A.rest;
+    const xs: number[] = [];
+    const zs: number[] = [];
+    const v = new Vector3();
+    this.inst.updateMatrixWorld(true);
+    this.inst.traverse((o) => {
+      const m = o as SkinnedMesh;
+      if (!m.isSkinnedMesh || !m.visible) return;
+      const part = m.userData.part as RigPart;
+      if (part !== 'Body' && part !== 'Legs') return;
+      const pos = m.geometry.getAttribute('position');
+      for (let i = 0; i < pos.count; i += 2) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        if (Math.abs(v.y - R.hipY - 0.04) > 0.05 || Math.abs(v.x) > R.shoulderX) continue;
+        xs.push(Math.abs(v.x));
+        zs.push(v.z);
+      }
+    });
+    if (xs.length < 10) return { rx: 0.15, rz: 0.11, z: R.chestZ };
+    // Ausreißer (Taschen, Knöpfe) ignorieren
+    xs.sort((a, b) => a - b);
+    zs.sort((a, b) => a - b);
+    const q = (arr: number[], f: number): number => arr[Math.floor((arr.length - 1) * f)]!;
+    const z0 = q(zs, 0.03);
+    const z1 = q(zs, 0.97);
+    return { rx: q(xs, 0.95), rz: Math.max(0.08, (z1 - z0) / 2), z: (z0 + z1) / 2 };
+  }
+
+  private boneIndex(skel: Skeleton, name: string): number {
+    return Math.max(
+      0,
+      skel.bones.findIndex((b) => b.name === name),
+    );
+  }
+
+  private addClothes(mats: Partial<Record<Role, Material>>): void {
+    const L = this.look;
+    const R = this.A.rest;
+    const w = this.waist();
+    const skelBones = [...this.bones.values()].filter((b) => b.isBone);
+    const skel = new Skeleton(skelBones);
+    const ids = {
+      hips: this.boneIndex(skel, 'Hips'),
+      ulL: this.boneIndex(skel, 'UpperLegL'),
+      ulR: this.boneIndex(skel, 'UpperLegR'),
+      llL: this.boneIndex(skel, 'LowerLegL'),
+      llR: this.boneIndex(skel, 'LowerLegR'),
+    };
+    const legLen = R.hipY;
+    // Mantelschoß / Gewand
+    if (L.top.skirt > 0.18) {
+      const len = legLen * Math.min(0.95, L.top.skirt) + 0.08;
+      const gold = L.top.gold ?? '#d9a94a';
+      const tex = L.top.motif
+        ? embroidery(L.top.color, gold, L.top.motif === 'dragon' ? 'cloud' : L.top.motif)
+        : null;
+      const mat = vinyl(tex ? '#ffffff' : L.top.color, {
+        rough: 0.72,
+        map: tex,
+        key: `skirt-${L.id}-${L.top.color}`,
+      });
+      mat.side = DoubleSide;
+      mat.normalMap = fabricNormals();
+      mat.normalScale.set(0.8, 0.8);
+      const open = !!L.top.open;
+      const geo = skirtGeometry(ids, {
+        y0: R.hipY + 0.07,
+        len,
+        rx: w.rx + 0.05,
+        rz: w.rz + 0.07,
+        flare: 0.4 + L.top.skirt * 0.5,
+        z: w.z,
+        gap: open ? 0.55 : 0,
+      });
+      this.addSkinned(geo, mat, skel);
+    }
+    // Schürze (Teemeister)
+    if (L.apron) {
+      const mat = vinyl(L.apron, { rough: 0.85 }).clone();
+      mat.onBeforeCompile = vinyl(L.apron, { rough: 0.85 }).onBeforeCompile;
+      mat.side = DoubleSide;
+      mat.normalMap = fabricNormals();
+      mat.normalScale.set(1.2, 1.2);
+      const geo = skirtGeometry(ids, {
+        y0: R.hipY + 0.16,
+        len: legLen * 0.8,
+        rx: w.rx + 0.09,
+        rz: w.rz + 0.115,
+        flare: 0.45 + L.top.skirt * 0.5,
+        z: w.z,
+        gap: 0,
+        arc: 1.7,
+      });
+      this.addSkinned(geo, mat, skel);
+    }
+    // Gürtel mit Quasten
+    const hips = this.bones.get('Hips')!;
+    if (L.belt) {
+      // Gürtel als schmales Band, das wie der Stoff an der Hüfte hängt
+      const band = skirtGeometry(ids, {
+        y0: R.hipY + 0.13,
+        len: 0.055,
+        rx: w.rx + 0.012,
+        rz: w.rz + 0.016,
+        flare: 0.02,
+        z: w.z,
+        gap: 0,
+      });
+      this.addSkinned(band, mats.belt!, skel);
+      if (L.belt.tassels) {
+        const gold = vinyl('#d9a94a', { rough: 0.3, metal: 0.5 });
+        for (const dx of [-0.035, 0.02]) {
+          const knot = new Mesh(new SphereGeometry(0.016, 8, 6), gold);
+          const tas = new Mesh(new ConeGeometry(0.02, 0.13, 8), mats.belt!);
+          const g = new Group();
+          g.add(knot, tas);
+          tas.position.y = -0.075;
+          g.userData.tassel = true;
+          tas.userData.tassel = false;
+          attachRigid(
+            hips,
+            g,
+            new Matrix4().makeTranslation(w.rx * 0.55 + dx, R.hipY + 0.08, w.z + w.rz + 0.025),
+          );
+        }
+      }
+    }
+  }
+
+  private addSkinned(geo: BufferGeometry, mat: Material, skel: Skeleton): void {
+    const m = new SkinnedMesh(geo, mat);
+    m.castShadow = true;
+    m.frustumCulled = false;
+    this.inst.add(m);
+    this.inst.updateMatrixWorld(true);
+    m.bind(new Skeleton(skel.bones), m.matrixWorld);
+  }
+
+  private addHead(): void {
+    const R = this.A.rest;
+    const headBone = this.bones.get('Head')!;
+    attachRigid(headBone, this.head, new Matrix4().makeTranslation(R.head.c.x, R.head.c.y, R.head.c.z));
+    // Haarmodelle
+    const kit = hairKit();
+    if (kit && this.look.rig?.hair) for (const fit of this.look.rig.hair) this.addHair(fit, headBone);
+    // Mund: kleines Lächeln und Mundöffnung beim Sprechen (die Modelle haben keinen Mund)
+    const r = R.head.r;
+    const mp = R.mouth;
+    const lip = vinyl('#7a2a22', { rough: 0.4, rim: 0 });
+    const smile = new Mesh(new TorusGeometry(r.x * 0.22, r.x * 0.03, 6, 14, Math.PI), lip);
+    attachRigid(
+      headBone,
+      smile,
+      new Matrix4().compose(
+        new Vector3(mp.x, mp.y + r.y * 0.02, mp.z - 0.002),
+        new Quaternion().setFromAxisAngle(Z, Math.PI),
+        new Vector3(1, 0.65, 1),
+      ),
+    );
+    const open = new Mesh(new SphereGeometry(r.x * 0.18, 12, 8), vinyl('#4a1612', { rough: 0.5, rim: 0 }));
+    attachRigid(
+      headBone,
+      open,
+      new Matrix4().compose(
+        new Vector3(mp.x, mp.y - r.y * 0.04, mp.z - 0.006),
+        new Quaternion(),
+        new Vector3(1.2, 0.25, 0.45),
+      ),
+    );
+    this.mouth = smile;
+    this.mouthOpen = open;
+  }
+
+  private addHair(fit: HairFit, headBone: Bone): void {
+    const part = hairKit()?.get(fit.piece);
+    if (!part) return;
+    const mat = vinyl(fit.color ?? this.look.hair, {
+      rough: 0.55,
+      key: `hair-${fit.piece}-${this.look.hair}`,
+    });
+    mat.map = part.map;
+    mat.normalMap = part.normalMap;
+    mat.side = DoubleSide;
+    const hsl = { h: 0, s: 0, l: 0 };
+    mat.color.getHSL(hsl);
+    mat.color.multiplyScalar(hsl.l > 0.5 ? 1.75 : 1.35);
+    const m = new Mesh(part.geo, mat);
+    m.castShadow = true;
+    const R = this.A.rest.head;
+    const [sx, sy, sz] = fit.scale ?? [1, 1, 1];
+    const [ox, oy, oz] = fit.offset ?? [0, 0, 0];
+    const world = new Matrix4().compose(
+      new Vector3(R.c.x + ox * R.r.x, R.c.y + oy * R.r.y, R.c.z + oz * R.r.z),
+      new Quaternion().setFromAxisAngle(X, fit.tilt ?? 0),
+      new Vector3(R.r.x * sx * 1.04, R.r.y * sy * 1.02, R.r.z * sz * 1.04),
+    );
+    attachRigid(headBone, m, world);
+    if (fit.piece === 'Hair_Long' || fit.piece === 'Hair_Buns') m.userData.hairSway = true;
+  }
+
+  /** Körpertypen über Knochen: Kopf, Schultern, Rumpf, Arme, Hände, Füße, Hosenweite */
+  private shapeBody(sh: BodyShape): void {
+    const b = (n: string): Bone | undefined => this.bones.get(n);
+    if (sh.head) b('Head')?.scale.setScalar(sh.head);
+    if (sh.shoulders)
+      for (const n of ['ShoulderL', 'ShoulderR']) {
+        const s = b(n);
+        if (s) {
+          s.position.x *= sh.shoulders;
+          s.position.z *= sh.shoulders;
+        }
+      }
+    if (sh.girth) {
+      b('Torso')?.scale.set(sh.girth, 1, sh.girth);
+      const g = 1 / sh.girth;
+      b('Neck')?.scale.set(g, 1, g);
+    }
+    if (sh.arms) for (const n of ['UpperArmL', 'UpperArmR']) b(n)?.scale.setScalar(sh.arms);
+    if (sh.hands) for (const n of ['WristL', 'WristR']) b(n)?.scale.setScalar(sh.hands);
+    if (sh.feet) for (const n of ['FootL', 'FootR']) b(n)?.scale.setScalar(sh.feet);
+    if (sh.wide) for (const n of ['LowerLegL', 'LowerLegR']) b(n)?.scale.set(sh.wide, 1, sh.wide);
+  }
+
+  // ───────────────────────────────────────── Requisiten
+
+  private makeProp(p: Exclude<Prop, null>): void {
+    {
+      const m = makeProp(p, 1);
+      m.visible = false;
+      const R = this.A.rest;
+      if (p === 'ball') {
+        // unter dem linken Arm
+        attachRigid(
+          this.bones.get('Chest')!,
+          m,
+          new Matrix4().makeTranslation(R.shoulderX + 0.12, R.armY - 0.33, R.chestZ - 0.01),
+        );
+      } else if (p === 'pole') {
+        // Tragestange quer über den Schultern, etwas hinter dem Nacken
+        attachRigid(
+          this.bones.get('Chest')!,
+          m,
+          new Matrix4().makeTranslation(0, R.armY + 0.08, R.chestZ - 0.1),
+        );
+      } else {
+        const left = p === 'bowl' || p === 'erhu';
+        const s = left ? 'L' : 'R';
+        const wrist = this.bones.get(`Wrist${s}`)!;
+        // Griffpunkt in der Ruhepose: ein Stück über das Handgelenk hinaus in Armrichtung, leicht unter der
+        // Handfläche; das Requisit steht dabei aufrecht und folgt danach der Hand
+        this.inst.updateMatrixWorld(true);
+        const w = wrist.getWorldPosition(new Vector3());
+        const e = this.bones.get(`LowerArm${s}`)!.getWorldPosition(new Vector3());
+        const dir = w.clone().sub(e).normalize();
+        const grip = w.addScaledVector(dir, 0.075);
+        grip.y -= 0.025;
+        attachRigid(wrist, m, new Matrix4().makeTranslation(grip.x, grip.y, grip.z));
+      }
+      this.props[p] = m;
+    }
+  }
+
+  showProp(p: Exclude<Prop, null>, on: boolean): void {
+    const m = this.props[p];
+    if (m) m.visible = on;
+    if (p === 'ball') this.hasBall = on && !!m;
+  }
+
+  // ───────────────────────────────────────── Steuerung (wie character.ts)
+
+  get yaw(): number {
+    return this.root.rotation.y;
+  }
+
+  set yaw(v: number) {
+    this.root.rotation.y = v;
+  }
+
+  get position(): Vector3 {
+    return this.root.position;
+  }
+
+  headWorld(out = new Vector3()): Vector3 {
+    return this.head.getWorldPosition(out);
+  }
+
+  sitDown(seatH: number): void {
+    this.seatH = seatH;
+    this.sitTarget = 1;
+  }
+
+  standUp(): void {
+    this.sitTarget = 0;
+  }
+
+  get sitAmount(): number {
+    return this.sit;
+  }
+
+  play(a: Action, dur = 1.4): void {
+    this.actions.set(a, { t: 0, dur, loop: false, w: this.actions.get(a)?.w ?? 0, stopping: false });
+    if (a === 'drink') this.showProp('cup', true);
+    const clipName = CLIP_ACTIONS[a];
+    if (clipName) {
+      const act = this.clipActs.get(a) ?? this.mixer.clipAction(this.A.clips.get(clipName)!);
+      this.clipActs.set(a, act);
+      act.setLoop(LoopOnce, 1);
+      act.clampWhenFinished = true;
+      act.reset().play();
+      act.timeScale = act.getClip().duration / Math.max(0.4, dur);
+      act.setEffectiveWeight(0);
+    }
+  }
+
+  hold(a: Action): void {
+    const cur = this.actions.get(a);
+    if (cur && cur.loop && !cur.stopping) return;
+    this.actions.set(a, { t: 0, dur: 1, loop: true, w: cur?.w ?? 0, stopping: false });
+  }
+
+  stop(a: Action): void {
+    const cur = this.actions.get(a);
+    if (cur) cur.stopping = true;
+  }
+
+  isPlaying(a: Action): boolean {
+    const c = this.actions.get(a);
+    return !!c && !c.stopping && (c.loop || c.t < c.dur);
+  }
+
+  lookAt(p: Vector3 | null): void {
+    this.lookTarget = p ? p.clone() : null;
+  }
+
+  /** Eigene Material-Kopien je Figur, damit sie einzeln durchscheinend werden kann */
+  private ownMaterials(): void {
+    const map = new Map<Material, MeshStandardMaterial>();
+    this.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+      const src = m.material as MeshStandardMaterial;
+      let c = map.get(src);
+      if (!c) {
+        c = src.clone();
+        c.onBeforeCompile = src.onBeforeCompile;
+        c.customProgramCacheKey = src.customProgramCacheKey;
+        map.set(src, c);
+        this.mats.push(c);
+      }
+      m.material = c;
+    });
+  }
+
+  /** Durchscheinend machen (verdeckt die Sicht auf den Gesprächspartner o. Ä.) */
+  setFade(f: number): void {
+    if (Math.abs(f - this.fade) < 0.01) return;
+    this.fade = f;
+    const t = f < 0.99;
+    for (const m of this.mats) {
+      if (m.transparent !== t) {
+        m.transparent = t;
+        m.needsUpdate = true;
+      }
+      m.opacity = f;
+      m.depthWrite = f > 0.6;
+    }
+    this.blob.visible = f > 0.5;
+  }
+
+  /** kleine Gesichtsteile (Augen, Brauen, Wimpern …), die aus der Ferne ausgeblendet werden */
+  private fine: Mesh[] | null = null;
+
+  setDetail(on: boolean): void {
+    if (this.fine && on === this.detail) return;
+    this.detail = on;
+    if (this.mouth) this.mouth.visible = on;
+    if (!this.fine) {
+      // einmal sammeln: kleine, ungeskinnte Teile außer Requisiten, Mund und Schattenfleck
+      const skip = new Set<Object3D>();
+      for (const pr of Object.values(this.props)) pr?.traverse((o) => skip.add(o));
+      if (this.mouth) skip.add(this.mouth);
+      if (this.mouthOpen) skip.add(this.mouthOpen);
+      skip.add(this.blob);
+      const fine: Mesh[] = [];
+      this.root.traverse((o) => {
+        const m = o as Mesh;
+        if (!m.isMesh || (m as SkinnedMesh).isSkinnedMesh || skip.has(m) || !m.visible) return;
+        const g = m.geometry;
+        const tris = (g.index ? g.index.count : g.attributes.position!.count) / 3;
+        if (tris <= 136 || this.fineExtra.includes(m)) fine.push(m);
+      });
+      this.fine = fine;
+    }
+    for (const m of this.fine) m.visible = on;
+  }
+
+  // ───────────────────────────────────────── Animation
+
+  private w(a: Action): number {
+    return this.actions.get(a)?.w ?? 0;
+  }
+
+  private touch(b: Object3D): void {
+    if (this.touched.has(b)) return;
+    this.touched.set(b, { q: b.quaternion.clone(), p: b.position.clone() });
+  }
+
+  /** Knochen um eine Achse im Figurenraum drehen (x = links, y = oben, z = vorne) */
+  private rot(name: string, axis: Vector3, ang: number): void {
+    if (Math.abs(ang) < 1e-4) return;
+    const b = this.bones.get(name);
+    if (!b || !b.parent) return;
+    this.touch(b);
+    const pq = b.parent.getWorldQuaternion(_q1);
+    _v1.copy(axis).applyQuaternion(this.root.quaternion);
+    _q2.setFromAxisAngle(_v1, ang);
+    // lokal' = P⁻¹ · Δ · P · lokal
+    const inv = pq.clone().invert();
+    b.quaternion.premultiply(pq).premultiply(_q2).premultiply(inv);
+    b.updateMatrixWorld(true);
+  }
+
+  /**
+   * Knochen so drehen, dass er (vom Gelenk zum Kind-Gelenk) in eine Richtung im Figurenraum zeigt.
+   * Unabhängig von der Ausgangspose (die Idle-Animation steht z. B. leicht schräg).
+   */
+  private aim(name: string, child: string, dir: Vector3, k: number): void {
+    this.aimWorld(name, child, _v4.copy(dir).applyQuaternion(this.root.quaternion), k);
+  }
+
+  /** wie aim(), Richtung in Weltkoordinaten */
+  private aimWorld(name: string, child: string, worldDir: Vector3, k: number): void {
+    if (k < 1e-3) return;
+    const b = this.bones.get(name);
+    const c = this.bones.get(child);
+    if (!b || !c || !b.parent) return;
+    this.touch(b);
+    const p0 = b.getWorldPosition(_v1);
+    const cur = c.getWorldPosition(_v2).sub(p0).normalize();
+    const target = _v3.copy(worldDir).normalize();
+    _q3.setFromUnitVectors(cur, target);
+    _q3.slerp(_q4.identity(), 1 - k);
+    const pq = b.parent.getWorldQuaternion(_q1);
+    const inv = _q2.copy(pq).invert();
+    b.quaternion.premultiply(pq).premultiply(_q3).premultiply(inv);
+    b.updateMatrixWorld(true);
+  }
+
+  private addDangle(obj: Object3D, k: number, gain: number, hang: boolean): void {
+    this.dangles.push({
+      obj,
+      rest: obj.quaternion.clone(),
+      prev: obj.getWorldPosition(new Vector3()),
+      vel: new Vector3(),
+      ang: new Vector3(),
+      angVel: new Vector3(),
+      k,
+      gain,
+      hang,
+    });
+  }
+
+  /**
+   * Nachschwingen: Beschleunigung des Aufhängepunkts lenkt eine gedämpfte Feder aus (Quasten, lange Haare).
+   * Quasten hängen zusätzlich immer nach unten, auch wenn sich die Hüfte beim Sitzen dreht.
+   */
+  private swing(dt: number): void {
+    if (dt <= 0) return;
+    const inv = _q1.copy(this.root.quaternion).invert();
+    for (const d of this.dangles) {
+      const p = d.obj.getWorldPosition(_v1);
+      const vel = _v2.copy(p).sub(d.prev).divideScalar(dt);
+      const acc = _v3.copy(vel).sub(d.vel).divideScalar(dt).applyQuaternion(inv);
+      d.prev.copy(p);
+      d.vel.copy(vel);
+      // Zielauslenkung: gegen die Beschleunigung (vorne/hinten → Drehung um x, seitlich → um z)
+      const tx = Math.max(-0.9, Math.min(0.9, acc.z * d.gain));
+      const tz = Math.max(-0.9, Math.min(0.9, -acc.x * d.gain));
+      d.angVel.x += ((tx - d.ang.x) * d.k - d.angVel.x * Math.sqrt(d.k) * 1.2) * dt;
+      d.angVel.z += ((tz - d.ang.z) * d.k - d.angVel.z * Math.sqrt(d.k) * 1.2) * dt;
+      d.ang.x += d.angVel.x * dt;
+      d.ang.z += d.angVel.z * dt;
+      d.obj.quaternion.copy(d.rest);
+      if (d.hang && d.obj.parent) {
+        // nach unten ausrichten (Lot) …
+        d.obj.updateMatrixWorld(true);
+        const wq = d.obj.getWorldQuaternion(_q2);
+        const down = _v4.set(0, -1, 0).applyQuaternion(wq);
+        _q3.setFromUnitVectors(down, _v1.set(0, -1, 0));
+        const pq = d.obj.parent.getWorldQuaternion(_q4);
+        d.obj.quaternion.premultiply(pq).premultiply(_q3).premultiply(pq.clone().invert());
+      }
+      // … und auslenken (um Achsen im Figurenraum)
+      const pq = d.obj.parent!.getWorldQuaternion(_q4);
+      _q3.setFromAxisAngle(_v1.copy(X).applyQuaternion(this.root.quaternion), d.ang.x);
+      _q2.setFromAxisAngle(_v2.copy(Z).applyQuaternion(this.root.quaternion), d.ang.z);
+      d.obj.quaternion.premultiply(pq).premultiply(_q3).premultiply(_q2).premultiply(pq.clone().invert());
+    }
+  }
+
+  private lens: { thigh: number; shin: number } | null = null;
+  /** Ober- und Unterschenkellänge (Welt, einmal gemessen) */
+  private legLens(): { thigh: number; shin: number } {
+    if (this.lens) return this.lens;
+    const p = (n: string): Vector3 => this.bones.get(n)!.getWorldPosition(new Vector3());
+    this.lens = {
+      thigh: p('UpperLegL').distanceTo(p('LowerLegL')),
+      shin: p('LowerLegL').distanceTo(p('LowerLegL_end')),
+    };
+    return this.lens;
+  }
+
+  /**
+   * Fuß-IK auf unebenem Boden (Stufen, Brücke): Becken senkt sich zum tieferen Fuß, der höhere Fuß wird mit
+   * zwei Gelenken (Hüfte, Knie) angehoben, das Knie zeigt dabei in die bisherige Richtung.
+   */
+  private footIK(): void {
+    const base = this.root.position.y;
+    const d: number[] = [];
+    for (const s of ['L', 'R']) {
+      const f = this.bones.get(`Foot${s}`);
+      if (!f) return;
+      f.getWorldPosition(_t);
+      d.push(groundY(_t.x, _t.z) - base);
+    }
+    if (Math.abs(d[0]!) < 0.015 && Math.abs(d[1]!) < 0.015) return;
+    const drop = Math.max(-0.25, Math.min(0, d[0]!, d[1]!));
+    this.model.position.y += drop;
+    this.root.updateMatrixWorld(true);
+    ['L', 'R'].forEach((s, i) => {
+      const lift = Math.min(0.3, d[i]! - drop);
+      if (lift < 0.01) return;
+      const up = this.bones.get(`UpperLeg${s}`)!;
+      const lo = this.bones.get(`LowerLeg${s}`)!;
+      const end = this.bones.get(`LowerLeg${s}_end`)!;
+      const foot = this.bones.get(`Foot${s}`)!;
+      up.getWorldPosition(_h);
+      lo.getWorldPosition(_k);
+      end.getWorldPosition(_e);
+      const a = _h.distanceTo(_k);
+      const b = _k.distanceTo(_e);
+      _t.copy(_e).y += lift;
+      const dir = _v4.copy(_t).sub(_h);
+      const dist = Math.min(a + b - 1e-3, Math.max(0.05, dir.length()));
+      dir.normalize();
+      // Knie-Richtung: bisherige Knie-Auslenkung senkrecht zur Hüfte-Fuß-Linie, sonst nach vorn
+      const pole = _k.clone().sub(_h);
+      pole.addScaledVector(dir, -pole.dot(dir));
+      if (pole.lengthSq() < 1e-6) pole.copy(Z).applyQuaternion(this.root.quaternion);
+      pole.normalize();
+      const x = (a * a - b * b + dist * dist) / (2 * dist);
+      const hk = Math.sqrt(Math.max(0, a * a - x * x));
+      const knee = _h.clone().addScaledVector(dir, x).addScaledVector(pole, hk);
+      this.aimWorld(`UpperLeg${s}`, `LowerLeg${s}`, knee.clone().sub(_h), 1);
+      const kneeNow = lo.getWorldPosition(new Vector3());
+      this.aimWorld(`LowerLeg${s}`, `LowerLeg${s}_end`, _t.clone().sub(kneeNow), 1);
+      this.touch(foot);
+      foot.getWorldPosition(_v2);
+      _v2.y += lift;
+      foot.position.copy(foot.parent!.worldToLocal(_v2));
+      foot.updateMatrixWorld(true);
+    });
+  }
+
+  update(dt: number): void {
+    this.time += dt;
+    const t = this.time;
+    for (const [a, s] of this.actions) {
+      s.t += dt;
+      const ending = s.stopping || (!s.loop && s.t > s.dur - 0.25);
+      s.w = Math.max(0, Math.min(1, s.w + (ending ? -dt : dt) * 5));
+      if (ending && s.w <= 0) {
+        this.actions.delete(a);
+        if (a === 'drink') this.showProp('cup', false);
+        this.clipActs.get(a)?.stop();
+      }
+    }
+    this.sit += (this.sitTarget - this.sit) * Math.min(1, dt * 4);
+    const sitK = this.sit;
+    this.stoopSmooth += (this.stoop - this.stoopSmooth) * Math.min(1, dt * 4);
+
+    // ── Bewegungs-Mischung nach Geschwindigkeit, Abspieltempo passend zur Bodengeschwindigkeit
+    const sp = this.speed * (1 - sitK);
+    const walkNat = this.A.walkSpeed * this.S;
+    const runNat = this.A.runSpeed * this.S;
+    // Drehrate (rad/s), geglättet
+    let dyaw = this.root.rotation.y - this.lastYaw;
+    dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    this.lastYaw = this.root.rotation.y;
+    if (dt > 0) this.yawRate += (dyaw / dt - this.yawRate) * Math.min(1, dt * 8);
+    // Zielgewichte, dann weich nachführen (kein Springen beim Anlaufen und Stoppen)
+    const f = Math.min(1, dt * 9);
+    this.wMove += (smoothstep(0.05, 0.5, sp) - this.wMove) * f;
+    this.wRun += (smoothstep(walkNat * 1.15, runNat * 0.85, sp) - this.wRun) * f;
+    // Drehen im Stand: kleine Trippelschritte
+    const stepT = sp < 0.3 && sitK < 0.1 ? smoothstep(0.8, 2.5, Math.abs(this.yawRate)) * 0.55 : 0;
+    this.wStep += (stepT - this.wStep) * Math.min(1, dt * 6);
+    const wMove = Math.max(this.wMove, this.wStep);
+    const wRun = this.wRun;
+    let clipW = 0;
+    for (const [a, act] of this.clipActs) clipW = Math.max(clipW, this.w(a) * (act.isRunning() ? 1 : 0));
+    for (const [a, act] of this.clipActs) act.setEffectiveWeight(this.w(a));
+    const free = 1 - clipW;
+    // Idle-Varianten gelegentlich wechseln (weiche Überblendung, nie alle gleichzeitig)
+    this.idleSwap -= dt;
+    if (this.idleSwap < 0) {
+      this.idleSwap = 8 + Math.random() * 14;
+      this.idleTarget = this.idleTarget > 0.5 ? 0 : 1;
+    }
+    this.idleMix += (this.idleTarget - this.idleMix) * Math.min(1, dt * 1.2);
+    this.loco.idle.setEffectiveWeight((1 - wMove) * free * (1 - this.idleMix));
+    this.loco.idle2.setEffectiveWeight((1 - wMove) * free * this.idleMix);
+    this.loco.walk.setEffectiveWeight(wMove * (1 - wRun) * free);
+    this.loco.run.setEffectiveWeight(wMove * wRun * free);
+    this.loco.walk.timeScale = Math.min(1.8, Math.max(0.55, sp / walkNat, this.wStep * 1.2));
+    this.loco.run.timeScale = Math.min(1.6, Math.max(0.7, sp / runNat));
+    // Gehen und Laufen im gleichen Schritt halten (weicher Übergang)
+    if (wRun > 0 && wRun < 1) {
+      const ph = this.loco.walk.time / this.loco.walk.getClip().duration;
+      this.loco.run.time = ph * this.loco.run.getClip().duration;
+    }
+    for (const [b, s] of this.touched) {
+      b.quaternion.copy(s.q);
+      b.position.copy(s.p);
+    }
+    this.touched.clear();
+    // Ferne Figuren: Animation nur jedes zweite Bild (mit doppeltem Zeitschritt)
+    if (!this.detail) {
+      this.lodSkip += dt;
+      if (this.lodSkip < 0.03) return;
+      dt = this.lodSkip;
+    }
+    this.lodSkip = 0;
+    this.mixer.update(dt);
+    this.root.updateMatrixWorld(true);
+
+    // ── Prozedurale Schicht
+    this.procedural(dt, t, sitK, sp);
+
+    // ── Gesicht
+    this.blink -= dt;
+    let lid = 0;
+    if (this.blink < 0.14) lid = 1 - Math.abs(this.blink - 0.07) / 0.07;
+    if (this.blink < 0) this.blink = 2.2 + Math.random() * 4;
+    const laugh = this.w('laugh');
+    lid = Math.max(lid, laugh * 0.6);
+    for (const e of this.eyes)
+      if (e.morphTargetInfluences) e.morphTargetInfluences[0] = Math.max(0, Math.min(1, lid));
+    const browUp = Math.max(laugh, this.talkSmooth * 0.5 * (0.5 + 0.5 * Math.sin(t * 3 + this.seed)));
+    for (const b of this.brows) if (b.morphTargetInfluences) b.morphTargetInfluences[0] = browUp;
+    this.talkSmooth += (this.talk - this.talkSmooth) * Math.min(1, dt * 18);
+    // Mund klappt pro Silbe auf und von selbst wieder zu
+    this.talk = Math.max(0, this.talk - dt * 7);
+    const open = Math.max(this.talkSmooth, laugh * (0.6 + Math.abs(Math.sin(t * 16)) * 0.4));
+    if (this.mouth && this.mouthOpen) {
+      this.mouthOpen.scale.y = 0.08 + open * 0.3;
+      this.mouthOpen.visible = this.detail && open > 0.05;
+      this.mouth.visible = this.detail && open < 0.4;
+    }
+    // stilisierter Kopf: eigenes Gesicht (Blinzeln, Mund, Lachen)
+    if (this.headChar && this.detail) {
+      this.headChar.talk = this.talkSmooth;
+      this.headChar.updateFace(dt, laugh, t);
+    }
+  }
+
+  private procedural(dt: number, t: number, sitK: number, sp: number): void {
+    const w = (a: Action): number => this.w(a);
+    // Gewichtsverlagerung im Stehen (langsam, je Figur anders)
+    const still = (1 - Math.min(1, sp)) * (1 - sitK);
+    if (still > 0.01) {
+      this.rot('Body', Z, Math.sin(t * 0.37 + this.seed) * 0.022 * still);
+      this.rot('Torso', Y, Math.sin(t * 0.23 + this.seed * 2) * 0.05 * still);
+    }
+    // Sprechgesten: beim Reden Hände öffnen, mal links, mal rechts, dazu leichtes Nicken
+    if (this.talkSmooth > 0.2) this.talkHold = 1.2;
+    this.talkHold -= dt;
+    let busy = 0;
+    for (const s of this.actions.values()) busy = Math.max(busy, s.w);
+    const gTarget = this.talkHold > 0 && sp < 0.3 ? 1 - busy : 0;
+    this.gest += (gTarget - this.gest) * Math.min(1, dt * 3);
+    this.gestTimer -= dt;
+    if (this.gestTimer < 0) {
+      this.gestTimer = 1.2 + Math.random() * 1.4;
+      this.gestPose = {
+        side: Math.random() < 0.35 ? 0 : Math.random() < 0.5 ? 1 : -1,
+        lift: Math.random(),
+        open: Math.random(),
+      };
+    }
+    if (this.gest > 0.01) {
+      const g = this.gest;
+      const gp = this.gestPose;
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        if (gp.side !== 0 && gp.side !== dir) continue;
+        const k = g * (0.6 + 0.4 * Math.sin(t * 2.3 + dir));
+        this.rot(`UpperArm${s}`, X, -(0.25 + 0.3 * gp.lift) * k);
+        this.rot(`UpperArm${s}`, Z, dir * 0.15 * gp.open * k);
+        this.rot(`LowerArm${s}`, X, -(0.7 + 0.4 * gp.lift) * k);
+      }
+      this.rot('Head', X, Math.sin(t * 5.5) * 0.04 * this.talkSmooth);
+    }
+    // Sitzen ohne Tätigkeit: Hände ruhen auf den Knien
+    const rest = sitK * (1 - busy) * (1 - this.gest);
+    if (rest > 0.01) {
+      for (const s of ['L', 'R']) {
+        const sx = s === 'L' ? 1 : -1;
+        _t.set(0.12 * sx, -0.9, 0.42);
+        this.aim(`UpperArm${s}`, `LowerArm${s}`, _t, rest);
+        _t.set(-0.15 * sx, -0.75, 1);
+        this.aim(`LowerArm${s}`, `Wrist${s}`, _t, rest);
+      }
+    }
+    // Kurvenneigung: Oberkörper neigt sich in die Kurve, stärker beim Laufen
+    const lean = Math.max(-0.22, Math.min(0.22, -this.yawRate * sp * 0.045));
+    if (Math.abs(lean) > 0.002) {
+      this.rot('Torso', Z, lean);
+      this.rot('Neck', Z, -lean * 0.5);
+    }
+    // Atmen
+    const breath = Math.sin(t * 1.7 + this.seed) * 0.018 * (1 - Math.min(1, sp));
+    this.rot('Chest', X, -breath);
+    // Sitzen: Oberschenkel nach vorn, Unterschenkel nach unten, Körper auf Sitzhöhe
+    // Gesäß auf der Sitzfläche: Becken auf Sitzhöhe absenken (gemessen an der aktuellen Hüfthöhe)
+    this.model.position.y = 0;
+    let hipH = this.A.rest.hipY * this.S;
+    if (sitK > 0.001) {
+      this.model.updateMatrixWorld(true);
+      hipH = this.bones.get('Hips')!.getWorldPosition(_t).y - this.root.position.y;
+    }
+    const seatHip = this.seatH + 0.09;
+    this.model.position.y = -Math.max(0, hipH - seatHip) * sitK;
+    if (sitK > 0.001) {
+      this.root.updateMatrixWorld(true);
+      // Oberschenkel so neigen, dass die Füße auf dem Boden stehen (Knie etwas tiefer als die Hüfte)
+      const lens = this.legLens();
+      const kneeY = lens.shin + 0.035;
+      const dy = Math.max(0, Math.min(lens.thigh * 0.7, seatHip - kneeY));
+      const fwd = Math.sqrt(Math.max(0.01, lens.thigh * lens.thigh - dy * dy));
+      for (const s of ['L', 'R']) {
+        _t.set((s === 'L' ? 0.12 : -0.12) * lens.thigh, -dy, fwd);
+        this.aim(`UpperLeg${s}`, `LowerLeg${s}`, _t, sitK);
+        this.aim(`LowerLeg${s}`, `LowerLeg${s}_end`, SHIN, sitK);
+      }
+      this.rot('Torso', X, -0.05 * sitK);
+    }
+    // Bücken (Türbalken) und Ducken
+    const duck = Math.max(this.stoopSmooth, w('duck'));
+    if (duck > 0.001) {
+      this.rot('Torso', X, 0.45 * duck);
+      this.rot('Neck', X, 0.2 * duck);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperLeg${s}`, X, -0.35 * duck);
+        this.rot(`LowerLeg${s}`, X, 0.7 * duck);
+      }
+      this.model.position.y -= 0.12 * duck;
+    }
+    // Gesten
+    let k: number;
+    if ((k = w('nod'))) this.rot('Head', X, 0.22 * k * (0.5 + 0.5 * Math.sin(t * 9)));
+    if ((k = w('bow'))) {
+      this.rot('Torso', X, 0.55 * k);
+      this.rot('Chest', X, 0.15 * k);
+      this.rot('Head', X, 0.15 * k);
+    }
+    if ((k = w('laugh'))) {
+      this.rot('Chest', X, -0.14 * k + Math.sin(t * 22) * 0.03 * k);
+      this.rot('Head', X, -0.2 * k);
+    }
+    if ((k = w('drink'))) {
+      this.rot('UpperArmR', X, -0.7 * k);
+      this.rot('UpperArmR', Y, 0.75 * k);
+      this.rot('LowerArmR', X, -1.95 * k);
+      this.rot('LowerArmR', Y, 0.4 * k);
+      this.rot('Head', X, -0.12 * k * (0.5 + 0.5 * Math.sin(t * 2)));
+    }
+    if ((k = w('pour'))) {
+      this.rot('UpperArmR', X, -0.85 * k);
+      this.rot('LowerArmR', X, -0.5 * k);
+      this.rot('WristR', Z, 0.5 * k * (0.5 + 0.5 * Math.sin(t * 2)));
+    }
+    if ((k = w('polish'))) {
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        this.rot(`UpperArm${s}`, X, -0.75 * k);
+        this.rot(`UpperArm${s}`, Y, -dir * 0.4 * k);
+        this.rot(`LowerArm${s}`, X, -0.95 * k + Math.sin(t * 5 + (dir > 0 ? 0 : 1.6)) * 0.15 * k);
+      }
+    }
+    if ((k = w('write'))) {
+      this.rot('Torso', X, 0.15 * k);
+      this.rot('UpperArmR', X, -0.6 * k);
+      this.rot('LowerArmR', X, -0.9 * k + Math.sin(t * 7) * 0.08 * k);
+      this.rot('LowerArmR', Y, Math.sin(t * 3.3) * 0.12 * k);
+    }
+    if ((k = w('fan'))) {
+      this.rot('UpperArmR', X, -0.55 * k);
+      this.rot('LowerArmR', X, -1.6 * k);
+      this.rot('LowerArmR', Z, Math.sin(t * 9) * 0.35 * k);
+    }
+    if ((k = w('play'))) {
+      const reach = 0.5 + 0.5 * Math.sin(t * 2.2);
+      this.rot('Torso', X, 0.25 * k);
+      this.rot('UpperArmR', X, -(0.6 + 0.4 * reach) * k);
+      this.rot('LowerArmR', X, -0.5 * k);
+    }
+    if ((k = w('think'))) {
+      this.rot('UpperArmR', X, -0.5 * k);
+      this.rot('LowerArmR', X, -2.2 * k);
+      this.rot('Head', Z, 0.12 * k);
+    }
+    if ((k = w('point'))) this.rot('UpperArmR', X, -1.3 * k);
+    if ((k = w('shrug'))) {
+      this.rot('UpperArmL', Z, 0.35 * k);
+      this.rot('UpperArmR', Z, -0.35 * k);
+      this.rot('LowerArmL', X, -1.1 * k);
+      this.rot('LowerArmR', X, -1.1 * k);
+      this.rot('Head', Z, 0.15 * k);
+    }
+    if ((k = w('clap'))) {
+      const c = Math.sin(t * 14) * 0.2;
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        this.rot(`UpperArm${s}`, X, -0.85 * k);
+        this.rot(`UpperArm${s}`, Y, -dir * (0.55 + c) * k);
+        this.rot(`LowerArm${s}`, X, -0.9 * k);
+      }
+    }
+    if ((k = w('spin'))) {
+      this.rot('UpperArmR', X, -2.5 * k);
+      this.rot('LowerArmR', X, -0.3 * k);
+    }
+    if ((k = w('pet'))) {
+      this.rot('Torso', X, 0.6 * k);
+      this.rot('UpperArmR', X, -0.7 * k);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperLeg${s}`, X, -0.5 * k);
+        this.rot(`LowerLeg${s}`, X, 1.0 * k);
+      }
+      this.model.position.y -= 0.18 * k;
+    }
+    if ((k = w('hop'))) this.model.position.y += Math.abs(Math.sin(t * 10)) * 0.08 * k;
+    // ── Dorfleben
+    if ((k = w('taichi'))) {
+      // langsame Kreise beider Arme, Gewicht von einem Bein aufs andere, Knie leicht gebeugt
+      const a = t * 0.9;
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        const ph = a + (dir > 0 ? 0 : Math.PI * 0.5);
+        this.rot(`UpperArm${s}`, X, (-0.7 - 0.45 * Math.sin(ph)) * k);
+        this.rot(`UpperArm${s}`, Y, -dir * (0.25 + 0.3 * Math.cos(ph)) * k);
+        this.rot(`LowerArm${s}`, X, (-0.6 - 0.3 * Math.cos(ph)) * k);
+        this.rot(`UpperLeg${s}`, X, -0.18 * k);
+        this.rot(`LowerLeg${s}`, X, 0.32 * k);
+      }
+      this.rot('Torso', Y, Math.sin(a * 0.5) * 0.25 * k);
+      this.model.position.y -= 0.05 * k;
+    }
+    if ((k = w('chop'))) {
+      // Axt über den Kopf heben und herunterschlagen
+      const c = Math.max(0, Math.sin(t * 3.2));
+      const down = Math.pow(c, 3);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, (-2.4 + 1.9 * down) * k);
+        this.rot(`LowerArm${s}`, X, (-0.3 - 0.4 * down) * k);
+      }
+      this.rot('Torso', X, (0.1 + 0.35 * down) * k);
+    }
+    if ((k = w('hammer'))) {
+      const c = Math.pow(Math.max(0, Math.sin(t * 6)), 2);
+      this.rot('UpperArmR', X, (-1.5 + 0.9 * c) * k);
+      this.rot('LowerArmR', X, (-1.2 + 0.7 * c) * k);
+      this.rot('UpperArmL', X, -0.6 * k);
+      this.rot('LowerArmL', X, -1.0 * k);
+      this.rot('Torso', X, 0.2 * k);
+    }
+    if ((k = w('sweep'))) {
+      const c = Math.sin(t * 3);
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, -0.45 * k);
+        this.rot(`LowerArm${s}`, X, -0.5 * k);
+      }
+      this.rot('UpperArmR', Y, c * 0.35 * k);
+      this.rot('Torso', Y, c * 0.25 * k);
+      this.rot('Torso', X, 0.25 * k);
+    }
+    if ((k = w('wash'))) {
+      // gebückt am Wasser, Hände reiben
+      this.rot('Torso', X, 0.75 * k);
+      for (const [s, dir] of [
+        ['L', 1],
+        ['R', -1],
+      ] as const) {
+        this.rot(`UpperArm${s}`, X, -0.9 * k);
+        this.rot(`LowerArm${s}`, X, (-0.4 + Math.sin(t * 7 + (dir > 0 ? 0 : 1.5)) * 0.25) * k);
+        this.rot(`UpperLeg${s}`, X, -0.6 * k);
+        this.rot(`LowerLeg${s}`, X, 1.1 * k);
+      }
+      this.model.position.y -= 0.25 * k;
+    }
+    if ((k = w('eat'))) {
+      // Schale in der Linken vor der Brust, Stäbchen in der Rechten zum Mund
+      const c = 0.5 + 0.5 * Math.sin(t * 2.4);
+      this.rot('UpperArmL', X, -0.55 * k);
+      this.rot('LowerArmL', X, -1.5 * k);
+      this.rot('UpperArmR', X, (-0.6 - 0.2 * c) * k);
+      this.rot('LowerArmR', X, (-1.4 - 0.5 * c) * k);
+      this.rot('Head', X, 0.1 * k * c);
+    }
+    if ((k = w('kite'))) {
+      // Arm hoch, Schnur straff, kleine Zupfer
+      const tug = Math.max(0, Math.sin(t * 1.7)) ** 4;
+      this.rot('UpperArmR', X, (-1.9 + 0.3 * tug) * k);
+      this.rot('LowerArmR', X, -0.3 * k);
+      this.rot('Head', X, -0.35 * k);
+      this.rot('Chest', X, -0.08 * k);
+    }
+    if ((k = w('fiddle'))) {
+      // Erhu: Linke hält den Hals senkrecht vor der Brust, Rechte zieht den Bogen waagrecht hin und her
+      const bow = Math.sin(t * 1.6) + 0.3 * Math.sin(t * 4.1);
+      this.rot('UpperArmL', X, -0.55 * k);
+      this.rot('UpperArmL', Z, 0.25 * k);
+      this.rot('LowerArmL', X, -1.35 * k);
+      this.rot('UpperArmR', X, -0.35 * k);
+      this.rot('UpperArmR', Y, (0.25 + bow * 0.3) * k);
+      this.rot('LowerArmR', X, (-1.1 + bow * 0.25) * k);
+      this.rot('Head', Z, (0.1 + Math.sin(t * 0.8) * 0.06) * k);
+      this.rot('Head', X, 0.12 * k);
+      this.rot('Torso', Z, Math.sin(t * 0.8) * 0.04 * k);
+    }
+    if ((k = w('carry'))) {
+      // Hände an der Tragestange
+      for (const s of ['L', 'R']) {
+        this.rot(`UpperArm${s}`, X, -2.2 * k);
+        this.rot(`UpperArm${s}`, Z, (s === 'L' ? 0.5 : -0.5) * k);
+        this.rot(`LowerArm${s}`, X, -0.9 * k);
+      }
+    }
+    // Ball unter dem Arm: linken Arm leicht abspreizen
+    if (this.hasBall && !w('spin')) {
+      this.rot('UpperArmL', Z, 0.42);
+      this.rot('LowerArmL', X, -0.45);
+    }
+    // Blick: Hals und Kopf drehen sich zum Ziel (begrenzt, weich)
+    let ty = 0;
+    let tp = 0;
+    if (this.lookTarget) {
+      const hp = this.headWorld(_v2);
+      _v1.copy(this.lookTarget).sub(hp);
+      _v1.applyQuaternion(_q1.copy(this.root.quaternion).invert());
+      ty = Math.atan2(_v1.x, _v1.z);
+      tp = Math.atan2(_v1.y, Math.hypot(_v1.x, _v1.z));
+      if (Math.abs(ty) > 1.9) ty = 0;
+      ty = Math.max(-1.1, Math.min(1.1, ty));
+      tp = Math.max(-0.45, Math.min(0.45, tp));
+    }
+    // In Kurven führt der Blick (Kopf dreht schon in die neue Richtung)
+    if (sp > 0.2) ty = Math.max(-0.7, Math.min(0.7, ty + this.yawRate * 0.18));
+    const f = Math.min(1, dt * 5);
+    this.lookYaw += (ty - this.lookYaw) * f;
+    this.lookPitch += (tp - this.lookPitch) * f;
+    this.rot('Neck', Y, this.lookYaw * 0.4);
+    this.rot('Head', Y, this.lookYaw * 0.6);
+    this.rot('Head', X, -this.lookPitch * 0.8);
+    if (sitK < 0.05 && this.detail && RigCharacter.groundIK) this.footIK();
+    if (this.detail) this.swing(dt);
+    // Füße folgen den gebeugten Beinen (die Fußknochen hängen am Wurzelknochen)
+    const bend = Math.max(w('pet'), w('wash'), w('taichi'));
+    if (sitK > 0.001 || duck > 0.001 || bend > 0.001) {
+      for (const s of ['L', 'R']) {
+        const foot = this.bones.get(`Foot${s}`);
+        const end = this.bones.get(`LowerLeg${s}_end`);
+        if (!foot || !end || !foot.parent) continue;
+        end.getWorldPosition(_v1);
+        foot.getWorldPosition(_v2);
+        const k2 = Math.max(sitK, duck, bend);
+        _v2.lerp(_v1, k2);
+        this.touch(foot);
+        foot.position.copy(foot.parent.worldToLocal(_v2));
+        foot.updateMatrixWorld(true);
+      }
+    }
+    void _m;
+  }
+}
+
+export type { MeshStandardMaterial };

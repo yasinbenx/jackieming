@@ -1,0 +1,128 @@
+/* Musik-Labor: Karten für die drei Vorschauen (ergänzt lab.css) */
+.musik {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.vol {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid #3a2a20;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.vol input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--gold);
+}
+.vol output {
+  width: 3.5em;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid #3a2a20;
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color 0.2s;
+}
+.card.playing {
+  border-color: var(--gold);
+  background: #2c1f17;
+}
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.card-head > div {
+  flex: 1;
+  min-width: 0;
+}
+.card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.card h2 .letter {
+  color: var(--gold);
+  margin-right: 6px;
+}
+.card .zh {
+  color: var(--muted);
+  font-size: 14px;
+}
+.card p {
+  margin: 6px 0 0;
+}
+.card .details {
+  color: var(--muted);
+  font-size: 13px;
+}
+.play {
+  flex: none;
+  min-width: 92px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: var(--red);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.play[aria-pressed='true'] {
+  background: var(--jade);
+}
+.play:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #3a2a20;
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--jade), var(--gold));
+}
+.time {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 14px;
+}
+@media (max-width: 480px) {
+  .card-head {
+    flex-direction: column;
+  }
+  .play {
+    width: 100%;
+  }
+}

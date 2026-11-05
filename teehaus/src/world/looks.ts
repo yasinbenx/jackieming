@@ -1,0 +1,542 @@
+// Aussehen aller Figuren. Alle Gesichter sind generisch und stilisiert; Jackie Chan und Yao Ming werden nur über
+// Kontext erkennbar (Größe, Statur, Kleidung, Basketball, Namensschild), nicht über nachgebildete Gesichtszüge.
+// `rig` beschreibt den Aufbau aus Quaternius-Teilen (Kopf/Körper/Beine/Füße), Farben kommen aus den übrigen Feldern.
+import type { Look } from './character';
+
+/** Spielfigur: vier neutrale Outfits zur Auswahl */
+export const PLAYER_LOOKS_OLD: (Look & { label: string; swatch: string })[] = [
+  {
+    id: 'player',
+    label: 'Jade',
+    swatch: '#2e7d6b',
+    height: 1.72,
+    headRatio: 0.19,
+    build: 1,
+    skin: '#e8b994',
+    hair: '#2a1d15',
+    hairStyle: 'side',
+    rig: { head: 'casual2', body: 'suit', legs: 'suit', feet: 'suit' },
+    hairModel: [{ piece: 'Hair_SimpleParted', scale: [1.06, 1.02, 1.04] }],
+    top: { color: '#2e7d6b', gold: '#e6c27a', motif: 'hem', skirt: 0.18, trim: '#e6c27a' },
+    cuff: '#efe4cc',
+    pants: { color: '#e9dfc8' },
+    belt: { color: '#8a5a2a' },
+    shoes: { color: '#5a3a24', sole: '#2a1d15' },
+  },
+  {
+    id: 'player',
+    label: 'Indigo',
+    swatch: '#2f3f7a',
+    height: 1.7,
+    headRatio: 0.19,
+    build: 0.97,
+    skin: '#d9a47c',
+    hair: '#16110e',
+    hairStyle: 'ponytail',
+    rig: {
+      head: 'casual2',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'casual2',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Long', scale: [1.06, 1.04, 1.06] }],
+    },
+    top: { color: '#2f3f7a', gold: '#d9c38a', motif: 'cloud', skirt: 0.3, trim: '#d9c38a' },
+    pants: { color: '#4a4a52' },
+    belt: { color: '#b3261a', tassels: true },
+    shoes: { color: '#f0ece2', sole: '#d6d0c2', stripe: '#2f3f7a' },
+  },
+  {
+    id: 'player',
+    label: 'Ocker',
+    swatch: '#c08a3a',
+    height: 1.76,
+    headRatio: 0.19,
+    build: 1.04,
+    skin: '#c98d68',
+    hair: '#241912',
+    hairStyle: 'straw',
+    rig: { head: 'farmer', body: 'suit', legs: 'adventurer', feet: 'adventurer' },
+    top: { color: '#c08a3a', gold: '#6b3a1a', motif: 'hem', skirt: 0.22, trim: '#6b3a1a' },
+    cuff: '#f0e6cf',
+    pants: { color: '#5a4636', wide: true },
+    belt: { color: '#3a2a1e' },
+    shoes: { color: '#3a2a1e', sole: '#1c140e' },
+  },
+  {
+    id: 'player',
+    label: 'Pflaume',
+    swatch: '#7a3150',
+    height: 1.66,
+    headRatio: 0.185,
+    build: 0.95,
+    skin: '#efc6a6',
+    hair: '#3a2418',
+    hairStyle: 'bun',
+    rig: {
+      head: 'casual2',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'suit',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Buns', scale: [1.06, 1.04, 1.06] }],
+      shape: { shoulders: 0.9, head: 0.97 },
+    },
+    hairModel: [{ piece: 'Hair_Buns', scale: [1.04, 1.02, 1.04] }],
+    top: { color: '#7a3150', gold: '#e8c37a', motif: 'cloud', skirt: 0.62 },
+    inner: { color: '#f3e8d8' },
+    pants: { color: '#3a2a35' },
+    belt: { color: '#e8c37a' },
+    shoes: { color: '#7a3150', sole: '#2a1a22' },
+  },
+];
+
+/** Jackie Chan: deutlich kleiner, dunkle Kampfkunst-Jacke mit Goldstickerei, helle Ärmelaufschläge, Drachen-Hose */
+export const JACKIE_LOOK_OLD: Look = {
+  id: 'jackie',
+  height: 1.73,
+  headRatio: 0.18,
+  build: 1.0,
+  skin: '#e2ae84',
+  hair: '#17110d',
+  hairStyle: 'sweep',
+  // Kopf „Casual“ (generisches Gesicht), Anzugjacke als geschlossene Kampfkunst-Jacke, weiße Turnschuhe
+  rig: {
+    head: 'casual',
+    body: 'suit',
+    legs: 'suit',
+    feet: 'casual2',
+    roles: { 'Body:White': 'top', 'Body:Tie': 'top' },
+    shape: { wide: 1.25 },
+  },
+  top: {
+    color: '#1f2433',
+    gold: '#e0b04f',
+    motif: 'cloud',
+    skirt: 0.14,
+    trim: '#e0b04f',
+    sleeveMotif: 'hem',
+  },
+  cuff: '#f4eee2',
+  pants: { color: '#262a36', wide: true, motif: 'dragon', gold: '#d9a94a' },
+  belt: { color: '#b3261a', tassels: true },
+  shoes: { color: '#f4f1ea', sole: '#d9d4c8', stripe: '#b3261a' },
+};
+
+/** Yao Ming: 2,29 m, breite Schultern, langer roter Mantel mit Golddrachen, helles Hemd mit Knotenknöpfen, Basketball */
+export const YAO_LOOK_OLD: Look = {
+  id: 'yao',
+  height: 2.29,
+  headRatio: 0.142,
+  build: 1.1,
+  shoulders: 1.1,
+  legRatio: 0.47,
+  armRatio: 1.07,
+  handScale: 1.3,
+  footScale: 1.25,
+  skin: '#dfac83',
+  hair: '#0f0d0c',
+  hairStyle: 'crop',
+  // Kopf „Suit“ (generisches Gesicht), sehr breite Schultern, große Hände und Füße, offener roter Mantel
+  rig: {
+    head: 'suit',
+    body: 'suit',
+    legs: 'suit',
+    feet: 'casual2',
+    roles: { 'Body:Tie': 'inner' },
+    shape: { shoulders: 1.15, girth: 1.08, arms: 1.04, hands: 1.2, feet: 1.12, wide: 1.2 },
+  },
+  top: { color: '#a8231a', gold: '#e3b450', motif: 'dragon', skirt: 0.58, open: true, sleeveMotif: 'hem' },
+  inner: { color: '#f4eee4', knots: true },
+  pants: { color: '#1f222a', wide: true },
+  belt: { color: '#c42a1c', tassels: true },
+  shoes: { color: '#1d1d22', sole: '#f2f0ea', stripe: '#e3b450' },
+  prop: 'ball',
+};
+
+/** Der alte Teemeister: weißer Bart, Schürze, ruhige Haltung */
+export const MASTER_LOOK_OLD: Look = {
+  id: 'master',
+  height: 1.6,
+  headRatio: 0.19,
+  build: 0.98,
+  skin: '#e3b08c',
+  hair: '#f1ede4',
+  brows: '#f1ede4',
+  hairStyle: 'elder',
+  rig: { head: 'king', body: 'suit', legs: 'suit', feet: 'suit', shape: { shoulders: 0.95 } },
+  beard: true,
+  top: { color: '#2d5a52', gold: '#d6b56a', motif: 'hem', skirt: 0.82 },
+  apron: '#efe5cf',
+  pants: { color: '#2a2622' },
+  belt: { color: '#8a5a2a' },
+  shoes: { color: '#1e1a16', sole: '#3a2a1a' },
+};
+
+/** Generische Gäste (keine realen Vorbilder) */
+export const GUEST_LOOKS_OLD: Record<string, Look> = {
+  boardA: {
+    id: 'boardA',
+    height: 1.7,
+    headRatio: 0.19,
+    build: 1.02,
+    skin: '#d9a27a',
+    hair: '#4a4038',
+    hairStyle: 'cap',
+    rig: {
+      head: 'farmer',
+      body: 'suit',
+      legs: 'adventurer',
+      feet: 'adventurer',
+      roles: { 'Head:Beige': 'hide', 'Head:Red': 'hide' },
+      hair: [{ piece: 'Hair_SimpleParted', scale: [1.02, 0.98, 1.02], offset: [0, 0.03, 0] }],
+    },
+    top: { color: '#5a3a28', gold: '#c9a25a', motif: 'hem', skirt: 0.55, trim: '#c9a25a' },
+    pants: { color: '#2e2a26' },
+    belt: { color: '#2e2a26' },
+    shoes: { color: '#1e1a16', sole: '#3a2a1a' },
+  },
+  boardB: {
+    id: 'boardB',
+    height: 1.64,
+    headRatio: 0.185,
+    build: 0.97,
+    skin: '#ecc0a0',
+    hair: '#8a8580',
+    hairStyle: 'crop',
+    rig: {
+      head: 'worker',
+      body: 'worker',
+      legs: 'worker',
+      feet: 'worker',
+      roles: { 'Body:Worker_Vest': 'top', 'Body:Worker_Yellow': 'trim' },
+      hair: [{ piece: 'Hair_Buzzed', scale: [1.02, 0.98, 1.02], offset: [0, 0.04, 0] }],
+    },
+    hairModel: [{ piece: 'Hair_Buzzed', scale: [1.03, 1.0, 1.03], offset: [0, 0.04, 0] }],
+    top: { color: '#3c6a4a', gold: '#d9c38a', motif: 'plain', skirt: 0.2, trim: '#d9c38a' },
+    pants: { color: '#3a3a40' },
+    shoes: { color: '#2a2622', sole: '#121010' },
+  },
+  poet: {
+    id: 'poet',
+    height: 1.62,
+    headRatio: 0.19,
+    build: 0.92,
+    skin: '#f0c9aa',
+    hair: '#1e1612',
+    hairStyle: 'bun',
+    rig: {
+      head: 'suit',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'suit',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Long', scale: [1.06, 1.04, 1.06] }],
+      shape: { shoulders: 0.88, head: 0.97 },
+    },
+    hairModel: [{ piece: 'Hair_Long', scale: [1.05, 1.02, 1.05] }],
+    top: { color: '#d98c8c', gold: '#f5e3b8', motif: 'cloud', skirt: 0.85 },
+    inner: { color: '#f6efe2' },
+    pants: { color: '#7a4a4a' },
+    belt: { color: '#2e6b5e' },
+    shoes: { color: '#2e6b5e', sole: '#1a2a24' },
+    prop: 'brush',
+  },
+  merchant: {
+    id: 'merchant',
+    height: 1.68,
+    headRatio: 0.19,
+    build: 1.18,
+    skin: '#d79e76',
+    hair: '#2a2420',
+    hairStyle: 'cap',
+    rig: {
+      head: 'adventurer',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'suit',
+      roles: { 'Body:Tie': 'trim' },
+      shape: { girth: 1.15 },
+    },
+    top: { color: '#7a1f2a', gold: '#e3b450', motif: 'hem', skirt: 0.7, trim: '#e3b450' },
+    pants: { color: '#2a1e1a' },
+    belt: { color: '#e3b450' },
+    shoes: { color: '#1a1412', sole: '#3a2a1a' },
+    prop: 'fan',
+  },
+  child: {
+    id: 'child',
+    height: 1.12,
+    headRatio: 0.25,
+    build: 1.0,
+    legRatio: 0.4,
+    skin: '#f2c7a4',
+    hair: '#1a1410',
+    hairStyle: 'kidBuns',
+    rig: {
+      head: 'beach',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'casual2',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Buns', scale: [1.06, 1.04, 1.06] }],
+      shape: { head: 1.3 },
+    },
+    hairModel: [{ piece: 'Hair_Buns', scale: [1.05, 1.03, 1.05] }],
+    top: { color: '#d8452e', gold: '#f2d27a', motif: 'hem', skirt: 0.2, trim: '#f2d27a' },
+    pants: { color: '#f0e2c4' },
+    shoes: { color: '#d8452e', sole: '#f4efe4' },
+  },
+  terrace: {
+    id: 'terrace',
+    height: 1.58,
+    headRatio: 0.19,
+    build: 0.95,
+    skin: '#e8b996',
+    hair: '#c9c4bc',
+    hairStyle: 'bun',
+    rig: {
+      head: 'casual2',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'suit',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Buns', scale: [1.06, 1.04, 1.06] }],
+      shape: { shoulders: 0.9 },
+    },
+    hairModel: [{ piece: 'Hair_Buns', scale: [1.04, 1.02, 1.04] }],
+    top: { color: '#6f6aa0', gold: '#e6d3a0', motif: 'cloud', skirt: 0.6 },
+    inner: { color: '#efe8dc' },
+    pants: { color: '#3c3a52' },
+    shoes: { color: '#2a2838', sole: '#14121c' },
+  },
+  // Wanderer mit Strohhut: kommt über die Brücke, schaut sich um, steht an der Brüstung
+  wanderer: {
+    id: 'wanderer',
+    height: 1.74,
+    headRatio: 0.19,
+    build: 1.02,
+    skin: '#d6a07a',
+    hair: '#2a1d15',
+    hairStyle: 'straw',
+    rig: { head: 'farmer', body: 'suit', legs: 'adventurer', feet: 'adventurer' },
+    top: { color: '#2f3f7a', gold: '#d9c38a', motif: 'hem', skirt: 0.5, trim: '#d9c38a' },
+    pants: { color: '#3a3530' },
+    belt: { color: '#8a5a2a' },
+    shoes: { color: '#3a2a1e', sole: '#1c140e' },
+  },
+  // Besucherin, die drinnen herumgeht (Bilder, Regal, Fenster)
+  visitor: {
+    id: 'visitor',
+    height: 1.63,
+    headRatio: 0.19,
+    build: 0.94,
+    skin: '#efc3a2',
+    hair: '#1c1410',
+    hairStyle: 'bun',
+    rig: {
+      head: 'casual2',
+      body: 'suit',
+      legs: 'suit',
+      feet: 'suit',
+      hideHair: true,
+      hair: [{ piece: 'Hair_Long', scale: [1.06, 1.04, 1.06] }],
+      shape: { shoulders: 0.9 },
+    },
+    top: { color: '#2e7d6b', gold: '#f1d9a0', motif: 'cloud', skirt: 0.8 },
+    inner: { color: '#f3ead8' },
+    pants: { color: '#2a3a34' },
+    belt: { color: '#c9a25a', tassels: true },
+    shoes: { color: '#2e7d6b', sole: '#1a2a24' },
+  },
+};
+
+// ───────────────────────────────────────── Geschneiderte Figuren (aktuell im Spiel)
+// Chinesische Kleidung aus der Schneiderei, stilisierte Köpfe. Die *_OLD-Varianten oben (Quaternius-Teile) bleiben
+// nur für den Vorher-Vergleich im Labor (/lab/figuren/).
+
+type Dress = Partial<Omit<Look, 'top' | 'pants' | 'shoes'>> & {
+  top?: Partial<Look['top']>;
+  pants?: Partial<Look['pants']>;
+  shoes?: Partial<Look['shoes']>;
+};
+
+const DRESS: Record<string, Dress> = {
+  Jade: {
+    hairStyle: 'side',
+    top: { cut: 'tang', color: '#2e7d6b', trim: '#e6c27a', motif: 'hem', skirt: 0 },
+    pants: { color: '#2f2a26', wide: true },
+    shoes: { color: '#1e1a18', sole: '#efe8da', kind: 'cloth' },
+    belt: undefined,
+  },
+  Indigo: {
+    hairStyle: 'ponytail',
+    top: { cut: 'hanfu', color: '#2f3f7a', trim: '#d9c38a', motif: 'cloud', skirt: 0.35, wideSleeves: true },
+    inner: { color: '#efe6d4' },
+    pants: { color: '#2a2a33', wide: true },
+    shoes: { color: '#1e1a18', sole: '#efe8da', kind: 'cloth' },
+  },
+  Ocker: {
+    hairStyle: 'straw',
+    top: { cut: 'tang', color: '#c08a3a', trim: '#6b3a1a', motif: 'hem', skirt: 0, vest: '#5a3a24' },
+    pants: { color: '#4a3a2c', wide: true },
+    shoes: { color: '#2a1d15', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  Pflaume: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#7a3150', trim: '#e8c37a', motif: 'cloud', skirt: 0.62, wideSleeves: true },
+    inner: { color: '#f3e8d8' },
+    shoes: { color: '#7a3150', sole: '#efe8da', kind: 'cloth' },
+  },
+  jackie: {
+    hairStyle: 'fringe',
+    top: { cut: 'tang', color: '#1f2433', trim: '#e0b04f', motif: 'cloud', skirt: 0 },
+    cuff: '#f4eee2',
+    pants: { color: '#262a36', wide: true, motif: 'dragon', gold: '#d9a94a' },
+    shoes: { color: '#151515', sole: '#efe8da', kind: 'cloth' },
+  },
+  yao: {
+    hairStyle: 'crop',
+    headSize: 0.29,
+    top: { cut: 'coat', color: '#a8231a', gold: '#e3b450', motif: 'dragon', skirt: 0.58, open: true },
+    inner: { color: '#f4eee4', knots: true },
+    pants: { color: '#1f222a', wide: true },
+    // einziger moderner Akzent: Basketball-Schuhe zum Basketball
+    shoes: { color: '#1d1d22', sole: '#f2f0ea', stripe: '#e3b450', kind: 'sneaker' },
+  },
+  master: {
+    hairStyle: 'elder',
+    beard: true,
+    top: { cut: 'changshan', color: '#2d5a52', trim: '#d6b56a', motif: 'hem', skirt: 0.82 },
+    face: { laughLines: 0.8, foreheadLines: 0.6, smileEyes: 0.35 },
+    shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  boardA: {
+    hairStyle: 'cap',
+    top: { cut: 'changshan', color: '#5a3a28', trim: '#c9a25a', motif: 'hem', skirt: 0.6 },
+    shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  boardB: {
+    hairStyle: 'crop',
+    top: { cut: 'tang', color: '#3c6a4a', trim: '#d9c38a', motif: 'plain', skirt: 0, vest: '#2a2a2e' },
+    pants: { color: '#2e2e34', wide: true },
+    face: { laughLines: 0.5 },
+    shoes: { color: '#2a2622', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  poet: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#d98c8c', trim: '#f5e3b8', motif: 'cloud', skirt: 0.85, wideSleeves: true },
+    shoes: { color: '#2e6b5e', sole: '#efe8da', kind: 'cloth' },
+  },
+  merchant: {
+    hairStyle: 'cap',
+    top: { cut: 'changshan', color: '#7a1f2a', trim: '#e3b450', motif: 'hem', skirt: 0.72, vest: '#c9962e' },
+    shoes: { color: '#1a1412', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  child: {
+    hairStyle: 'kidBuns',
+    headSize: 0.44,
+    top: { cut: 'tang', color: '#d8452e', trim: '#f2d27a', motif: 'hem', skirt: 0 },
+    pants: { color: '#f0e2c4', wide: true },
+    shoes: { color: '#d8452e', sole: '#f4efe4', kind: 'cloth' },
+  },
+  terrace: {
+    hairStyle: 'bun',
+    top: { cut: 'hanfu', color: '#6f6aa0', trim: '#e6d3a0', motif: 'cloud', skirt: 0.7, wideSleeves: true },
+    face: { laughLines: 0.7, foreheadLines: 0.4 },
+    shoes: { color: '#2a2838', sole: '#efe8da', kind: 'cloth' },
+  },
+  wanderer: {
+    hairStyle: 'straw',
+    top: { cut: 'tang', color: '#2f3f7a', trim: '#d9c38a', motif: 'hem', skirt: 0.45 },
+    pants: { color: '#3a3530', wide: true },
+    shoes: { color: '#3a2a1e', sole: '#d9cdb5', kind: 'cloth' },
+  },
+  visitor: {
+    hairStyle: 'ponytail',
+    top: { cut: 'hanfu', color: '#2e7d6b', trim: '#f1d9a0', motif: 'cloud', skirt: 0.8, wideSleeves: true },
+    shoes: { color: '#2e7d6b', sole: '#efe8da', kind: 'cloth' },
+  },
+};
+
+function dressUp<T extends Look>(l: T, key: string): T {
+  const d = DRESS[key];
+  if (!d) return { ...l, dress: true };
+  return {
+    ...l,
+    ...d,
+    dress: true,
+    top: { ...l.top, ...d.top },
+    pants: { ...l.pants, ...d.pants },
+    shoes: { ...l.shoes, ...d.shoes },
+  } as T;
+}
+
+export const PLAYER_LOOKS = PLAYER_LOOKS_OLD.map((l) => dressUp(l, l.label));
+
+/** Outfits, die man in Aufgaben verdient (hinter den vier Start-Outfits; Index = Spielstand.outfit) */
+const EXTRA_OUTFITS: { id: string; label: string; zh: string; swatch: string; dress: Dress }[] = [
+  {
+    id: 'seide',
+    label: 'Seidenjacke',
+    zh: '丝绸',
+    swatch: '#a8322a',
+    dress: {
+      hairStyle: 'side',
+      top: { cut: 'tang', color: '#a8322a', trim: '#e9c46a', gold: '#e9c46a', motif: 'cloud', skirt: 0 },
+      pants: { color: '#24201e', wide: true },
+      shoes: { color: '#1a1614', sole: '#efe8da', kind: 'cloth' },
+    },
+  },
+  {
+    id: 'gelehrter',
+    label: 'Gelehrtengewand',
+    zh: '长衫',
+    swatch: '#4f6a7a',
+    dress: {
+      hairStyle: 'crop',
+      top: { cut: 'changshan', color: '#4f6a7a', trim: '#d9c38a', motif: 'hem', skirt: 0.8, vest: '#2c2a30' },
+      shoes: { color: '#1e1a16', sole: '#d9cdb5', kind: 'cloth' },
+    },
+  },
+];
+
+/** Alle Outfits der Spielfigur (Start-Outfits zuerst; Index = Spielstand.outfit) */
+export const ALL_OUTFITS: { id: string; label: string; zh: string; swatch: string; look: Look }[] = [
+  ...PLAYER_LOOKS.map((l) => ({
+    id: l.label.toLowerCase(),
+    label: l.label,
+    zh: '',
+    swatch: l.swatch,
+    look: l as Look,
+  })),
+  ...EXTRA_OUTFITS.map((o) => {
+    const base = PLAYER_LOOKS_OLD[0]!;
+    const look: Look = {
+      ...base,
+      ...o.dress,
+      dress: true,
+      hairModel: undefined,
+      top: { ...base.top, ...o.dress.top },
+      pants: { ...base.pants, ...o.dress.pants },
+      shoes: { ...base.shoes, ...o.dress.shoes },
+    };
+    return { id: o.id, label: o.label, zh: o.zh, swatch: o.swatch, look };
+  }),
+];
+
+/** Kopf (Frisur oder Hut) auf ein Outfit setzen; 'eigen' lässt das Outfit unverändert */
+export function withHead(look: Look, head: string): Look {
+  if (head === 'eigen' || !head) return look;
+  const model: Record<string, Look['hairModel']> = {
+    side: [{ piece: 'Hair_SimpleParted', scale: [1.06, 1.02, 1.04] }],
+    bun: [{ piece: 'Hair_Buns', scale: [1.04, 1.02, 1.04] }],
+  };
+  return { ...look, hairStyle: head as Look['hairStyle'], hairModel: model[head] };
+}
+export const JACKIE_LOOK = dressUp(JACKIE_LOOK_OLD, 'jackie');
+export const YAO_LOOK = dressUp(YAO_LOOK_OLD, 'yao');
+export const MASTER_LOOK = dressUp(MASTER_LOOK_OLD, 'master');
+export const GUEST_LOOKS: Record<string, Look> = Object.fromEntries(
+  Object.entries(GUEST_LOOKS_OLD).map(([k, l]) => [k, dressUp(l, k)]),
+);

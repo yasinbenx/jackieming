@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Modell-Labor · Das Teehaus</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+    <link rel="stylesheet" href="../../src/lab/lab.css" />
+  </head>
+  <body>
+    <header class="lab-head">
+      <h1><span lang="zh">实验室</span> Modell-Labor</h1>
+      <p>Alle Charaktermodelle aus <code>public/charaktere/</code>: drehen mit Maus/Finger, zoomen mit Rad/Pinch.</p>
+    </header>
+    <main class="lab">
+      <nav id="list" aria-label="Modelle"></nav>
+      <section class="stage">
+        <div id="view"></div>
+        <div class="tools">
+          <label><input type="checkbox" id="skel" /> Skelett</label>
+          <label><input type="checkbox" id="spin" checked /> Drehen</label>
+          <label>Tempo <input type="range" id="speed" min="0.1" max="2" step="0.1" value="1" /></label>
+        </div>
+        <div id="anims" class="anims" aria-label="Animationen"></div>
+      </section>
+      <aside id="info" aria-live="polite"></aside>
+    </main>
+    <script type="module" src="../../src/lab/modelle.ts"></script>
+  </body>
+</html>
