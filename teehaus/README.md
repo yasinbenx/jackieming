@@ -50,21 +50,26 @@ Beide Skripte brauchen einen laufenden Build (`npm run build && npm run preview`
 
 ## Bedienung
 
-| Aktion                  | Maus / Touch                                 | Tastatur (Standard, umlegbar) |
-| ----------------------- | -------------------------------------------- | ----------------------------- |
-| Gehen / Laufen          | Boden anklicken bzw. Joystick                | WASD / Pfeile, Umschalt       |
-| Kamera drehen / zoomen  | ziehen, Mausrad / zwei Finger                | –                             |
-| Ansprechen, benutzen    | Figur/Gegenstand antippen                    | E                             |
-| Weg zum Platz abbrechen | „Abbrechen“                                  | Esc                           |
-| Winken                  | –                                            | G                             |
-| Antwort sofort zeigen   | Blase antippen                               | Leertaste                     |
-| Gespräch schließen      | ×                                            | Esc                           |
-| Pause                   | ☰ oben rechts                               | Esc oder P                    |
-| Ton an/aus              | Lautsprecher-Knopf (Musik, Stimmen, Effekte) | T                             |
-| Karte                   | –                                            | M                             |
-| Tee bestellen (Fenster) | Bausteine anklicken                          | 1–9, Rücktaste, Enter         |
-| Quiz                    | Antwort anklicken                            | 1–3, Enter                    |
-| Debug-Anzeige           | –                                            | F3                            |
+Nur Desktop: Maus und Tastatur, ab 1280×720 in jedem Seitenverhältnis (16:9, 16:10, 5:4 für Beamer, 21:9). Alle Tasten lassen sich in den Einstellungen umlegen.
+
+| Aktion                     | Maus                       | Tastatur (Standard)                   |
+| -------------------------- | -------------------------- | ------------------------------------- |
+| Gehen / Laufen             | Boden anklicken            | WASD / Pfeile, Umschalt               |
+| Kamera drehen / zoomen     | ziehen, Mausrad            | –                                     |
+| Ansprechen, benutzen       | Figur/Gegenstand anklicken | E                                     |
+| Winken / Verbeugen         | –                          | G / H                                 |
+| Klatschen / Tai-Chi        | –                          | J / K                                 |
+| Fotomodus                  | –                          | C (Leertaste auslösen, 1–7 Filter)    |
+| Album                      | –                          | B                                     |
+| Karte                      | –                          | M                                     |
+| Pause                      | ☰ oben rechts             | Esc oder P                            |
+| Vollbild (auch für Beamer) | –                          | F                                     |
+| Ton an/aus                 | Lautsprecher-Knopf         | T                                     |
+| Antwort sofort zeigen      | Blase anklicken            | Leertaste                             |
+| Tee bestellen (Fenster)    | Bausteine anklicken        | 1–9, Rücktaste, Enter                 |
+| Quiz                       | Antwort anklicken          | 1–3, Enter                            |
+| Angeln                     | –                          | Leertaste (anschlagen, Schnur halten) |
+| Debug-Anzeige              | –                          | F3                                    |
 
 ## Menü, Spielstand und Einstellungen
 
@@ -168,6 +173,35 @@ Zehn Häuser in lockeren Gruppen um den Dorfplatz, an der Dorfrunde, am Hang im 
 - **Wörterbuch** (词典): Suche über Deutsch, Pinyin (mit oder ohne Töne) und Zeichen; Filter nach Thema (Jackie und Yao, Tee, Begrüßen und Bestellen, Brettspiel, Teehaus und Dorf) und nach gesammelt/offen. Noch nicht gesammelte Wörter verraten bei der Suche nichts. Themen: `src/content/wordgroups.ts`.
 - **Quiz und Abzeichen** (测验, 徽章): aus dem Wörterbuch oder dem Pausemenü. Eine Runde hat acht Fragen: Wortfragen aus den eigenen Wörtern (Zeichen → Deutsch und Deutsch → Zeichen) und Wissensfragen über Jackie und Yao, sobald die passende Frage im Gespräch gestellt wurde. Ab vier Wörtern spielbar. Abzeichen: Erster Versuch, Volle Punktzahl, 20 und 50 Wörter, Auf Chinesisch bestellt, Teekenner (fünf Sorten), Entdecker (alle Orte), Brettspieler (Xiangqi gewonnen), Gute Nachbarn (zehn Bewohner angesprochen). Sie werden laufend geprüft und mit einer Meldung vergeben (`src/content/badges.ts`, `src/content/quizgen.ts`, getestet).
 
+## Dorfplatz und Markt (P1)
+
+- **Markt mit acht Ständen** rund um den Brunnen: Gemüse, Obst, Tee, Stoffe (布), Fisch (鲜鱼), Porzellan (瓷器), Süßes (糖葫芦) und Laternen (灯笼), jeder mit Händler, Waren, Schild und Kundenplatz. Die Händler rufen ihre Waren aus, wenn man in der Nähe ist.
+- **38 Bewohner mit Tagesplänen** (`src/content/villagers.ts`, `src/content/market.ts`): morgens Tai-Chi und Markt, mittags Arbeit (Wasserträger mit Tragestange, Kehrer, Holzhacker, Bäcker mit Dampfgarer, Schmied mit Funken, Wäscherin, Fischer, Teepflückerinnen, Mönch), abends Laternen anzünden und essen, nachts nur wenige. Kinder mit Drachen und Reifen. Auf Mittel und Niedrig bleiben einige zusätzliche Bewohner zu Hause (Dichte nach Qualität).
+- **Gespräche und Grüße:** Bewohner unterhalten sich paarweise (Sprechblasen), grüßen die Spielfigur mit dem Wort der Tageszeit (早上好, 你好, 晚上好) und antworten auf Gesten.
+- **Kleine Zwischenfälle:** Zwei laufen ineinander (对不起 – 没关系); der Drachen der Kinder reißt sich los und landet auf der Wiese (zurückbringen bringt Münzen); eine Katze schleicht zum Fischstand und stiehlt einen Fisch (verscheuchen geht).
+- **Tiere:** Hühner, Enten, zwei Hunde (streicheln mit E), Vögel auf den Dachfirsten, die bei Annäherung auffliegen, Katzen auf den Dächern.
+- **Ereignisse:** fahrender Händler an jedem zweiten Tag (mit Karren, Feilschen), Drachentanz mit Trommeln an Festtagen (jeder dritte Tag, mittags), Laternenfest mit schwimmenden Lichtern auf dem Teich (Festtage abends), Herr Hua spielt abends Erhu am Brunnen.
+- **Laternenketten** über dem Platz, tagsüber rotes Papier, abends leuchtend.
+- Alles in `src/world/plaza.ts`, instanziert und mit wenigen Draw-Calls.
+
+## Optik (P2)
+
+- **Farbkorrektur nach Tageszeit und Wetter** (ein zusätzlicher Effekt-Durchgang): goldene Stunde satter und wärmer, Nacht entsättigt, Wolken flauer, dazu eine leichte Vignette.
+- **Verwitterung ohne Texturen** (`weathered()` in `src/world/materials.ts`): Moos auf Ziegeln und Stein, fleckige Abnutzung auf Holz und Putz der Dorfhäuser.
+- **Rauch aus Schornsteinen** (morgens und abends mehr), Dampf aus der Bäckerei, Funken und Rauch aus der Schmiede.
+- **Wetterspuren:** Pfützen auf dem Platz bei Regen, die danach langsam trocknen; Fahnen und Wäsche im Wind.
+
+## Angeln, Fotomodus, Album, Handel, Jahreszeiten (P3d)
+
+- **Angeln** (钓鱼) an zwölf Plätzen an Teich und Fluss: Schwimmer auswerfen, beim „!“ rechtzeitig anschlagen, dann die Markierung im grünen Bereich halten. Sechs Fischarten mit chinesischem Namen (金鱼, 鲤鱼, 草鱼, 虾, 鲶鱼, 鳜鱼), Größe und Preis.
+- **Fotomodus** (C): Oberfläche aus, Kamera frei, sieben Filter (Natur, Warm, Kühl, Kräftig, Sepia, Schwarzweiß, Traum). Fotos landen verkleinert im Browser (höchstens 16).
+- **Album** (B): Fotos zum Herunterladen, gefangene Fische mit Rekordgröße, alle Erfolge.
+- **Feilschen** (讨价还价) beim fahrenden Händler: Er nennt den Preis auf Chinesisch, man bietet mit chinesischen Zahlen dagegen. Zu wenig geboten → „太便宜了！“. Der Papierdrachen lässt sich dann auf der Drachenwiese selbst steigen lassen.
+- **Gesten:** Verbeugen, Klatschen, Tai-Chi; Bewohner in der Nähe antworten.
+- **Jahreszeiten** (`src/world/seasons.ts`): Frühling mit vielen Blüten, Sommer, Herbst mit gelb-orangem Laub und Gras, Winter mit Schneefall statt Regen, Schneedecke auf Boden, Bäumen und Dächern und Fußspuren. Wechselnd alle zwei Spieltage oder fest in den Einstellungen; zum Ansehen `?jahreszeit=winter&wetter=schnee`.
+- **Erfolge:** Angler, Fischkenner, Fotograf, Feilscher, Drachenflieger, Fischretter, Vier Jahreszeiten, Festgast.
+- **Chinesisch lernen:** über 50 neue Wörter (Markt, Zahlen 一–十, Fische, Jahreszeiten, Grüße), neues Thema „Zahlen und Feilschen“ im Wörterbuch.
+
 ## Figuren und Animation
 
 - **Skelett und Bewegungen:** Quaternius „Ultimate Modular Men“ (CC0) liefert Skelett (62 Knochen), 24 Animationen und die Hände. Körper und Kleidung entstehen im Code (`src/world/tailor.ts`, `src/world/rigchar.ts`): weiche Röhren entlang der Knochen, direkt an das Skelett „genäht“. Weil die Kleidung zugleich die Körperform ist, liegt nichts darunter, was durchstechen könnte.
@@ -197,7 +231,7 @@ Generative Web-Audio-Partitur „Erhu & Guzheng“ in G-Pentatonik (`src/audio/m
 
 ## Qualitätsstufen
 
-Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, kleine Gesichtsteile) und werden ab 12 m nur jedes zweite, ab 24 m jedes dritte Bild animiert, unsichtbare gar nicht. Die Schattenkarte wird jedes zweite Bild neu gezeichnet (in Kamerafahrten jedes Bild), die Teichspiegelung lässt Figuren, Gras, Tiere und Dorf weg, das Umgebungslicht wird je Tageszeit-Stufe zwischengespeichert. Hoch rendert mit Pixeldichte höchstens 1,5 und 2× MSAA, Mittel mit 1,25. Standard ist **automatisch** (Desktop hoch, Mobilgeräte mittel, bei dauerhaft unter 48 fps eine Stufe tiefer). Messwerte zeigt F3. Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
+Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefenunschärfe, Teich-Spiegelung und draußen in Grasmenge (18 000 / 9 000 / aus), Detailweite der Bäume (70 / 45 / 25 m) und Sichtweite des Bewuchses (420 / 260 / 160 m). Figuren weiter als 11 m entfernt sparen Feinbewegung (Fuß-IK, Nachschwingen, kleine Gesichtsteile) und werden ab 12 m nur jedes zweite, ab 24 m jedes dritte Bild animiert, unsichtbare gar nicht. Die Schattenkarte wird jedes zweite Bild neu gezeichnet (in Kamerafahrten jedes Bild), die Teichspiegelung lässt Figuren, Gras, Tiere und Dorf weg, das Umgebungslicht wird je Tageszeit-Stufe zwischengespeichert. Hoch rendert mit Pixeldichte höchstens 1,5 und 2× MSAA, Mittel mit 1,25. Standard ist **automatisch**: die Startstufe richtet sich nach der Grafikkarte (integrierte Grafik Mittel), dann senkt die dynamische Auflösung bei zu wenig Bildern zuerst die Pixeldichte (bis 75 / 70 / 60 %) und erst danach die Stufe. Messwerte zeigt F3. Fest einstellen über die Info-Seite (ⓘ) oder `?q=`. „Bewegung reduzieren“ im System schaltet den Ruhe-Modus ein.
 
 ## Qualität und Technik (S4)
 
@@ -209,7 +243,7 @@ Hoch / Mittel / Niedrig unterscheiden sich in Pixeldichte, Schatten, Bloom/Tiefe
 - **Spielstand:** Die Position wird zusätzlich beim Pausieren und beim Schließen des Tabs gespeichert. Ist die gespeicherte Stelle inzwischen versperrt, beginnt man an der nächsten freien Stelle daneben.
 - **Bewohner weichen einander aus** (rechts vorbei, abbremsen, wenn es eng wird; `src/world/avoid.ts`, getestet).
 - **Inhalte in Datendateien:** siehe „Inhalte ändern“.
-- Bedient wird am PC mit Maus und Tastatur; die Touch-Steuerung aus früheren Runden ist vorhanden, wurde in dieser Runde aber nicht weiter getestet.
+- Nur Desktop: Maus und Tastatur. Die Touch-Steuerung und die Handy-Layouts sind entfernt.
 
 ## Stabilität: Fehler, Watchdog, Notausgänge
 

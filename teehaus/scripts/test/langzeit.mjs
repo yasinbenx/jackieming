@@ -7,6 +7,10 @@
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const [, , port = '4173', outFile = ''] = process.argv;
 const MINUTES = Number(process.env.MINUTES ?? 20);
+// MODE=schnell: jede Minute Spielzeit wird im Schnelldurchlauf gerechnet (1200 Logikschritte à 50 ms, dazwischen
+// wird normal gezeichnet). Gemessen wird dann die Logikzeit je Bild statt der Bildrate (in der Software-Grafik
+// der Testumgebung ist die Bildrate ohnehin nicht aussagekräftig).
+const FAST = process.env.MODE === 'schnell';
 const fs = await import('node:fs');
 
 const b = await chromium.launch({
@@ -70,13 +74,26 @@ for (let m = 0; m < MINUTES; m++) {
     },
     [x, z, yaw, PHASES[m % 4], WEATHER[m % WEATHER.length], m],
   );
-  // eine Minute laufen lassen, Bilder zählen (die letzten 20 s)
-  await p.waitForTimeout(40000);
-  const f0 = await p.evaluate(() => window.__frames);
-  const s0 = Date.now();
-  await p.waitForTimeout(20000);
-  const f1 = await p.evaluate(() => window.__frames);
-  const fps = ((f1 - f0) * 1000) / (Date.now() - s0);
+  let fps;
+  let msTick = 0;
+  if (FAST) {
+    msTick = await p.evaluate(() => {
+      const w = window.__world;
+      const t = performance.now();
+      for (let i = 0; i < 1200; i++) w.tick(0.05, 0.05);
+      return (performance.now() - t) / 1200;
+    });
+    await p.waitForTimeout(3000);
+    fps = 1000 / Math.max(0.01, msTick);
+  } else {
+    // eine Minute laufen lassen, Bilder zählen (die letzten 20 s)
+    await p.waitForTimeout(40000);
+    const f0 = await p.evaluate(() => window.__frames);
+    const s0 = Date.now();
+    await p.waitForTimeout(20000);
+    const f1 = await p.evaluate(() => window.__frames);
+    fps = ((f1 - f0) * 1000) / (Date.now() - s0);
+  }
   const r = await p.evaluate(() => {
     window.gc?.();
     const w = window.__world;
@@ -90,7 +107,13 @@ for (let m = 0; m < MINUTES; m++) {
       quality: w.quality,
     };
   });
-  rows.push({ min: m + 1, ort: name, fps: Math.round(fps * 10) / 10, ...r });
+  rows.push({
+    min: m + 1,
+    ort: name,
+    fps: Math.round(fps * 10) / 10,
+    msTick: Math.round(msTick * 100) / 100,
+    ...r,
+  });
   console.log(JSON.stringify(rows[rows.length - 1]));
 }
 
@@ -117,11 +140,22 @@ const half = Math.floor(warm.length / 2);
 const avg = (a) => a.reduce((s, r) => s + r.fps, 0) / Math.max(1, a.length);
 const fa = avg(warm.slice(0, half));
 const fb = avg(warm.slice(half));
-ok(
-  'Bildrate fällt nicht ab (zweite Hälfte ≥ 85 % der ersten)',
-  fb >= fa * 0.85,
-  `${fa.toFixed(1)} → ${fb.toFixed(1)} fps`,
-);
+if (FAST) {
+  // gleiche Orte vergleichen: zweite Runde (Minute 6–10) gegen die letzte Runde
+  const cmp = (a) => a.reduce((s2, r) => s2 + r.msTick, 0) / Math.max(1, a.length);
+  const ta = cmp(rows.slice(5, 10));
+  const tb = cmp(rows.slice(-5));
+  ok(
+    'Logikzeit je Bild steigt nicht (letzte Runde ≤ 125 % der zweiten)',
+    tb <= ta * 1.25 + 0.3,
+    `${ta.toFixed(2)} → ${tb.toFixed(2)} ms`,
+  );
+} else
+  ok(
+    'Bildrate fällt nicht ab (zweite Hälfte ≥ 85 % der ersten)',
+    fb >= fa * 0.85,
+    `${fa.toFixed(1)} → ${fb.toFixed(1)} fps`,
+  );
 ok('keine Konsolenfehler', errs.length === 0, errs.slice(0, 5).join(' | '));
 console.log(`Dauer ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 if (outFile) fs.writeFileSync(outFile, JSON.stringify({ rows, errs }, null, 2));
