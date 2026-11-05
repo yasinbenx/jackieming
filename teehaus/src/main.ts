@@ -164,7 +164,8 @@ async function boot(): Promise<void> {
   setOptionalDeadline(budget * 1000);
   const prep = '<span lang="zh">请客</span> <i>qǐngkè</i> · Gäste werden eingeladen …';
   await loadStep('Bewohner vorbereiten', () => game.villagers.prepare((f) => set(0.85 + f * 0.1, prep)), {
-    timeout: 10000,
+    // auf echter Hardware etwa 2 s für alle Figuren; bei großem Ladebudget (langsame Rechner, Tests) länger warten
+    timeout: Math.max(10000, budget * 500),
     optional: true,
   });
   await set(0.94, prep);
